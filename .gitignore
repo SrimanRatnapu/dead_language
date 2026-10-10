@@ -1,0 +1,11 @@
+.env
+.usage.json
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+node_modules/
+.next/
+data/raw/
+fixtures/replays/runs/
+.DS_Store
