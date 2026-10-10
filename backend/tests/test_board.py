@@ -47,3 +47,17 @@ def test_render_contains_ids_and_confidence():
     assert out.startswith("E0 · listing_snapshot · by x (code) · requested by intake")
     assert "E2 · linked_sellers" in out and "Model confidence: 0.8" in out
     assert "  Summary: Median $95; this listing is 15.3x that." in out
+
+
+def test_dict_keys_never_ground_numbers():
+    b = EvidenceBoard("C-1")
+    b.add(draft("price_check", "nothing numeric", {"1000": "unrelated", "n": 4}), "intake")
+    assert b.numbers_in(["E0"]) == [4.0]
+
+
+def test_render_truncates_long_data_to_1200_chars():
+    from deadlang.evidence.board import render_evidence
+    b = EvidenceBoard("C-1")
+    b.add(draft("price_check", "s", {"blob": "a" * 5000}), "intake")
+    line = next(l for l in render_evidence(b.all()).splitlines() if l.startswith("  Data:"))
+    assert len(line) <= len("  Data: ") + 1201 and line.endswith("…")

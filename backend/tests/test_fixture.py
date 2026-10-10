@@ -33,3 +33,16 @@ def test_story_shape():
     assert events[0].type == "case.started" and events[-1].type == "case.ended"
     types = {e.type for e in events}
     assert {"specialist.selected", "claim.rejected", "round.started"} <= types
+
+
+def test_selected_failed_and_rejected_payload_shapes():
+    keys = {"specialist.selected": {"capability", "specialist_name", "why", "requested_by", "candidates"},
+            "specialist.failed": {"capability", "specialist_name", "error", "fallback"},
+            "claim.rejected": {"agent", "round", "claim_text", "reasons"},
+            "listing.removed": {"listing_id", "relisted_as"}}
+    seen = set()
+    for e in _events():
+        if e.type in keys:
+            assert set(e.payload) == keys[e.type], e.type
+            seen.add(e.type)
+    assert {"specialist.selected", "claim.rejected"} <= seen
