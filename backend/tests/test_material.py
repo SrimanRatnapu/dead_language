@@ -48,6 +48,13 @@ def answer(*photos):
     return {"photos": list(photos)}
 
 
+def second_look(*photos):
+    """The thorough examiner's second look sees the photos in reverse order. Script it in terms of the
+    original photos; this flips the indices to what the model would be shown."""
+    n = len(photos)
+    return answer(*[{**ph, "index": n - 1 - ph["index"]} for ph in reversed(photos)])
+
+
 def setup(monkeypatch, *answers, images=("images/L0101_0.jpg", "images/L0101_1.jpg"), cls=ThoroughExaminer):
     fake = FakeVision(*answers)
     monkeypatch.setattr(llm, "call_vision_json", fake)
@@ -89,7 +96,7 @@ def test_identities_match_the_contract():
 async def test_thorough_agreement_reports_material_with_min_confidence(monkeypatch):
     run1 = answer(photo(0, "elephant_ivory", 0.9, ["cross-hatched lines on the base"]),
                   photo(1, "cannot_tell", 0.2))
-    run2 = answer(photo(0, "elephant_ivory", 0.8, ["fine even grain"]), photo(1, "bone", 0.7))
+    run2 = second_look(photo(0, "elephant_ivory", 0.8, ["fine even grain"]), photo(1, "bone", 0.7))
     ex, fake = setup(monkeypatch, run1, run2)
 
     reply = await ex.run(call())
@@ -112,7 +119,7 @@ async def test_thorough_agreement_reports_material_with_min_confidence(monkeypat
 
 async def test_thorough_disagreement_everywhere_is_cannot_tell(monkeypatch):
     run1 = answer(photo(0, "elephant_ivory", 0.9, ["f1"]), photo(1, "wood", 0.6, ["f2"]))
-    run2 = answer(photo(0, "bone", 0.7, ["f3"]), photo(1, "cannot_tell", 0.3, ["f4"]))
+    run2 = second_look(photo(0, "bone", 0.7, ["f3"]), photo(1, "cannot_tell", 0.3, ["f4"]))
     ex, _ = setup(monkeypatch, run1, run2)
 
     d = (await ex.run(call())).drafts[0]
@@ -221,7 +228,7 @@ async def test_model_only_sees_photos_never_listing_text(monkeypatch):
 
 async def test_every_number_in_the_summary_is_stored_in_data(monkeypatch):
     run1 = answer(photo(0, "elephant_ivory", 0.87, ["lines"]), photo(1, "cannot_tell", 0.2))
-    run2 = answer(photo(0, "elephant_ivory", 0.93, ["lines"]), photo(1, "bone", 0.9))
+    run2 = second_look(photo(0, "elephant_ivory", 0.93, ["lines"]), photo(1, "bone", 0.9))
     ex, _ = setup(monkeypatch, run1, run2)
     d = (await ex.run(call())).drafts[0]
     stored = set(data_numbers(d.data))
@@ -240,3 +247,55 @@ async def test_examine_returns_per_photo_results_for_the_eval(monkeypatch):
 
 def test_module_exposes_the_two_examiners():
     assert material.ThoroughExaminer is ThoroughExaminer and material.QuickExaminer is QuickExaminer
+
+
+# ---------------- demo hardening: the thorough examiner's two looks really differ ----------------
+
+async def test_the_second_look_sees_the_photos_reversed_with_a_bases_first_note(monkeypatch):
+    images = tuple(f"images/L0101_{i}.jpg" for i in range(3))
+    same = answer(*[photo(i, "wood", 0.8) for i in range(3)])
+    ex, fake = setup(monkeypatch, same, same, images=images)
+
+    await ex.run(call())
+
+    first, second = fake.calls
+    assert first["image_paths"] == [Path("/data") / f"images/L0101_{i}.jpg" for i in (0, 1, 2)]
+    assert second["image_paths"] == list(reversed(first["image_paths"]))
+    assert first["user"] == material.USER_MESSAGE
+    assert second["user"] == material.USER_MESSAGE + " Examine bases and cut surfaces first."
+    assert first["system"] == second["system"] and first["schema"] == second["schema"]
+
+
+async def test_photo_numbers_stay_correct_when_the_second_look_is_reversed(monkeypatch):
+    images = tuple(f"images/L0101_{i}.jpg" for i in range(3))
+    run1 = answer(photo(0, "elephant_ivory", 0.9, ["lines"]), photo(1, "bone", 0.8, ["pits"]),
+                  photo(2, "wood", 0.7, ["grain"]))
+    # in original-photo terms the second look agrees on photos 0 and 2 but sees wood in photo 1
+    run2 = second_look(photo(0, "elephant_ivory", 0.84, ["lines"]), photo(1, "wood", 0.6, ["rings"]),
+                       photo(2, "wood", 0.75, ["grain"]))
+    ex, _ = setup(monkeypatch, run1, run2, images=images)
+
+    d = (await ex.run(call())).drafts[0]
+
+    by_index = {p["index"]: p for p in d.data["photos"]}
+    assert by_index[0]["material"] == "elephant_ivory" and by_index[0]["confidence"] == 0.8   # min(0.9, 0.84) = 0.84 -> 0.8
+    assert by_index[1]["material"] == "cannot_tell"                                          # the looks disagreed on photo 1 only
+    assert by_index[2]["material"] == "wood" and by_index[2]["confidence"] == 0.7
+    assert [p["index"] for p in d.data["photos"]] == [0, 1, 2]
+    assert d.data["photos"][1]["visible_features"] == ["pits", "rings"]       # features from the right photo in each look
+
+
+async def test_a_single_photo_still_gets_the_different_instruction_for_its_second_look(monkeypatch):
+    a = answer(photo(0, "bone", 0.7))
+    ex, fake = setup(monkeypatch, a, a)
+    await ex.run(call(image_index=1))
+    assert fake.calls[0]["image_paths"] == fake.calls[1]["image_paths"] == [Path("/data/images/L0101_1.jpg")]
+    assert fake.calls[1]["user"].endswith("Examine bases and cut surfaces first.")
+    assert fake.calls[0]["user"] == material.USER_MESSAGE
+
+
+async def test_the_quick_examiner_is_unchanged(monkeypatch):
+    ex, fake = setup(monkeypatch, answer(photo(0, "bone", 0.5), photo(1, "bone", 0.5)), cls=QuickExaminer)
+    await ex.run(call())
+    assert len(fake.calls) == 1 and fake.calls[0]["user"] == material.USER_MESSAGE
+    assert fake.calls[0]["image_paths"] == [Path("/data/images/L0101_0.jpg"), Path("/data/images/L0101_1.jpg")]

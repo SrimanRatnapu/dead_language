@@ -8,13 +8,27 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from typing import Any, Protocol
+from typing import Any, Iterator, Protocol
 
 from deadlang import config
+from deadlang.agntcy import discovery as _discovery
 from deadlang.llm import BudgetExceeded
 from deadlang.schemas import AgentName, DeliberationTurn, SpecialistCall, SpecialistReply, StancePost
 
 log = logging.getLogger("deadlang.transport")
+
+# The model-backed specialists make slow calls (the thorough examiner looks twice at up to 3 photos, and either
+# look may retry once), so they get a floor under whatever timeout the caller passes.
+MIN_SPECIALIST_TIMEOUT = {
+    "deadlang-examiner-thorough": 120.0,
+    "deadlang-examiner-quick": 60.0,
+    "deadlang-translator": 60.0,
+}
+
+
+def timeout_for(specialist_name: str, requested: float) -> float:
+    """The larger of the caller's timeout and the specialist's minimum."""
+    return max(requested, MIN_SPECIALIST_TIMEOUT.get(specialist_name, 0.0))
 
 
 class AgentTransport(Protocol):
@@ -34,14 +48,52 @@ def _error_text(exc: BaseException) -> str:
     return str(exc) or type(exc).__name__
 
 
+class ExpiringSet:
+    """Names with an expiry, set-like for what the API does with `LocalTransport.disabled` (add, in, discard).
+    An entry lasts as long as discovery's unhealthy mark (read when the entry is added); adding it again
+    restarts the clock."""
+
+    def __init__(self) -> None:
+        self._until: dict[str, float] = {}
+
+    def add(self, name: str) -> None:
+        self._until[name] = time.monotonic() + _discovery.UNHEALTHY_SECONDS
+
+    def discard(self, name: str) -> None:
+        self._until.pop(name, None)
+
+    def clear(self) -> None:
+        self._until.clear()
+
+    def _live(self) -> list[str]:
+        now = time.monotonic()
+        for name in [n for n, t in self._until.items() if t <= now]:
+            del self._until[name]
+        return list(self._until)
+
+    def __contains__(self, name: object) -> bool:
+        return name in self._live()
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(self._live())
+
+    def __len__(self) -> int:
+        return len(self._live())
+
+
 class LocalTransport:
-    """In-process transport. `disabled` simulates a dead specialist process: calls to it time out at once."""
+    """In-process transport. `disabled` simulates a dead specialist process: calls to it time out at once,
+    until the entry expires (same 60 s as discovery's unhealthy mark) or reset() is called."""
 
     def __init__(self, specialists: dict[str, Any], agents: dict[AgentName, Any], discovery: Any = None):
         self.specialists = specialists
         self.agents = agents
         self.discovery = discovery
-        self.disabled: set[str] = set()
+        self.disabled = ExpiringSet()
+
+    def reset(self) -> None:
+        """Bring every killed specialist back."""
+        self.disabled.clear()
 
     async def call_specialist(self, specialist_name: str, call: SpecialistCall,
                               timeout: float = 45.0) -> SpecialistReply:
@@ -52,7 +104,7 @@ class LocalTransport:
             return SpecialistReply(ok=False, error=f"cannot connect: {specialist_name} is not running")
         start = time.perf_counter()
         try:
-            reply = await asyncio.wait_for(specialist.run(call), timeout)
+            reply = await asyncio.wait_for(specialist.run(call), timeout_for(specialist_name, timeout))
         except BudgetExceeded:
             return SpecialistReply(ok=False, error="budget")
         except Exception as exc:

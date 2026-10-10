@@ -19,6 +19,7 @@ MAX_PHOTOS = 3
 QUICK_CONFIDENCE_CAP = 0.6
 SCHEMA_NAME = "report_material"
 USER_MESSAGE = "Photos are numbered in the order given, starting at 0. Return one entry per photo."
+SECOND_LOOK_NOTE = "Examine bases and cut surfaces first."
 PROMPT_FILE = Path(__file__).parent / "prompts" / "material_exam.md"
 
 SCHEMA = {
@@ -81,9 +82,10 @@ class _Examiner:
 
     # ---- model calls ----
 
-    async def _look(self, image_paths: list[Path], case_id: str | None, temperature: float) -> list[dict]:
+    async def _look(self, image_paths: list[Path], case_id: str | None, temperature: float,
+                    user: str = USER_MESSAGE) -> list[dict]:
         out = await llm.call_vision_json(
-            model=self.model, system=self.system, user=USER_MESSAGE, image_paths=image_paths,
+            model=self.model, system=self.system, user=user, image_paths=image_paths,
             schema_name=SCHEMA_NAME, schema=SCHEMA, case_id=case_id, temperature=temperature)
         return _normalise(out, len(image_paths))
 
@@ -167,13 +169,18 @@ class ThoroughExaminer(_Examiner):
         super().__init__(market, config.MODEL_STRONG)
 
     async def _runs(self, image_paths: list[Path], case_id: str | None) -> list[list[dict]]:
-        # temperature keeps the two looks independent on models that accept it
-        results = await asyncio.gather(*(self._look(image_paths, case_id, 0.7) for _ in range(2)),
-                                       return_exceptions=True)
+        # Newer models ignore temperature, so the second look is made different on purpose: the photos in
+        # reverse order and a note to start with bases and cut surfaces. (Temperature still helps on models
+        # that accept it.) Both looks run at the same time and share one encode of each photo.
+        results = await asyncio.gather(
+            self._look(image_paths, case_id, 0.7),
+            self._look(list(reversed(image_paths)), case_id, 0.7, user=f"{USER_MESSAGE} {SECOND_LOOK_NOTE}"),
+            return_exceptions=True)
         for r in results:
             if isinstance(r, BaseException):
                 raise r
-        return list(results)
+        first, second = results
+        return [first, second[::-1]]          # the second look's entries go back to the original photo order
 
     def _combine(self, per_run: list[dict]) -> dict:
         a, b = per_run

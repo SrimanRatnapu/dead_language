@@ -248,6 +248,7 @@ async def test_reservation_is_released_when_the_call_fails(monkeypatch):
     with pytest.raises(anthropic.BadRequestError):
         await _call(max_tokens=100)
     assert llm._pending["out"] == 0
+    assert llm.usage_snapshot("C-1")["calls"] == 0    # a rejected request was not billed, so nothing is recorded
     assert await _call(max_tokens=100) == {"x": 1}   # would be refused if the failed call still held 100
 
 
@@ -261,6 +262,8 @@ async def test_reservation_is_released_when_the_call_is_cancelled(monkeypatch):
     with pytest.raises(asyncio.CancelledError):
         await task
     assert llm._pending["out"] == 0
+    est = llm.estimate_input_tokens("sys", "hello", schema=SCHEMA)
+    assert llm.usage_snapshot("C-1") == {"input_tokens": est, "output_tokens": 100, "calls": 1}   # counted as spent
 
 
 def test_schema_size_raises_the_estimate():
@@ -350,3 +353,69 @@ async def test_a_missing_image_file_is_an_error_and_holds_no_budget(tmp_path, en
     with pytest.raises(FileNotFoundError):
         await _vision([tmp_path / "nope.png"])
     assert llm._pending["in"] == 0
+
+
+# ---------------- demo hardening: cancelled / timed-out calls count as spent; no nudge on refusal ----------------
+
+async def test_a_call_cut_off_by_a_timeout_is_counted_as_spent(monkeypatch):
+    llm.set_client_for_tests(SlowClient(_resp({"x": 1})))
+    with pytest.raises(asyncio.TimeoutError):                 # what the transport's wait_for does
+        await asyncio.wait_for(_call(max_tokens=100), 0.01)
+    est = llm.estimate_input_tokens("sys", "hello", schema=SCHEMA)
+    assert llm.usage_snapshot("C-1") == {"input_tokens": est, "output_tokens": 100, "calls": 1}
+    assert llm.usage_snapshot() == {"input_tokens": est, "output_tokens": 100, "calls": 1}
+    assert llm._pending["in"] == 0 and llm._pending["out"] == 0 and llm._pending["cases"] == {}
+
+
+async def test_an_api_timeout_after_the_retry_is_counted_as_spent():
+    request = httpx2.Request("POST", "https://api.anthropic.com/v1/messages")
+    fake = FakeClient(anthropic.APITimeoutError(request=request), anthropic.APITimeoutError(request=request))
+    llm.set_client_for_tests(fake)
+    with pytest.raises(anthropic.APITimeoutError):
+        await _call(max_tokens=100)
+    assert len(fake.requests) == 2                            # still one retry only
+    est = llm.estimate_input_tokens("sys", "hello", schema=SCHEMA)
+    assert llm.usage_snapshot("C-1") == {"input_tokens": est, "output_tokens": 100, "calls": 1}
+    assert llm._pending["out"] == 0
+
+
+async def test_cancelled_calls_use_the_actual_usage_if_the_response_had_already_arrived():
+    got_response = asyncio.Event()
+
+    class Client(FakeClient):
+        async def create(self, **req):
+            out = await super().create(**req)
+            await llm._get_lock().acquire()          # recording will have to wait for this lock
+            got_response.set()
+            return out
+
+    llm.set_client_for_tests(Client(_resp({"x": 1}, tokens_in=33, tokens_out=4)))
+    task = asyncio.ensure_future(_call(max_tokens=100))
+    await asyncio.wait_for(got_response.wait(), 5)
+    await asyncio.sleep(0.01)                        # the call is now waiting to record
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    llm._get_lock().release()
+    assert llm.usage_snapshot("C-1") == {"input_tokens": 33, "output_tokens": 4, "calls": 1}
+    assert llm._pending["out"] == 0
+
+
+async def test_no_nudge_after_a_refusal():
+    refusal = SimpleNamespace(content=[SimpleNamespace(type="text", text="I can't help with that.")],
+                              stop_reason="refusal", usage=SimpleNamespace(input_tokens=10, output_tokens=7))
+    fake = FakeClient(refusal, _resp({"x": 1}))
+    llm.set_client_for_tests(fake)
+    with pytest.raises(ValueError, match="no tool output"):
+        await _call(model="claude-sonnet-5-5")
+    assert len(fake.requests) == 1                            # a refusal will refuse again; do not pay for a second ask
+    assert llm.usage_snapshot("C-1")["calls"] == 1
+
+
+async def test_a_reply_that_just_stopped_without_a_tool_call_is_still_nudged():
+    ended = SimpleNamespace(content=[SimpleNamespace(type="text", text="bone")], stop_reason="end_turn",
+                            usage=SimpleNamespace(input_tokens=10, output_tokens=7))
+    fake = FakeClient(ended, _resp({"x": 2}))
+    llm.set_client_for_tests(fake)
+    assert await _call(model="claude-sonnet-5-5") == {"x": 2}
+    assert len(fake.requests) == 2
