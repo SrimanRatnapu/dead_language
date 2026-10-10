@@ -10,7 +10,6 @@ import { DemoControls } from "./DemoControls";
 import { EvidenceDrawer } from "./EvidenceDrawer";
 import { Outcome } from "./Outcome";
 import { ProcessLog } from "./ProcessLog";
-import { demoCaseForReplay } from "@/lib/demoCases";
 
 export type CaseTarget = { kind: "live"; caseId: string } | { kind: "replay"; name: string } | { kind: "fixture" };
 
@@ -22,7 +21,8 @@ export function CaseView({ target }: { target: CaseTarget }) {
   const [openEvidence, setOpenEvidence] = useState<string | null>(null);
   const [caseFileOpen, setCaseFileOpen] = useState(false);
   const [logOpen, setLogOpen] = useState(false);
-  const scripted = target.kind === "replay" && demoCaseForReplay(target.name)?.scripted;
+  // scripts/record_scripted_demo.py stamps its runs with a "DEMO-" case id; recorded live runs are "C-0001".
+  const scripted = Object.values(state.evidence)[0]?.case_id.startsWith("DEMO-") ?? false;
 
   return (
     <main className="shell-grid flex min-h-[calc(100dvh-3.5rem)] flex-col">

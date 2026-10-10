@@ -4,7 +4,7 @@ import { useState } from "react";
 export interface SignalData {
   dataset: { real_listings: number; planted_cases: number; sellers: number; eval_set: number; museum_photos: number };
   price: { flag_at: number; planted_flagged: number; planted_total: number; real_flagged: number; real_total: number; planted_ratios: number[]; real_ratios: number[] };
-  links: { real_linked: number; real_total: number; planted_linked: number };
+  links: { real_linked: number; real_total: number; network_linked: number; network_total: number };
 }
 
 const W = 1000, H = 250, PAD_L = 28, PAD_R = 28, LANE = { real: 92, planted: 176 };
@@ -85,7 +85,7 @@ export function Signals({ data }: { data: SignalData }) {
         <p className="rule-label mb-3 text-cobalt-ink">Measured by code · no model</p>
         <h2 id="links" className="display max-w-3xl text-4xl">Shared wording and reused photos find the network.</h2>
         <div className="mt-6 grid gap-px border border-line bg-line md:grid-cols-2">
-          <div className="bg-surface p-5"><p className="display text-4xl">{l.planted_linked} of {l.planted_linked}</p><p className="mt-2 text-muted">listings in the designed three-seller network are linked to the other sellers by two long shared phrases or a reused photo.</p></div>
+          <div className="bg-surface p-5"><p className="display text-4xl">{l.network_linked} of {l.network_total}</p><p className="mt-2 text-muted">listings in the designed three-seller network are linked to the other sellers by two long shared phrases or a reused photo.</p></div>
           <div className="bg-surface p-5"><p className="display text-4xl">{l.real_linked} of {l.real_total}</p><p className="mt-2 text-muted">real listings are linked to another seller the same way. Under the first version of the rule it was over a third, because ordinary shipping boilerplate matched.</p></div>
         </div>
       </section>
