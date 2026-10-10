@@ -1,1 +1,154 @@
-"""deadlang.eval.run_eval — see docs/plans for ownership and contract."""
+"""Evaluation runner: A = listing only, B = one agent + full evidence, C = three-agent deliberation.
+
+    uv run python -m deadlang.eval.run_eval --modes A,B,C --limit 4
+
+Only this module reads data/labels.csv. Resumable via results/eval_rows.jsonl.
+"""
+from __future__ import annotations
+
+import argparse
+import asyncio
+import csv
+import json
+from pathlib import Path
+
+from deadlang import llm
+from deadlang.deliberation.facilitator import Facilitator
+from deadlang.eval import baselines
+
+ROOT = Path(__file__).resolve().parents[3]
+DATA, RESULTS = ROOT / "data", ROOT / "results"
+ROWS = RESULTS / "eval_rows.jsonl"
+
+
+class CollectBus:
+    """Event sink that keeps events in memory instead of writing replay logs."""
+    def __init__(self):
+        self.events: list[tuple[str, dict]] = []
+
+    def emit(self, case_id, type_, payload):
+        self.events.append((type_, payload))
+
+
+def stance_changes_after_new_evidence(events: list[tuple[str, dict]]) -> int:
+    """Posts whose changed_because_evidence cites an item added after that agent's previous post."""
+    added_at: dict[str, int] = {}
+    last_post: dict[str, int] = {}
+    n = 0
+    for i, (t, p) in enumerate(events):
+        if t == "evidence.added":
+            added_at[p["evidence"]["id"]] = i
+        elif t == "stance.posted":
+            post = p["post"]
+            prev = last_post.get(post["agent"], -1)
+            if any(added_at.get(e, -1) > prev for e in post.get("changed_because_evidence", [])):
+                n += 1
+            last_post[post["agent"]] = i
+    return n
+
+
+def _usage(case_id: str) -> dict:
+    return llm.usage_snapshot(case_id)
+
+
+async def run_listing(fac: Facilitator, lid: str, modes: set[str]) -> dict:
+    row: dict = {"listing_id": lid}
+    listing = await fac.market.get_listing_snapshot(lid)
+    intake = None
+    if modes & {"B", "C"}:
+        intake = await fac.run_intake(f"eval-intake-{lid}", lid)
+    if "A" in modes:
+        cid = f"eval-A-{lid}"
+        out = await baselines.listing_only(listing, cid)
+        row["A"] = {"decision": out["decision"].upper(), "confidence": out["confidence"], **_usage(cid)}
+    if "B" in modes:
+        cid = f"eval-B-{lid}"
+        out, rejected = await baselines.single_agent_with_evidence(
+            intake.board, f"{listing.title}\n{listing.description}", cid)
+        row["B"] = {"decision": out["decision"].upper(), "confidence": out["confidence"],
+                    "claims_rejected": rejected, **_usage(cid)}
+    if "C" in modes:
+        cid = f"eval-C-{lid}"
+        bus = CollectBus()
+        fac.bus = bus
+        cf = await fac.run_case(cid, lid, intake=intake)
+        row["C"] = {"decision": cf.outcome, "rounds": cf.rounds_used, "stop_reason": cf.stop_reason,
+                    "claims_rejected": sum(t == "claim.rejected" for t, _ in bus.events),
+                    "stance_changes_after_new_evidence": stance_changes_after_new_evidence(bus.events),
+                    **_usage(cid)}
+    return row
+
+
+def compute_metrics(rows: list[dict], labels: dict[str, bool]) -> dict:
+    out: dict = {}
+    pos = [r for r in rows if labels[r["listing_id"]]]
+    neg = [r for r in rows if not labels[r["listing_id"]]]
+    for m in "ABC":
+        rs = [r for r in rows if m in r]
+        if not rs:
+            continue
+        dec = lambda r: r[m]["decision"]
+        d = {"n_pos": len([r for r in pos if m in r]), "n_neg": len([r for r in neg if m in r]),
+             "caught": sum(dec(r) == "FILE" for r in pos if m in r),
+             "false_accusations": sum(dec(r) == "FILE" for r in neg if m in r),
+             "avg_input_tokens": round(sum(r[m]["input_tokens"] for r in rs) / len(rs)),
+             "avg_output_tokens": round(sum(r[m]["output_tokens"] for r in rs) / len(rs))}
+        d["false_accusation_rate"] = round(d["false_accusations"] / d["n_neg"], 3) if d["n_neg"] else None
+        if m in "BC":
+            d["claims_rejected_total"] = sum(r[m]["claims_rejected"] for r in rs)
+            d["claims_rejected_per_case"] = round(d["claims_rejected_total"] / len(rs), 2)
+        if m == "C":
+            d["caught_or_escalated"] = sum(dec(r) in ("FILE", "CONTESTED") for r in pos if m in r)
+            d["escalated_rate"] = round(sum(dec(r) == "CONTESTED" for r in rs) / len(rs), 3)
+            d["stance_changes_after_new_evidence"] = sum(r[m]["stance_changes_after_new_evidence"] for r in rs)
+        out[m] = d
+    if "B" in out and "C" in out:
+        both = [r for r in rows if "B" in r and "C" in r]
+        out["examples"] = {
+            "c_caught_b_missed": [r["listing_id"] for r in both if labels[r["listing_id"]]
+                                  and r["C"]["decision"] == "FILE" and r["B"]["decision"] != "FILE"][:3],
+            "b_false_accusation_c_avoided": [r["listing_id"] for r in both if not labels[r["listing_id"]]
+                                             and r["B"]["decision"] == "FILE" and r["C"]["decision"] != "FILE"][:3]}
+    return out
+
+
+def read_labels(path: Path = DATA / "labels.csv") -> dict[str, bool]:
+    with path.open() as f:
+        return {r["listing_id"]: r["should_flag"].strip().lower() == "true" for r in csv.DictReader(f)}
+
+
+def read_rows() -> list[dict]:
+    return [json.loads(x) for x in ROWS.read_text().splitlines()] if ROWS.exists() else []
+
+
+async def main(modes: set[str], limit: int | None) -> None:
+    from deadlang.agntcy.discovery import get_discovery
+    from deadlang.agntcy.transport import get_transport
+    from deadlang.marketplace.client import get_marketplace_client
+
+    ids = (DATA / "eval_set.txt").read_text().split()[:limit]
+    discovery = get_discovery()
+    await discovery.register_all()
+    fac = Facilitator(get_marketplace_client(), get_transport(), discovery, CollectBus())
+    RESULTS.mkdir(exist_ok=True)
+    done = {r["listing_id"]: r for r in read_rows()}
+    for lid in ids:
+        if lid in done and modes <= set(done[lid]):
+            continue
+        fac.bus = CollectBus()
+        row = await run_listing(fac, lid, modes)
+        with ROWS.open("a") as f:
+            f.write(json.dumps(row) + "\n")
+        print(lid, {m: row[m]["decision"] for m in "ABC" if m in row}, flush=True)
+    latest = {r["listing_id"]: r for r in read_rows()}      # last row per listing wins
+    rows = [latest[i] for i in ids if i in latest]
+    (RESULTS / "eval.json").write_text(json.dumps(compute_metrics(rows, read_labels()), indent=2))
+    print("wrote results/eval.json")
+
+
+if __name__ == "__main__":
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--modes", default="A,B,C")
+    ap.add_argument("--limit", type=int)
+    a = ap.parse_args()
+    asyncio.run(main(set(a.modes.split(",")), a.limit))
