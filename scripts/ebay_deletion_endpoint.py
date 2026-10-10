@@ -6,29 +6,62 @@ and expose it over HTTPS (e.g. `cloudflared tunnel --url http://localhost:8431`)
 .env needs EBAY_VERIFICATION_TOKEN (32-80 chars, the same value typed into eBay's form) and
 EBAY_DELETION_ENDPOINT (the exact public URL typed into eBay's form).
 - GET  ?challenge_code=...  -> {"challengeResponse": sha256(challenge_code + token + endpoint)}
-- POST notification         -> deletes that user's raw records from data/raw/ebay, answers 204
+- POST notification         -> answers 204 always; if eBay's signature verifies, deletes that user's raw
+                               records and photos and adds their listings to data/seed/exclude_real.csv, so the
+                               next scripts/build_dataset.py run drops them from the dataset too
 """
 from __future__ import annotations
 
 import argparse
+import base64
+import csv
 import hashlib
 import json
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import ec
 from dotenv import dotenv_values
 
+from pull_ebay import Ebay
+
 ROOT = Path(__file__).resolve().parents[1]
-RAW_EBAY = ROOT / "data" / "raw" / "ebay"
+RAW = ROOT / "data" / "raw"
+EXCLUDE = ROOT / "data" / "seed" / "exclude_real.csv"
+
+
+def signed_by_ebay(body: bytes, header: str | None) -> bool:
+    """Check the X-EBAY-SIGNATURE header (ECDSA over the raw body) against eBay's published key."""
+    try:
+        sig = json.loads(base64.b64decode(header or ""))
+        ebay = Ebay()
+        r = ebay.http.get(f"{ebay.host}/commerce/notification/v1/public_key/{sig['kid']}",
+                          headers={"Authorization": f"Bearer {ebay._token()}"})
+        pem = r.json()["key"].replace("-----BEGIN PUBLIC KEY-----", "").replace("-----END PUBLIC KEY-----", "")
+        pem = f"-----BEGIN PUBLIC KEY-----\n{pem.strip()}\n-----END PUBLIC KEY-----\n"
+        serialization.load_pem_public_key(pem.encode()).verify(
+            base64.b64decode(sig["signature"]), body, ec.ECDSA(hashes.SHA1()))
+        return True
+    except Exception as exc:                           # bad header, unknown key, wrong signature, no network
+        print(f"signature not verified ({exc.__class__.__name__})")
+        return False
 
 
 def delete_user(username: str) -> int:
+    """Remove the seller's raw records and photos, and exclude their listings from future dataset builds."""
     removed = 0
-    for path in RAW_EBAY.glob("*.json"):
-        if json.loads(path.read_text()).get("seller_handle") == username:
-            path.unlink()
-            removed += 1
+    for path in (RAW / "ebay").glob("*.json"):
+        record = json.loads(path.read_text())
+        if record.get("seller_handle") != username:
+            continue
+        for image in record.get("images", []):
+            (RAW / image).unlink(missing_ok=True)
+        with EXCLUDE.open("a", newline="") as f:
+            csv.writer(f).writerow([record["source"], record["source_id"], "seller account deleted (eBay notice)"])
+        path.unlink()
+        removed += 1
     return removed
 
 
@@ -48,12 +81,17 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         raw = self.rfile.read(int(self.headers.get("Content-Length") or 0))
-        try:
-            username = json.loads(raw)["notification"]["data"]["username"]
-            print(f"deletion notice: removed {delete_user(username)} raw record(s)")
-        except (ValueError, KeyError, TypeError):
-            print("deletion notice: unreadable body, acknowledged")
-        # ponytail: the X-EBAY-SIGNATURE header is not verified; verify it if this ever outlives the hackathon
+        # Always acknowledge (eBay retries and flags the endpoint otherwise); only a signed notice deletes.
+        if signed_by_ebay(raw, self.headers.get("X-EBAY-SIGNATURE")):
+            try:
+                username = json.loads(raw)["notification"]["data"]["username"]
+                removed = delete_user(username)
+                print(f"deletion notice: removed {removed} raw record(s)"
+                      + ("; run scripts/build_dataset.py to drop them from the dataset" if removed else ""))
+            except (ValueError, KeyError, TypeError):
+                print("deletion notice: unreadable body, acknowledged")
+        else:
+            print("deletion notice ignored: not signed by eBay")
         self.send_response(204)
         self.end_headers()
 

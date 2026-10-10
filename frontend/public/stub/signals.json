@@ -322,6 +322,7 @@
  "links": {
   "real_linked": 8,
   "real_total": 287,
-  "planted_linked": 6
+  "network_linked": 6,
+  "network_total": 6
  }
 }

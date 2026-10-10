@@ -1,6 +1,7 @@
 """The committed dataset must be internally consistent and its demo cases must tell their stories."""
 import csv
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -132,12 +133,14 @@ def test_no_real_usernames_leak(listings, sellers):
     seller_map = DATA / "raw" / "seller_map.json"
     if not seller_map.exists():
         pytest.skip("data/raw/seller_map.json only exists on the machine that built the dataset")
-    real_names = {name.lower() for name in json.loads(seller_map.read_text())}
-    assert not real_names & {s.name.lower() for s in sellers}
-    public_text = ((DATA / "sellers.jsonl").read_text() + (DATA / "listings.jsonl").read_text()).lower()
-    for name in real_names:
-        if len(name) >= 7 or not name.isalpha():       # shorter all-letter names are ordinary words
-            assert name not in public_text, "a real seller username appears in the public dataset"
+    handle_of = {pseudo: handle for handle, pseudo in json.loads(seller_map.read_text()).items()}
+    assert not {h.lower() for h in handle_of.values()} & {s.name.lower() for s in sellers}
+    name_of = {s.id: s.name for s in sellers}
+    for l in listings:                                 # no listing names its own seller's real handle
+        handle = handle_of.get(name_of[l.seller_id])
+        if handle:
+            pattern = rf"(?<![A-Za-z0-9]){re.escape(handle)}(?![A-Za-z0-9])"
+            assert not re.search(pattern, f"{l.title} {l.description}", flags=re.I), l.id
 
 
 def test_mix_of_reconstructed_cases(listings, labels):

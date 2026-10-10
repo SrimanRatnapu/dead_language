@@ -107,7 +107,9 @@ class LinkedSellers:
         self.market = market
         self._index_key: frozenset[str] | None = None
         self._ngram_sellers: dict[tuple[str, ...], set[str]] = {}
+        self._listing_ngrams: dict[str, set[tuple[str, ...]]] = {}
         self._hashes: dict[str, int] = {}                  # image rel path -> 64-bit perceptual hash
+        self._tried: set[str] = set()                      # image paths already looked at (readable or not)
 
     def _load_hashes(self, rel_paths: set[str]) -> None:
         """Hash every image once; cached in data/phash_cache.json as {rel_path: [file_size, hex_hash]}."""
@@ -120,6 +122,7 @@ class LinkedSellers:
         except (OSError, ValueError):
             cache = {}
         dirty = False
+        self._tried |= rel_paths
         for rel in sorted(rel_paths):
             path: Path = self.market.image_path(rel)
             try:
@@ -141,11 +144,12 @@ class LinkedSellers:
 
     def _build_index(self, target: Listing, active: list[Listing]) -> None:
         ngram_sellers: dict[tuple[str, ...], set[str]] = defaultdict(set)
+        per_listing = {l.id: _listing_ngrams(l) for l in active}
         for l in active:
-            for g in _listing_ngrams(l):
+            for g in per_listing[l.id]:
                 ngram_sellers[g].add(l.seller_id)
-        self._ngram_sellers = ngram_sellers
-        self._load_hashes({p for l in [target, *active] for p in l.image_paths} - self._hashes.keys())
+        self._ngram_sellers, self._listing_ngrams = ngram_sellers, per_listing
+        self._load_hashes({p for l in [target, *active] for p in l.image_paths} - self._tried)
 
     async def run(self, call: SpecialistCall) -> SpecialistReply:
         try:
@@ -154,7 +158,7 @@ class LinkedSellers:
             return SpecialistReply(ok=False, error=f"unknown listing {call.listing_id}")
         active = await self.market.all_active()
         key = frozenset(l.id for l in active)
-        if key != self._index_key or any(p not in self._hashes for p in target.image_paths):
+        if key != self._index_key or any(p not in self._tried for p in target.image_paths):
             await asyncio.to_thread(self._build_index, target, active)   # also picks up a revealed relist
             self._index_key = key
 
@@ -166,7 +170,7 @@ class LinkedSellers:
         for l in active:
             if l.seller_id == target.seller_id:
                 continue
-            shared = rare & _listing_ngrams(l)
+            shared = rare & self._listing_ngrams[l.id]
             if len(_shared_phrases(target, shared)) < MIN_SHARED_PHRASES:
                 shared = set()
             pairs = [[tp, p] for tp, th in target_photos for p in l.image_paths

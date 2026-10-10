@@ -9,7 +9,8 @@ Inputs : data/raw/{ebay,manual}/*.json (real listings; see pull_ebay.py / ingest
 Outputs: data/listings.jsonl, data/sellers.jsonl, data/labels.csv, data/images/*, data/eval_set.txt,
          data/demo_cases.json, data/phash_cache.json, data/raw/seller_map.json (real handle -> pseudonym)
 
-Ids are assigned in a stable order that reveals nothing: sorted by a hash of "<source>:<source id>".
+Ids are kept in data/seed/id_map.json: a listing or seller keeps its id for good, and new ones get the next
+free numbers (in hash order, which reveals nothing about where a listing came from).
 """
 from __future__ import annotations
 
@@ -48,6 +49,16 @@ def stable_order(keys) -> list[str]:
     return sorted(keys, key=lambda k: hashlib.sha1(k.encode()).hexdigest())
 
 
+def assign_ids(known: dict[str, str], keys: dict[str, str], prefix: str) -> dict[str, str]:
+    """keys maps a private sort key to the public key stored in id_map.json. Returns {private key: id};
+    ids already in `known` are kept, and ids of entries that disappeared are never reused."""
+    used = max((int(v[1:]) for v in known.values()), default=0)
+    for private in stable_order(k for k, public in keys.items() if public not in known):
+        used += 1
+        known[keys[private]] = f"{prefix}{used:04d}"
+    return {private: known[public] for private, public in keys.items()}
+
+
 def pseudonym(handle: str) -> str:
     return "seller_" + hashlib.sha1((handle + SALT).encode()).hexdigest()[:6]
 
@@ -75,8 +86,6 @@ def photo_source(ref: str) -> Path:
 
 def redact(text: str, handle: str) -> str:
     """Sellers often name their own shop in the text; replace that with the pseudonym."""
-    if len(handle) < 7 and handle.isalpha():
-        return text                                    # too word-like to replace safely (e.g. "grade")
     return re.sub(rf"(?<![A-Za-z0-9]){re.escape(handle)}(?![A-Za-z0-9])", pseudonym(handle), text, flags=re.I)
 
 
@@ -85,16 +94,20 @@ def load_real() -> list[dict]:
     if (SEED / "exclude_real.csv").exists():
         with (SEED / "exclude_real.csv").open(newline="") as f:
             excluded = {(row["source"], row["source_id"]) for row in csv.DictReader(f)}
-    records = []
+    records, seen = [], set()
     for source in ("ebay", "manual"):
         for path in sorted((RAW / source).glob("*.json")):
             r = json.loads(path.read_text())
+            seen.add((r["source"], r["source_id"]))
             if (r["source"], r["source_id"]) in excluded or (r.get("category") or "").startswith("Pottery & Glass"):
                 continue                               # "vegetable ivory" also finds ivory-coloured dinnerware
             if r.get("title") and r.get("seller_handle") and float(r.get("price_usd") or 0) > 0:
                 r["title"] = redact(r["title"], r["seller_handle"])
                 r["description"] = redact(r["description"], r["seller_handle"])
                 records.append(r)
+    for source, source_id in sorted(excluded - seen):
+        print(f"WARNING: exclude_real.csv row {source_id} matches no listing in data/raw; if that listing came "
+              "back under a new item id it is no longer excluded")
     return records
 
 
@@ -121,9 +134,14 @@ def main() -> None:
     listing_keys = ([f"{r['source']}:{r['source_id']}" for r in real] + [f"seed:{e['key']}" for e in recon]
                     + [f"seed:{relist['key']}"])
     assert len(set(listing_keys)) == len(listing_keys), "duplicate listing source ids"
-    listing_id = {k: f"L{n:04d}" for n, k in enumerate(stable_order(listing_keys), start=1)}
-    seller_keys = {f"real:{r['seller_handle']}" for r in real} | {f"seed:{k}" for k in net["sellers"]}
-    seller_id = {k: f"S{n:04d}" for n, k in enumerate(stable_order(seller_keys), start=1)}
+    id_map_file = SEED / "id_map.json"
+    id_map = json.loads(id_map_file.read_text()) if id_map_file.exists() else {"listings": {}, "sellers": {}}
+    listing_id = assign_ids(id_map["listings"], {k: k for k in listing_keys}, "L")
+    # Sellers are stored under their pseudonym so no real username is written to a committed file.
+    seller_keys = {f"real:{r['seller_handle']}": pseudonym(r["seller_handle"]) for r in real}
+    seller_keys |= {f"seed:{k}": pseudonym(s["handle"]) for k, s in net["sellers"].items()}
+    seller_id = assign_ids(id_map["sellers"], seller_keys, "S")
+    id_map_file.write_text(json.dumps(id_map, indent=1, sort_keys=True) + "\n")
 
     for old in IMAGES.glob("*.jpg"):
         old.unlink()
@@ -195,6 +213,8 @@ def main() -> None:
         with overrides.open(newline="") as f:
             for row in csv.DictReader(f):
                 lid = listing_id.get(f"{row['source']}:{row['source_id']}")
+                if not lid:
+                    print(f"WARNING: label_overrides.csv row {row['source_id']} matches no listing in data/raw")
                 if lid:
                     labels[lid] = Label(listing_id=lid, truth=row["truth"],
                                         should_flag=row["should_flag"].strip().lower() == "true",
@@ -240,6 +260,9 @@ def main() -> None:
                       key=lambda l: (-len(l.image_paths), l.id))
         demo["d2_tagua"] = fits[0].id if fits else None
         print("d2_tagua candidates (check the photos by eye):", [l.id for l in fits[:8]])
+    elif demo["d2_tagua"] not in listing_id:
+        raise SystemExit(f"demo.d2_tagua in data/seed/networks.yaml pins {demo['d2_tagua']}, which is not in data/raw "
+                         "any more (a re-pull changes the set). Pick another real tagua listing or set it to auto.")
     else:
         demo["d2_tagua"] = listing_id[demo["d2_tagua"]]
 
