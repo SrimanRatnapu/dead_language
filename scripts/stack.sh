@@ -22,7 +22,7 @@ up() {
   open -a Docker 2>/dev/null; until docker info >/dev/null 2>&1; do sleep 2; done
   $COMPOSE up -d
   echo "waiting for the Directory..."
-  for _ in $(seq 1 60); do [ "$(curl -s -o /dev/null -w %{http_code} http://localhost:8889/healthz/ready)" = 200 ] && break; sleep 3; done
+  wait_port 8888   # the :8889 health URL never answers from the host; the API port does
   start market "$B uv run python -m deadlang.marketplace.server"
   wait_port 8100
   start specialists "$B $A $SERVE --group specialists"
