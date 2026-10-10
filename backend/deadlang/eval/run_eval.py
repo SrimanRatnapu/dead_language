@@ -117,6 +117,14 @@ def read_labels(path: Path = DATA / "labels.csv") -> dict[str, bool]:
         return {r["listing_id"]: r["should_flag"].strip().lower() == "true" for r in csv.DictReader(f)}
 
 
+def merge_rows(rows: list[dict]) -> dict[str, dict]:
+    """One row per listing; rows from separate runs (different modes) are combined, newest wins per mode."""
+    out: dict[str, dict] = {}
+    for r in rows:
+        out.setdefault(r["listing_id"], {}).update(r)
+    return out
+
+
 def read_rows() -> list[dict]:
     return [json.loads(x) for x in ROWS.read_text().splitlines()] if ROWS.exists() else []
 
@@ -131,17 +139,18 @@ async def main(modes: set[str], limit: int | None) -> None:
     await discovery.register_all()
     fac = Facilitator(get_marketplace_client(), get_transport(), discovery, CollectBus())
     RESULTS.mkdir(exist_ok=True)
-    done = {r["listing_id"]: r for r in read_rows()}
+    done = merge_rows(read_rows())
     for lid in ids:
-        if lid in done and modes <= set(done[lid]):
+        missing = modes - set(done.get(lid, {}))
+        if not missing:
             continue
         fac.bus = CollectBus()
-        row = await run_listing(fac, lid, modes)
+        row = await run_listing(fac, lid, missing)
         with ROWS.open("a") as f:
             f.write(json.dumps(row) + "\n")
         print(lid, {m: row[m]["decision"] for m in "ABC" if m in row}, flush=True)
-    latest = {r["listing_id"]: r for r in read_rows()}      # last row per listing wins
-    rows = [latest[i] for i in ids if i in latest]
+    merged = merge_rows(read_rows())
+    rows = [merged[i] for i in ids if i in merged]
     (RESULTS / "eval.json").write_text(json.dumps(compute_metrics(rows, read_labels()), indent=2))
     print("wrote results/eval.json")
 

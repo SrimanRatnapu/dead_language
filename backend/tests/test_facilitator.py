@@ -162,3 +162,18 @@ async def test_precomputed_intake_is_reused_without_calling_specialists_again():
     assert len(t.calls) == n_calls                                          # no new specialist calls
     assert [e.id for e in cf.evidence] == [e.id for e in st.board.all()] and cf.outcome == "FILE"
     assert all(e.case_id == "C-1" for e in cf.evidence)
+
+
+async def test_relist_id_arriving_after_removal_adds_relist_notice_once():
+    t = FakeTransport(posts={(a, 1): post(a, 1, "file") for a in ("buyer", "defender", "caseload")})
+    fac, bus = setup(t)
+
+    async def pause(r):
+        await fac.notify_listing_removed("L0101", None)
+        await fac.notify_listing_removed("L0101", "L0456")
+        await fac.notify_listing_removed("L0101", "L0456")
+    t.on_broadcast = pause
+    cf = await fac.run_case("C-1", "L0101")
+    notices = [e for e in cf.evidence if e.capability == "system_notice"]
+    assert len(notices) == 2 and "L0456" in notices[1].summary
+    assert [e.payload["relisted_as"] for e in types(bus, "listing.removed")] == [None, "L0456"]

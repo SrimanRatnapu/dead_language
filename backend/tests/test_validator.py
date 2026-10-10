@@ -96,3 +96,23 @@ def test_empty_claims_rule():
     assert p.stance == "need_more" and prob
     p, prob = apply_empty_claims_rule(post([], stance="need_more"))
     assert p.stance == "need_more" and prob is None
+
+
+def test_numbers_up_to_three_are_not_checked():
+    cleaned, rej, _ = check([("The seller shows 2 photos and 3 listings.", ["E0"])])
+    assert len(cleaned.claims) == 1 and not rej
+
+
+def test_rebuttal_must_cite_existing_evidence():
+    prev = post([("Priced at $1,450.", ["E0"])], agent="defender")
+    reb = Rebuttal(target_agent="defender", target_claim="Priced at $1,450.", response="So what.", evidence_ids=["E9"])
+    p = post([("Priced at $1,450.", ["E0"])], round_=2, rebuttal=reb)
+    _, _, probs = validate_post(p, make_board(), LISTING, None, 2, [prev])
+    assert any("evidence" in x for x in probs)
+
+
+def test_confidence_outside_0_1_is_rejected_by_schema():
+    import pytest
+    from pydantic import ValidationError
+    with pytest.raises(ValidationError):
+        StancePost(agent="buyer", round=1, stance="file", confidence=1.2, claims=[])

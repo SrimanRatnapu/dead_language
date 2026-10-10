@@ -96,3 +96,24 @@ def test_replays_listings_kill_and_eval(env):
     (tmp / "results").mkdir()
     (tmp / "results" / "eval.json").write_text('{"n_pos": 3}')
     assert client.get("/api/eval").json() == {"n_pos": 3}
+
+
+def test_unknown_listing_is_rejected_and_crashing_case_still_ends_stream(env, tmp_path):
+    client, _, _ = env
+    class Boom(FakeMarket):
+        calls = 0
+        async def get_listing_snapshot(self, listing_id):
+            if listing_id != "L0101":
+                raise KeyError(listing_id)
+            Boom.calls += 1
+            if Boom.calls > 1:                     # first call is the precheck; run_case's call blows up
+                raise RuntimeError("market down")
+            return self.listing
+    app = create_app(Boom(), FakeTransport(), FakeDiscovery(), EventBus(runs_dir=None),
+                     data_dir=tmp_path / "data", replays_dir=tmp_path / "replays", results_dir=tmp_path / "results")
+    with TestClient(app) as c:
+        assert c.post("/api/cases", json={"listing_id": "NOPE"}).status_code == 404
+        cid = c.post("/api/cases", json={"listing_id": "L0101"}).json()["case_id"]
+        with c.stream("GET", f"/api/cases/{cid}/events") as r:
+            data = [l for l in r.iter_lines() if l.startswith("data:")]
+        assert '"error"' in data[-1] and "market down" in data[-1]

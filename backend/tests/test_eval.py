@@ -1,5 +1,5 @@
 from deadlang import llm
-from deadlang.eval.run_eval import CollectBus, compute_metrics, run_listing, stance_changes_after_new_evidence
+from deadlang.eval.run_eval import CollectBus, compute_metrics, merge_rows, run_listing, stance_changes_after_new_evidence
 from deadlang.deliberation.facilitator import Facilitator
 from tests.fakes import FakeDiscovery, FakeMarket, FakeTransport, post
 
@@ -46,3 +46,9 @@ async def test_run_listing_all_modes_reuses_intake(monkeypatch):
     row = await run_listing(fac, "L0101", {"A", "B", "C"})
     assert [row[m]["decision"] for m in "ABC"] == ["FILE", "FILE", "FILE"]
     assert len(t.calls) == 5      # intake ran once for B and C together
+
+
+def test_resumed_modes_are_merged_not_overwritten():
+    rows = [{"listing_id": "L1", "A": {"decision": "FILE"}}, {"listing_id": "L1", "B": {"decision": "DISMISS"}},
+            {"listing_id": "L1", "A": {"decision": "DISMISS"}}]
+    assert merge_rows(rows) == {"L1": {"listing_id": "L1", "A": {"decision": "DISMISS"}, "B": {"decision": "DISMISS"}}}

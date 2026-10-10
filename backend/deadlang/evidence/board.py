@@ -23,8 +23,7 @@ def numbers_from_text(text: str) -> list[float]:
 def _walk(obj: Any) -> Iterator[Any]:
     """Yield every scalar (str / int / float) inside a nested structure."""
     if isinstance(obj, dict):
-        for k, v in obj.items():
-            yield from _walk(k)
+        for v in obj.values():          # values only: field names must not ground a claim
             yield from _walk(v)
     elif isinstance(obj, (list, tuple, set)):
         for v in obj:

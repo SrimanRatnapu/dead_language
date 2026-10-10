@@ -96,6 +96,10 @@ def create_app(market: Any = None, transport: Any = None, discovery: Any = None,
     # ------------------------------------------------------------------ cases
     @app.post("/api/cases")
     async def create_case(req: CaseRequest):
+        try:
+            await state["market"].get_listing_snapshot(req.listing_id)
+        except KeyError:
+            raise HTTPException(404, "unknown listing")
         state["counter"] += 1
         case_id = f"C-{state['counter']:04d}"
         info = {"listing_id": req.listing_id, "started_at": now_iso(), "case_file": None}
@@ -104,8 +108,10 @@ def create_app(market: Any = None, transport: Any = None, discovery: Any = None,
         async def run():
             try:
                 info["case_file"] = await state["facilitator"].run_case(case_id, req.listing_id)
-            except Exception:
+            except Exception as exc:
                 log.exception("case %s failed", case_id)
+                # Always terminate the stream. Extends the case.ended payload with `error` (case_file is null).
+                state["bus"].emit(case_id, "case.ended", {"case_file": None, "error": f"{type(exc).__name__}: {exc}"})
 
         info["task"] = asyncio.create_task(run())
         return {"case_id": case_id}

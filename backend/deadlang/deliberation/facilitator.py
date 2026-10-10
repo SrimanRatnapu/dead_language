@@ -35,6 +35,7 @@ class CaseState:
     seen: dict[AgentName, int] = field(default_factory=dict)             # board size at each agent's last turn
     requested_calls: int = 0
     removal_noted: bool = False
+    relist_noted: bool = False
 
     @property
     def listing_text(self) -> str:
@@ -93,16 +94,21 @@ class Facilitator:
             return
 
     async def notify_listing_removed(self, listing_id: str, relisted_as: str | None) -> None:
+        """Idempotent; a later call may add the relist id to an already-recorded removal."""
         for st in list(self._running.values()):
-            if st.listing.id != listing_id or st.removal_noted:
+            if st.listing.id != listing_id:
                 continue
-            st.removal_noted = True
-            hhmm = datetime.now(timezone.utc).strftime("%H:%M")
+            if st.removal_noted and (relisted_as is None or st.relist_noted):
+                continue
             notice = lambda summary, data: EvidenceDraft(  # noqa: E731
                 capability="system_notice", summary=summary, data=data, produced_by="code", specialist_name="facilitator")
-            self._add(st, notice(f"Listing {listing_id} was removed by the seller at {hhmm}; the review continues "
-                                 "from the snapshot in E0.", {"listing_id": listing_id, "removed_at": hhmm}), "system")
+            if not st.removal_noted:
+                st.removal_noted = True
+                hhmm = datetime.now(timezone.utc).strftime("%H:%M")
+                self._add(st, notice(f"Listing {listing_id} was removed by the seller at {hhmm}; the review continues "
+                                     "from the snapshot in E0.", {"listing_id": listing_id, "removed_at": hhmm}), "system")
             if relisted_as:
+                st.relist_noted = True
                 self._add(st, notice(f"A new listing {relisted_as} appeared after the removal; linked_sellers can "
                                      "check whether it is related.",
                                      {"listing_id": listing_id, "relisted_as": relisted_as}), "system")
