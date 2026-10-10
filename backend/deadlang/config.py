@@ -51,3 +51,4 @@ DISCOVERY: str = _str("DISCOVERY", "local")                        # local | agn
 SLIM_ENDPOINT: str = _str("SLIM_ENDPOINT", "http://localhost:46357")
 SLIM_SHARED_SECRET: str = _str("SLIM_SHARED_SECRET", "deadlang-shared-secret-change-me-32chars-min")
 DIRECTORY_ADDRESS: str = _str("DIRECTORY_ADDRESS", "127.0.0.1:8888")
+AGNTCY_BROADCAST: bool = _str("DL_AGNTCY_BROADCAST", "1").lower() not in ("0", "false", "no")   # 0: one call per agent
