@@ -84,7 +84,12 @@ async def main() -> None:
     priced_real = [l for l in active if l.id not in planted and facts[l.id]["ratio"] is not None]
     priced_planted = [l for l in active if l.id in planted and facts[l.id]["ratio"] is not None]
     all_real = [l for l in active if l.id not in planted and not l.is_reconstructed]
-    network = [l for l in active if l.id in planted and facts[l.id]["linked"]]
+    # The designed linked network = active listings of the three "n1" sellers in data/seed/networks.yaml.
+    import yaml
+    from build_dataset import pseudonym
+    seed_sellers = yaml.safe_load((DATA / "seed" / "networks.yaml").read_text())["sellers"]
+    network_names = {pseudonym(seed_sellers[k]["handle"]) for k in ("n1a", "n1b", "n1c")}
+    network = [l for l in active if store.get_seller(l.seller_id).name in network_names]
     signals = {
         "generated_by": "scripts/export_demo.py",
         "dataset": {"real_listings": len(all_real), "planted_cases": len(planted & {l.id for l in active}),
@@ -100,7 +105,7 @@ async def main() -> None:
             "planted_ratios": sorted(facts[l.id]["ratio"] for l in priced_planted),
             "real_ratios": sorted(facts[l.id]["ratio"] for l in priced_real)},
         "links": {"real_linked": sum(facts[l.id]["linked"] > 0 for l in all_real), "real_total": len(all_real),
-                  "planted_linked": len(network)},
+                  "network_linked": sum(facts[l.id]["linked"] > 0 for l in network), "network_total": len(network)},
     }
     (PUBLIC / "stub" / "signals.json").write_text(json.dumps(signals, indent=1) + "\n")
     p = signals["price"]

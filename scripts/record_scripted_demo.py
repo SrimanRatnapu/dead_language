@@ -290,23 +290,29 @@ async def record(name: str, listing_id: str, script: dict, market) -> list[dict]
 
     llm.set_client_for_tests(ScriptedAnthropic(script, remove if script.get("remove_at_first_post") else None))
     case_id = f"DEMO-{name.split('_')[0].upper()}"
-    case_file = await facilitator.run_case(case_id, listing_id)
+    outcome = await facilitator.run_case(case_id, listing_id)
     await market.reset_demo()
 
     events = [e.model_dump(mode="json") for e in bus.history(case_id)]
     clock = datetime(2026, 10, 11, 17, 0, tzinfo=timezone.utc)
+    stamped: dict[str, dict] = {}
     for e in events:                       # the run takes milliseconds; give the replay a watchable pace
         clock += timedelta(seconds=PAUSE_S.get(e["type"], 1.0))
         e["at"] = clock.isoformat()
-        if e["type"] == "evidence.added" and e["payload"]["evidence"]["capability"] == "material_exam":
-            e["payload"]["evidence"]["data"]["model"] = "scripted reading (no model call)"
-    for ev in events[-1]["payload"]["case_file"]["evidence"]:
-        if ev["capability"] == "material_exam":
-            ev["data"]["model"] = "scripted reading (no model call)"
+        if e["type"] == "evidence.added":      # same synthetic clock inside the evidence, so re-runs are identical
+            ev = e["payload"]["evidence"]
+            ev["created_at"] = e["at"]
+            ev["summary"] = re.sub(r"\bat \d\d:\d\d;", f"at {clock:%H:%M};", ev["summary"])
+            if ev["capability"] == "material_exam":
+                ev["data"]["model"] = "scripted reading (no model call)"
+            stamped[ev["id"]] = ev
+    case_file = events[-1]["payload"]["case_file"]
+    case_file["evidence"] = [stamped[ev["id"]] for ev in case_file["evidence"]]
+    case_file["created_at"] = events[-1]["at"]
     rejected = [e["payload"]["claim_text"] for e in events if e["type"] == "claim.rejected"]
     rounds = sum(e["type"] == "round.started" for e in events)
-    print(f"{name:14} {listing_id}  {case_file.outcome:9} stop={case_file.stop_reason:14} rounds={rounds} "
-          f"evidence={len(case_file.evidence)} events={len(events)} rejected={rejected}")
+    print(f"{name:14} {listing_id}  {outcome.outcome:9} stop={outcome.stop_reason:14} rounds={rounds} "
+          f"evidence={len(outcome.evidence)} events={len(events)} rejected={rejected}")
     return events
 
 
@@ -316,9 +322,10 @@ async def main() -> None:
     market_mod._client = market
     await discovery_mod.get_discovery().register_all()
 
+    # Ask through the transport so the pipeline's own linked-sellers specialist builds its index now;
+    # built lazily mid-case (in a thread) it would make the order of intake evidence vary between runs.
     from deadlang.schemas import SpecialistCall
-    from deadlang.specialists.network import LinkedSellers
-    links = (await LinkedSellers(market).run(SpecialistCall(
+    links = (await transport_mod.get_transport().call_specialist("deadlang-linked-sellers", SpecialistCall(
         case_id="setup", listing_id=DEMO["d1_network"], capability="linked_sellers"))).drafts[0].data["linked"]
     photo_seller = next(e["seller_id"] for e in links if e["shared_photo_count"])
 

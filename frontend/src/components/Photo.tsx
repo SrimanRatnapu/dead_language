@@ -5,7 +5,9 @@ import { API_BASE } from "@/lib/api";
 // Images come from the backend; when it is offline the exported copy in public/images is tried,
 // and a quiet tile holds the layout if neither exists.
 export function Photo({ src, label, className = "", caption }: { src: string; label: string; className?: string; caption?: string }) {
-  const [stage, setStage] = useState<"api" | "static" | "failed">("api");
+  const [load, setLoad] = useState<{ src: string; stage: "api" | "static" | "failed" }>({ src, stage: "api" });
+  const stage = load.src === src ? load.stage : "api";   // a new src starts over
+  const setStage = (next: "static" | "failed") => setLoad({ src, stage: next });
   if (stage === "failed") {
     return (
       <div className={`flex items-center justify-center bg-sunken text-muted ${className}`} role="img" aria-label={`${label} unavailable`}>
