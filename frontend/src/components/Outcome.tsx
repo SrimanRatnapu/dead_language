@@ -12,7 +12,7 @@ export function Outcome({ state, onOpenCaseFile }: { state: CaseState; onOpenCas
   return <div className={`shrink-0 border-b border-line px-5 py-5 sm:px-8 ${tone}`}>
     {cf ? <div className="mx-auto flex max-w-[760px] flex-col gap-4">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2" aria-label="How the outcome was set">
-        {cf.final_positions.map((p) => <span key={p.agent} className={`inline-flex items-center gap-2 border px-2.5 py-1 text-[0.82rem] ${heavy ? "border-surface/40" : "border-line bg-surface/70"}`}><i className="size-2 rounded-full" style={{ background: AGENTS[p.agent].cssVar }} /><b>{AGENTS[p.agent].label}</b> {STANCE_LABEL[p.stance].toLowerCase()}</span>)}
+        {cf.final_positions.map((p) => <span key={p.agent} className={`inline-flex items-center gap-2 border px-2.5 py-1 text-base ${heavy ? "border-surface/40" : "border-line bg-surface/70"}`}><i className="size-2 rounded-full" style={{ background: AGENTS[p.agent].cssVar }} /><b>{AGENTS[p.agent].label}</b> {STANCE_LABEL[p.stance].toLowerCase()}</span>)}
         <span aria-hidden>→</span>
         <span className={`display ${heavy ? "text-4xl" : "text-3xl"}`}>{OUTCOME_LABEL[cf.outcome]}</span>
       </div>

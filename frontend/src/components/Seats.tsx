@@ -4,7 +4,7 @@ import type { CaseState } from "@/lib/caseState";
 import type { AgentName, Stance, StancePost } from "@/lib/types";
 
 export function StancePill({ stance, className = "" }: { stance: Stance; className?: string }) {
-  return <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[0.75rem] font-semibold ${STANCE_STYLE[stance]} ${className}`}>{STANCE_LABEL[stance]}</span>;
+  return <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-base font-semibold ${STANCE_STYLE[stance]} ${className}`}>{STANCE_LABEL[stance]}</span>;
 }
 
 const RING: Record<Stance, string> = { file: "var(--cobalt)", dismiss: "var(--green)", need_more: "var(--line)" };
@@ -44,7 +44,7 @@ export function Seats({ state }: { state: CaseState }) {
     <div className="px-5 pt-4 pb-5 sm:px-8">
       <div className="mb-1 flex items-baseline justify-between gap-3">
         <h2 className="rule-label">Open floor · no chair</h2>
-        <p className="text-[0.82rem] font-medium" aria-live="polite">{readout(latest)}</p>
+        <p className="text-base font-medium" aria-live="polite">{readout(latest)}</p>
       </div>
 
       <div className="relative">
@@ -79,7 +79,7 @@ export function Seats({ state }: { state: CaseState }) {
                 <span className="mt-0.5 flex h-6 items-center gap-1.5">
                   {awake ? <span className="typing flex gap-1 text-muted" role="status" aria-label={`${a.label} was woken`}><span /><span /><span /></span>
                     : now ? <><StancePill stance={now.stance} /><span className="mono text-muted">{Math.round(conf * 100)}%</span></>
-                    : <span className="text-[0.8rem] text-muted">asleep</span>}
+                    : <span className="text-base text-muted">asleep</span>}
                 </span>
               </div>
             );

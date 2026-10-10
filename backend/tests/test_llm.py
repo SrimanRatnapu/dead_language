@@ -58,7 +58,7 @@ async def test_returns_tool_input_and_forces_tool_on_legacy_model():
     assert await _call() == {"x": 3}
     req = fake.requests[0]
     assert req["tool_choice"] == {"type": "tool", "name": "report_x"}
-    assert req["temperature"] == 0.0
+    assert "temperature" not in req
 
 
 async def test_new_models_use_auto_tool_choice_and_no_temperature():

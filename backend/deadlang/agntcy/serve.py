@@ -164,8 +164,23 @@ async def start(handlers: dict[str, Handler], *, factory: Any = None) -> Any:
     return session
 
 
+async def run_many(names: list[str]) -> int:
+    """One OS process per agent: several A2A servers in one process share one SLIM connection and only one answers."""
+    procs = [await asyncio.create_subprocess_exec(sys.executable, "-m", "deadlang.agntcy.serve", "--agent", n)
+             for n in names]
+    try:
+        await asyncio.gather(*(p.wait() for p in procs))
+    finally:
+        for p in procs:
+            if p.returncode is None:
+                p.terminate()
+    return 0
+
+
 async def run_group(group: str) -> int:
-    names = GROUPS[group]
+    names = GROUPS[group] if group in GROUPS else [group]
+    if len(names) > 1:
+        return await run_many(names)
     handlers = build_handlers(names)
     try:
         session = await start(handlers)
@@ -192,11 +207,13 @@ async def run_group(group: str) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Serve Dead Language agents as A2A servers over SLIM.")
-    parser.add_argument("--group", required=True, choices=list(GROUPS))
+    which = parser.add_mutually_exclusive_group(required=True)
+    which.add_argument("--group", choices=list(GROUPS))
+    which.add_argument("--agent", choices=GROUPS["all"])
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
     try:
-        return asyncio.run(run_group(args.group))
+        return asyncio.run(run_group(args.group or args.agent))
     except KeyboardInterrupt:
         return 0
 

@@ -192,7 +192,7 @@ def _request(model: str, system: str, content: Any, schema_name: str, schema: di
     req: dict[str, Any] = {"model": model, "max_tokens": max_tokens, "tools": [tool],
                            "messages": [{"role": "user", "content": content}]}
     if _is_legacy(model):
-        req.update(system=system, temperature=temperature,
+        req.update(system=system,   # anthropic SDK 1.x has no temperature argument
                    tool_choice={"type": "tool", "name": schema_name})
         return req
     req["system"] = f"{system}\n\nReturn your answer by calling the `{schema_name}` tool exactly once."

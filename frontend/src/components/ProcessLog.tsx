@@ -43,14 +43,14 @@ export function ProcessLog({ state, open, onClose }: { state: CaseState; open: b
           <li className="grid grid-cols-[2.2rem_3.4rem_1fr] gap-x-2 bg-cobalt-tint py-2.5">
             <span className="mono pt-0.5 text-muted">{String(lines.length + 1).padStart(2, "0")}</span>
             <span className="mono pt-0.5 uppercase text-cobalt-ink">rule</span>
-            <span><span className="font-semibold">Outcome: {OUTCOME_LABEL[cf.outcome]}</span><span className="mt-0.5 block text-[.82rem] text-muted">{STOP_REASON_TEXT[cf.stop_reason]} after {cf.rounds_used} round{cf.rounds_used === 1 ? "" : "s"}. Nothing is sent without a person.</span></span>
+            <span><span className="font-semibold">Outcome: {OUTCOME_LABEL[cf.outcome]}</span><span className="mt-0.5 block text-base text-muted">{STOP_REASON_TEXT[cf.stop_reason]} after {cf.rounds_used} round{cf.rounds_used === 1 ? "" : "s"}. Nothing is sent without a person.</span></span>
           </li>
         )}
         {lines.map((l, i) => ({ l, i })).reverse().map(({ l, i }) => (
           <li key={i} className="grid grid-cols-[2.2rem_3.4rem_1fr] gap-x-2 border-b border-line py-2.5">
             <span className="mono pt-0.5 text-muted">{String(i + 1).padStart(2, "0")}</span>
             <span className={`mono pt-0.5 uppercase ${l.tone}`}>{l.tag}</span>
-            <span><span className="font-medium">{l.text}</span>{l.detail && <span className="mt-0.5 block text-[.82rem] leading-snug text-muted">{l.detail}</span>}</span>
+            <span><span className="font-medium">{l.text}</span>{l.detail && <span className="mt-0.5 block text-base leading-snug text-muted">{l.detail}</span>}</span>
           </li>
         ))}
       </ol>

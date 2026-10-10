@@ -9,7 +9,7 @@ export function EvidenceChip({ evidence, onOpen }: { evidence: Evidence | undefi
   return (
     <button
       onClick={() => onOpen(evidence.id)}
-      className="press inline-flex items-center gap-1 rounded-full border border-line bg-sunken px-2 py-px align-middle text-[0.8rem] font-medium hover:border-ink"
+      className="press inline-flex items-center gap-1 rounded-full border border-line bg-sunken px-2 py-px align-middle text-base font-medium hover:border-ink"
     >
       <Icon name={evidence.capability} size={12} />
       {CAPABILITY_LABEL[evidence.capability]}
