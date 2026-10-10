@@ -38,41 +38,45 @@ export function useCaseEvents(source: CaseSource): CaseEvents {
   const [offline, setOffline] = useState(false);
 
   const speedRef = useRef<Speed>(1);
-  speedRef.current = source.kind === "live" ? 1 : (source.speed ?? 1);
+  const speed = source.kind === "live" ? 1 : (source.speed ?? 1);
+  useEffect(() => { speedRef.current = speed; }, [speed]);
   const pausedRef = useRef(false);
   const queue = useRef<{ events: Event[]; i: number }>({ events: [], i: 0 });
   const timer = useRef<number | undefined>(undefined);
 
   const key = source.kind === "live" ? `live:${source.caseId}` : source.kind === "replay" ? `replay:${source.name}` : "fixture";
 
-  const finish = useCallback(() => setStatus("ended"), []);
-
-  const tick = useCallback(() => {
-    timer.current = undefined;
-    const q = queue.current;
-    if (pausedRef.current || q.i >= q.events.length) return;
-    const e = q.events[q.i++];
-    dispatch({ type: "event", event: e });
-    if (q.i >= q.events.length) return finish();
-    const gap = Math.max(0, Date.parse(q.events[q.i].at) - Date.parse(e.at));
-    timer.current = window.setTimeout(tick, Math.min(gap, MAX_GAP_MS) / speedRef.current);
-  }, [finish]);
+  // Self-scheduling step lives in a ref so it can re-arm itself without referencing its own binding.
+  const tickRef = useRef<() => void>(() => {});
+  useEffect(() => {
+    tickRef.current = () => {
+      timer.current = undefined;
+      const q = queue.current;
+      if (pausedRef.current || q.i >= q.events.length) return;
+      const e = q.events[q.i++];
+      dispatch({ type: "event", event: e });
+      if (q.i >= q.events.length) return setStatus("ended");
+      const gap = Math.max(0, Date.parse(q.events[q.i].at) - Date.parse(e.at));
+      timer.current = window.setTimeout(() => tickRef.current(), Math.min(gap, MAX_GAP_MS) / speedRef.current);
+    };
+  }, []);
+  const tick = useCallback(() => tickRef.current(), []);
 
   useEffect(() => {
     let cancelled = false;
     let es: EventSource | null = null;
     dispatch({ type: "reset" });
-    setStatus("loading");
-    setError(null);
+    // status/error start at "loading"/null; a new source remounts the page, so no synchronous reset here
     pausedRef.current = false;
     queue.current = { events: [], i: 0 };
 
     if (source.kind === "live") {
       es = new EventSource(`${API_BASE}/api/cases/${source.caseId}/events`);
-      setStatus("playing");
+      // status flips to "playing" on the first event
       const onMsg = (m: MessageEvent<string>) => {
         const event = JSON.parse(m.data) as Event;
         dispatch({ type: "event", event });
+        setStatus("playing");
         if (event.type === "case.ended") {
           es?.close();
           setStatus("ended");

@@ -164,4 +164,5 @@ export interface EvalResults {
   conditions: Record<Condition, EvalCondition>;
   examiner: { n: number; correct: number; accuracy: number } | null;
   example_cases: { label: string; replay: string }[];
+  _stub?: boolean; // set only by public/stub/eval.json: placeholders, not results
 }
