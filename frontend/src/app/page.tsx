@@ -7,7 +7,7 @@ import { WildlifeSignal } from "@/components/WildlifeSignal";
 import { Photo } from "@/components/Photo";
 import { usd } from "@/lib/agents";
 import { imageUrl, startCase } from "@/lib/api";
-import { DEMO_CASES } from "@/lib/demoCases";
+import { DEMO_CASES, demoCaseForListing } from "@/lib/demoCases";
 import { loadListings, loadReplays } from "@/lib/stubs";
 import type { ListingRow } from "@/lib/types";
 
@@ -19,19 +19,25 @@ export default function Home() {
   const [replays, setReplays] = useState<string[]>([]);
   const [offline, setOffline] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
+  const [note, setNote] = useState<string | null>(null);
 
   useEffect(() => {
     loadListings().then(({ data, offline: off }) => { setRows(data); setOffline(off); }).catch(() => setOffline(true));
     loadReplays().then(({ data }) => setReplays(data)).catch(() => setReplays([]));
   }, []);
 
-  async function review(listingId: string, replay?: string) {
+  async function review(listingId: string) {
     setBusy(listingId);
+    setNote(null);
     try {
       const { case_id } = await startCase(listingId);
       router.push(`/case/${case_id}`);
     } catch {
-      router.push(`/replay/${replay ?? GOLDEN.replay}`);
+      // Backend off: the prepared cases play from their recordings; other listings need a live review.
+      const prepared = demoCaseForListing(listingId);
+      if (prepared) return router.push(`/replay/${prepared.replay}`);
+      setBusy(null);
+      setNote("Reviewing this listing needs the live backend. The four prepared cases above play without it.");
     }
   }
 
@@ -73,12 +79,25 @@ export default function Home() {
           </section>
         )}
 
+        <section aria-labelledby="prepared" className="border-t border-line py-8">
+          <div className="mb-5 flex items-end justify-between gap-5"><h2 id="prepared" className="display text-3xl">Prepared cases</h2><span className="mono text-muted">PLAY WITHOUT THE BACKEND</span></div>
+          <div className="grid gap-px border border-line bg-line sm:grid-cols-2 lg:grid-cols-4">
+            {DEMO_CASES.map((c) => (
+              <Link key={c.key} href={`/replay/${c.replay}`} className="press group flex min-h-40 flex-col justify-between bg-surface p-5 hover:bg-cobalt-tint">
+                <span><span className="mono text-cobalt-ink">{c.key} · {c.listingId}</span><span className="mt-2 block text-lg font-semibold tracking-tight">{c.label}</span><span className="mt-2 block leading-snug text-muted">{c.blurb}</span></span>
+                <span className="mt-4 text-sm font-semibold text-cobalt-ink">Play case →</span>
+              </Link>
+            ))}
+          </div>
+        </section>
+
         {others.length > 0 && (
           <section className="border-t border-line pt-7">
             <div className="mb-6 flex items-end justify-between gap-5">
               <h2 className="display text-3xl">Other listings</h2>
               {replays.length > 0 && <details className="relative"><summary className="press cursor-pointer list-none border border-line px-3 py-2 text-muted hover:border-cobalt hover:text-ink">Recorded cases</summary><ul className="glass absolute right-0 z-10 mt-2 w-60 border border-line p-1 shadow-[var(--shadow)]">{replays.map((r) => <li key={r}><Link href={`/replay/${r}`} className="block px-3 py-2 hover:bg-cobalt-tint">{r.replaceAll("_", " ")}</Link></li>)}</ul></details>}
             </div>
+            {note && <p role="status" className="mb-5 border-l-2 border-amber bg-amber-tint px-3 py-2 text-amber-ink">{note}</p>}
             <div className="grid gap-x-5 gap-y-9 sm:grid-cols-2 lg:grid-cols-4">{others.map((row) => <ListingCard key={row.listing.id} row={row} busy={busy === row.listing.id} onReview={review} />)}</div>
           </section>
         )}
