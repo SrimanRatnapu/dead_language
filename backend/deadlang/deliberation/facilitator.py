@@ -36,6 +36,7 @@ class CaseState:
     requested_calls: int = 0
     removal_noted: bool = False
     relist_noted: bool = False
+    answered: set[tuple[str, str]] = field(default_factory=set)         # (asker, question) already delivered
 
     @property
     def listing_text(self) -> str:
@@ -116,15 +117,22 @@ class Facilitator:
 
     # ------------------------------------------------------------------ rounds
     def _active(self, st: CaseState, r: int) -> list[AgentName]:
+        # Speaking order rotates each round so no agent always goes first or last.
+        order = [AGENTS[(r - 1 + i) % len(AGENTS)] for i in range(len(AGENTS))]
         if r == 1:
-            return list(AGENTS)
+            return order
         targeted = {p.rebuttal.target_agent for p in st.last_round_posts if p.rebuttal}
-        targeted |= {p.challenge.target_agent for p in st.last_round_posts if p.challenge}
-        return [a for a in AGENTS if st.board.count() > st.seen.get(a, 0) or a in targeted]
+        targeted |= {p.challenge.target_agent for p in st.last_round_posts if p.challenge
+                     and (p.agent, p.challenge.question) not in st.answered}
+        return [a for a in order if st.board.count() > st.seen.get(a, 0) or a in targeted]
 
-    def _turn(self, st: CaseState, a: AgentName, r: int) -> DeliberationTurn:
-        questions = [PeerQuestion(asker=p.agent, question=p.challenge.question)
-                     for p in st.last_round_posts if p.challenge and p.challenge.target_agent == a]
+    def _turn(self, st: CaseState, a: AgentName, r: int, this_round: list[StancePost]) -> DeliberationTurn:
+        # Questions from last round, plus any asked earlier in this round (answered once, never re-delivered).
+        questions = []
+        for p in [*st.last_round_posts, *this_round]:
+            if p.challenge and p.challenge.target_agent == a and (p.agent, p.challenge.question) not in st.answered:
+                st.answered.add((p.agent, p.challenge.question))
+                questions.append(PeerQuestion(asker=p.agent, question=p.challenge.question))
         return DeliberationTurn(case_id=st.case_id, round=r, max_rounds=self.max_rounds,
                                 evidence=st.board.all(), transcript=list(st.transcript),
                                 your_previous=st.current.get(a), questions_for_you=questions)
@@ -155,23 +163,20 @@ class Facilitator:
     async def _run_round(self, st: CaseState, r: int, active: list[AgentName]) -> int:
         """Run one round for the active agents. Returns the number of evidence items added during it."""
         start_count = st.board.count()
-        turns = {a: self._turn(st, a, r) for a in active}
-        for a in active:
-            st.seen[a] = start_count
-        results = await self.transport.broadcast_turns(turns)
-        latest = list(st.current.values())
-        resolved = await asyncio.gather(*(self._resolve(st, a, turns[a], results.get(a, "no reply"), latest, r)
-                                          for a in active))
         posts: list[StancePost] = []
-        for a, (post, rejections) in zip(active, resolved):
+        for a in active:                                    # one at a time: each agent reads the posts made before it
+            st.seen[a] = start_count
+            turn = self._turn(st, a, r, posts)
+            results = await self.transport.broadcast_turns({a: turn})
+            post, rejections = await self._resolve(st, a, turn, results.get(a, "no reply"), list(st.current.values()), r)
             for rj in rejections:
                 self.bus.emit(st.case_id, "claim.rejected", {
                     "agent": rj.agent, "round": rj.round, "claim_text": rj.claim_text, "reasons": rj.reasons})
             self.bus.emit(st.case_id, "stance.posted", {"post": post.model_dump(mode="json")})
             posts.append(post)
+            st.transcript.append(post)
+            st.current[a] = post
         st.last_round_posts = posts
-        st.transcript += posts
-        st.current.update({p.agent: p for p in posts})
 
         seen_keys: set[tuple[str, str]] = set()
         jobs = []

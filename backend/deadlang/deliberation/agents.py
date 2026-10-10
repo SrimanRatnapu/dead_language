@@ -53,8 +53,8 @@ def build_user_message(turn: DeliberationTurn) -> str:
     parts = [
         "# Listing under review\n" + _listing_section(turn.evidence),
         "# Evidence board\n" + render_evidence(turn.evidence),
-        "# What happened in earlier rounds\n"
-        + ("\n".join(render_post(p) for p in turn.transcript) or "Nothing yet. This is the first round."),
+        "# What the other agents have said so far (including earlier in this round)\n"
+        + ("\n".join(render_post(p) for p in turn.transcript) or "Nothing yet. You are speaking first."),
     ]
     if turn.questions_for_you:
         parts.append("# Questions for you\n" + "\n".join(f"- {q.asker.capitalize()} asks: {q.question}"

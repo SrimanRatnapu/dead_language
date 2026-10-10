@@ -9,7 +9,7 @@ import { StancePill } from "./Seats";
 
 type Open = (id: string) => void;
 type Row = { kind: "evidence"; evidence: Evidence } | { kind: "failed"; failure: Failure } | { kind: "route"; selection: Selection };
-type Wake = { kind: "start" } | { kind: "asked"; by: AgentName } | { kind: "rebutted"; by: AgentName } | { kind: "evidence"; caps: Capability[] };
+type Wake = { kind: "start" } | { kind: "heard"; by: AgentName[] } | { kind: "asked"; by: AgentName } | { kind: "rebutted"; by: AgentName } | { kind: "evidence"; caps: Capability[] };
 type Block =
   | { kind: "facts"; rows: Row[] }
   | { kind: "post"; post: StancePost; prev: Stance | null; wake: Wake[] }
@@ -35,7 +35,9 @@ function toBlocks(state: CaseState): Block[] {
       const p = item.post;
       const wake: Wake[] = [...wakeFor(p.agent)];
       const caps = [...new Set(evidenceSince.get(p.agent) ?? [])];
-      if (!last.has(p.agent)) wake.unshift({ kind: "start" });
+      const heard = blocks.flatMap((x) => (x.kind === "post" && x.post.round === p.round ? [x.post.agent] : []));
+      if (heard.length) wake.unshift({ kind: "heard", by: heard });
+      else if (!last.has(p.agent)) wake.unshift({ kind: "start" });
       else if (caps.length) wake.push({ kind: "evidence", caps });
       blocks.push({ kind: "post", post: p, prev: last.get(p.agent) ?? null, wake });
       last.set(p.agent, p.stance);
@@ -52,11 +54,13 @@ function toBlocks(state: CaseState): Block[] {
 
 function WakeLine({ wake }: { wake: Wake[] }) {
   if (wake.length === 0) return null;
-  const parts = wake.map((w, i) => w.kind === "start" ? <span key={i}>called in when the case opened</span>
-    : w.kind === "asked" ? <span key={i}>asked a question by <b className={AGENTS[w.by].text}>{AGENTS[w.by].label}</b></span>
-    : w.kind === "rebutted" ? <span key={i}>rebutted by <b className={AGENTS[w.by].text}>{AGENTS[w.by].label}</b></span>
+  const who = (a: AgentName) => <b className={AGENTS[a].text}>{AGENTS[a].label}</b>;
+  const parts = wake.map((w, i) => w.kind === "start" ? <span key={i}>first look at the case</span>
+    : w.kind === "heard" ? <span key={i}>read {w.by.map((a, j) => <span key={a}>{j > 0 && " and "}{who(a)}</span>)} first</span>
+    : w.kind === "asked" ? <span key={i}>was asked a question by {who(w.by)}</span>
+    : w.kind === "rebutted" ? <span key={i}>was pushed back on by {who(w.by)}</span>
     : <span key={i}>new {w.caps.map((c) => CAPABILITY_LABEL[c].toLowerCase()).join(" + ")} on the board</span>);
-  return <p className="mono mb-2 flex flex-wrap items-center gap-x-1.5 text-muted"><span aria-hidden>⚡</span>woken: {parts.map((n, i) => <span key={i}>{i > 0 && " · "}{n}</span>)}</p>;
+  return <p className="mb-2 flex flex-wrap items-center gap-x-1.5 text-sm text-muted">{parts.map((n, i) => <span key={i}>{i > 0 && " · "}{n}</span>)}</p>;
 }
 
 function Chips({ ids, state, onOpen }: { ids: string[]; state: CaseState; onOpen: Open }) {
@@ -136,7 +140,7 @@ export function Thread({ state, onOpen }: { state: CaseState; onOpen: Open }) {
   const blocks = toBlocks(state);
   const finished = state.caseFile !== null || state.budgetExceeded !== null;
   const lastRound = state.rounds.at(-1);
-  const waiting = finished ? [] : (lastRound?.active ?? []).filter((a) => lastRound?.posts[a] === undefined);
+  const waiting = finished ? [] : (lastRound?.active ?? []).filter((a) => lastRound?.posts[a] === undefined).slice(0, 1);  // one speaks at a time
   const key = `${blocks.length}:${waiting.join()}`;
 
   // Newest first. Stay glued to the top while the reader is there; stop when they scroll down.
@@ -148,7 +152,7 @@ export function Thread({ state, onOpen }: { state: CaseState; onOpen: Open }) {
   return (
     <div ref={ref} onScroll={onScroll} className="relative lg:h-full lg:overflow-y-auto">
       <div className="mx-auto flex max-w-[760px] flex-col gap-4 px-5 py-6 sm:px-8">
-        {waiting.map((a) => <Pending key={a}>{AGENTS[a].label} was woken and is reading the board</Pending>)}
+        {waiting.map((a) => <Pending key={a}>{AGENTS[a].label} is writing a reply</Pending>)}
         {shown.map(({ b, i }) => b.kind === "facts" ? <Facts key={i} rows={b.rows} open={i > lastPost || b.rows.length <= 2} onOpen={onOpen} />
           : b.kind === "post" ? <Message key={i} post={b.post} prev={b.prev} wake={b.wake} state={state} onOpen={onOpen} />
           : <p key={i} className="rise border-l-2 border-red pl-4 text-base text-red">Seller removed the listing{b.relisted_as ? ` · relisted as ${b.relisted_as}` : ""}. The review continues from the saved snapshot.</p>)}

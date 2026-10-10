@@ -9,7 +9,7 @@ type Open = (id: string) => void;
 export function Phases({ state, onOpen }: { state: CaseState; onOpen: Open }) {
   const ended = state.caseFile !== null || state.budgetExceeded !== null;
   const talking = state.rounds.length > 0;
-  const step = ended ? 3 : talking ? 2 : state.listing ? 1 : 0;
+  const step = ended ? 3 : talking ? 2 : 1;
   const steps = ["Gather facts", "Agents discuss", "Outcome"];
   const exam = [...state.evidenceOrder].map((id) => state.evidence[id]).filter((e) => e?.capability === "material_exam").at(-1);
   const sel = [...state.selections].reverse().find((s) => s.capability === "material_exam");
@@ -20,12 +20,12 @@ export function Phases({ state, onOpen }: { state: CaseState; onOpen: Open }) {
     <div className="border-b border-line px-5 py-3 sm:px-8">
       <ol className="flex items-center gap-2" aria-label="Review progress">
         {steps.map((s, i) => {
-          const done = step > i + 1 - 1 && step > i, on = step === i + 1 || (step === 0 && i === 0);
+          const done = step > i + 1, on = step === i + 1;
           return (
             <li key={s} className="flex flex-1 items-center gap-2" aria-current={on ? "step" : undefined}>
               <span className={`grid size-6 shrink-0 place-items-center rounded-full text-sm font-semibold transition-colors duration-500 ${done ? "bg-ink text-surface" : on ? "bg-cobalt text-white" : "bg-sunken text-muted"}`}>{done ? <Icon name="check" size={12} /> : i + 1}</span>
               <span className={`text-sm ${on ? "font-semibold text-ink" : "text-muted"}`}>{s}</span>
-              {i < 2 && <span className="relative h-px flex-1 bg-line"><span className="absolute inset-y-0 left-0 bg-ink transition-[width] duration-700 ease-out" style={{ width: step > i + 1 || (step === i + 1 && i === 0 && talking) ? "100%" : on ? "50%" : "0%" }} /></span>}
+              {i < 2 && <span className="relative h-px flex-1 bg-line"><span className="absolute inset-y-0 left-0 bg-ink transition-[width] duration-700 ease-out" style={{ width: done ? "100%" : on ? "50%" : "0%" }} /></span>}
             </li>
           );
         })}

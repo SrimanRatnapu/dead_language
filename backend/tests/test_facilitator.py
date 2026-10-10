@@ -115,8 +115,8 @@ async def test_listing_removed_mid_case_adds_notices_and_case_continues():
 
 async def test_budget_exceeded_in_round_2_stops_with_budget():
     t = FakeTransport(budget_in_round=2, posts={
-        ("buyer", 1): post("buyer", 1, "file", challenge=Challenge(target_agent="defender", question="?")),
-        ("defender", 1): post("defender", 1, "dismiss"), ("caseload", 1): post("caseload", 1, "need_more")})
+        ("buyer", 1): post("buyer", 1, "file"), ("defender", 1): post("defender", 1, "dismiss"),
+        ("caseload", 1): post("caseload", 1, "need_more", challenge=Challenge(target_agent="buyer", question="?"))})
     fac, bus = setup(t)
     cf = await fac.run_case("C-1", "L0101")
     assert cf.stop_reason == "budget" and types(bus, "budget.exceeded")
@@ -125,13 +125,13 @@ async def test_budget_exceeded_in_round_2_stops_with_budget():
 
 async def test_only_triggered_agents_are_called_and_others_carry_forward():
     t = FakeTransport(posts={
-        ("buyer", 1): post("buyer", 1, "file", challenge=Challenge(target_agent="defender", question="why?")),
-        ("defender", 1): post("defender", 1, "dismiss"), ("caseload", 1): post("caseload", 1, "need_more"),
-        ("defender", 2): post("defender", 2, "dismiss", rebuttal=reb("buyer"))})
+        ("buyer", 1): post("buyer", 1, "file"), ("defender", 1): post("defender", 1, "dismiss"),
+        ("caseload", 1): post("caseload", 1, "need_more", challenge=Challenge(target_agent="buyer", question="why?")),
+        ("buyer", 2): post("buyer", 2, "file", rebuttal=reb("defender"))})
     fac, bus = setup(t)
     cf = await fac.run_case("C-1", "L0101")
-    assert t.broadcasts == [(1, ["buyer", "defender", "caseload"]), (2, ["defender"])]
-    assert [e.payload["active"] for e in types(bus, "round.started")] == [["buyer", "defender", "caseload"], ["defender"]]
+    assert t.broadcasts == [(1, ["buyer"]), (1, ["defender"]), (1, ["caseload"]), (2, ["buyer"])]
+    assert [e.payload["active"] for e in types(bus, "round.started")] == [["buyer", "defender", "caseload"], ["buyer"]]
     assert cf.stop_reason == "no_movement" and cf.outcome == "CONTESTED"
     assert len([e for e in types(bus, "stance.posted") if e.payload["post"]["round"] == 2]) == 1
 
@@ -177,3 +177,19 @@ async def test_relist_id_arriving_after_removal_adds_relist_notice_once():
     notices = [e for e in cf.evidence if e.capability == "system_notice"]
     assert len(notices) == 2 and "L0456" in notices[1].summary
     assert [e.payload["relisted_as"] for e in types(bus, "listing.removed")] == [None, "L0456"]
+
+
+async def test_later_agents_read_earlier_posts_in_the_same_round():
+    seen = {}
+    t = FakeTransport(posts={("buyer", 1): post("buyer", 1, "file"), ("defender", 1): post("defender", 1, "dismiss"),
+                             ("caseload", 1): post("caseload", 1, "need_more")})
+    orig = t.broadcast_turns
+
+    async def spy(turns, timeout=90.0):
+        (a, turn), = turns.items()
+        seen[a] = [p.agent for p in turn.transcript]
+        return await orig(turns, timeout)
+    t.broadcast_turns = spy
+    fac, _ = setup(t)
+    await fac.run_case("C-1", "L0101")
+    assert seen["buyer"] == [] and seen["defender"] == ["buyer"] and seen["caseload"] == ["buyer", "defender"]
