@@ -4,71 +4,13 @@ import { useEffect, useState } from "react";
 import { loadEval } from "@/lib/stubs";
 import type { Condition, EvalResults } from "@/lib/types";
 
-const COLUMNS: { key: Condition; title: string; detail: string }[] = [
-  { key: "A", title: "Listing only", detail: "One reading" },
-  { key: "B", title: "One agent", detail: "Same evidence" },
-  { key: "C", title: "Three agents", detail: "Buyer · Defender · Caseload" },
-];
-
+const COLUMNS: { key: Condition; title: string; detail: string }[] = [{ key: "A", title: "Listing only", detail: "One reading" }, { key: "B", title: "One agent", detail: "Same evidence" }, { key: "C", title: "Three agents", detail: "Buyer · Defender · Caseload" }];
 export default function ResultsPage() {
-  const [results, setResults] = useState<EvalResults | null>(null);
-  const [failed, setFailed] = useState(false);
-
-  useEffect(() => {
-    loadEval().then(({ data }) => setResults(data)).catch(() => setFailed(true));
-  }, []);
-
+  const [results, setResults] = useState<EvalResults | null>(null); const [failed, setFailed] = useState(false);
+  useEffect(() => { loadEval().then(({ data }) => setResults(data)).catch(() => setFailed(true)); }, []);
   if (failed) return <p className="p-6 text-red">Results could not be loaded.</p>;
   if (!results) return <p className="p-6 text-muted">Loading results…</p>;
-  if (results._stub || !results.C) {
-    return (
-      <main className="mx-auto flex h-[calc(100dvh-3rem)] max-w-5xl items-center px-8">
-        <div>
-          <h1 className="display text-4xl">Results</h1>
-          <p className="mt-2 text-muted">The evaluation has not run yet.</p>
-          <Link href="/" className="press mt-6 inline-block rounded-full border border-line px-4 py-2 font-medium hover:border-ink">Back to listings</Link>
-        </div>
-      </main>
-    );
-  }
-
+  if (results._stub || !results.C) return <main className="shell-grid flex min-h-[calc(100dvh-3.5rem)] items-center"><div className="mx-auto w-full max-w-5xl px-8"><p className="rule-label mb-3 text-cobalt-ink">Evaluation</p><h1 className="display text-5xl">Results are not in yet.</h1><p className="mt-3 text-lg text-muted">Run the evaluation to compare the three-agent review.</p><Link href="/" className="press mt-7 inline-block border border-ink px-4 py-2.5 font-semibold hover:bg-ink hover:text-surface">Back to cases</Link></div></main>;
   const n = results.C.n_pos + results.C.n_neg;
-  return (
-    <main className="mx-auto flex h-[calc(100dvh-3rem)] max-w-5xl flex-col gap-8 overflow-y-auto px-8 py-10">
-      <div>
-        <h1 className="display text-4xl">Does disagreement help?</h1>
-        <p className="mt-2 text-muted">{n} listings evaluated.</p>
-      </div>
-
-      <div className="grid grid-cols-3 gap-4">
-        {COLUMNS.map(({ key, title, detail }) => {
-          const value = results[key];
-          if (!value) return null;
-          return (
-            <section key={key} className={`rounded-2xl border border-line p-5 ${key === "C" ? "bg-surface shadow-[var(--shadow)]" : ""}`}>
-              <h2 className="font-semibold">{title}</h2>
-              <p className="mb-7 text-muted">{detail}</p>
-              <dl className="grid grid-cols-2 gap-x-4 gap-y-5">
-                <div><dt className="text-muted">Caught</dt><dd className="display text-4xl">{value.caught}</dd></div>
-                <div><dt className="text-muted">Wrongly filed</dt><dd className="display text-4xl">{value.false_accusations}</dd></div>
-                <div><dt className="text-muted">Input tokens</dt><dd className="text-xl font-semibold">{value.avg_input_tokens.toLocaleString()}</dd></div>
-                <div><dt className="text-muted">Output tokens</dt><dd className="text-xl font-semibold">{value.avg_output_tokens.toLocaleString()}</dd></div>
-              </dl>
-            </section>
-          );
-        })}
-      </div>
-
-      {results.examples && (results.examples.c_caught_b_missed.length > 0 || results.examples.b_false_accusation_c_avoided.length > 0) && (
-        <section className="flex flex-col gap-3">
-          <h2 className="display text-2xl">Examples</h2>
-          <div className="flex flex-wrap gap-2">
-            {[...results.examples.c_caught_b_missed, ...results.examples.b_false_accusation_c_avoided].map((listingId) => (
-              <Link key={listingId} href={`/?listing=${listingId}`} className="press rounded-full border border-line px-3 py-1.5 hover:border-ink">{listingId}</Link>
-            ))}
-          </div>
-        </section>
-      )}
-    </main>
-  );
+  return <main className="shell-grid min-h-[calc(100dvh-3.5rem)]"><div className="mx-auto max-w-6xl px-5 py-10 sm:px-8"><header className="max-w-2xl border-b border-line pb-9"><p className="rule-label mb-4 text-cobalt-ink">Evaluation / controlled comparison</p><h1 className="display text-5xl sm:text-6xl">Does disagreement help?</h1><p className="mt-4 text-lg text-muted">{n} listings evaluated against the same evidence.</p></header><section className="mt-8 grid gap-px border border-line bg-line md:grid-cols-3">{COLUMNS.map(({ key, title, detail }) => { const value = results[key]; if (!value) return null; return <div key={key} className={`bg-surface p-5 ${key === "C" ? "bg-cobalt-tint" : ""}`}><p className="rule-label mb-4">{detail}</p><h2 className="text-xl font-semibold tracking-tight">{title}</h2><dl className="mt-8 grid grid-cols-2 gap-x-4 gap-y-6"><div><dt className="text-muted">Caught</dt><dd className="display mt-1 text-4xl text-cobalt-ink">{value.caught}</dd></div><div><dt className="text-muted">Wrongly filed</dt><dd className="display mt-1 text-4xl">{value.false_accusations}</dd></div><div><dt className="text-muted">Input tokens</dt><dd className="mt-1 text-lg font-semibold">{value.avg_input_tokens.toLocaleString()}</dd></div><div><dt className="text-muted">Output tokens</dt><dd className="mt-1 text-lg font-semibold">{value.avg_output_tokens.toLocaleString()}</dd></div></dl></div>; })}</section>{results.examples && (results.examples.c_caught_b_missed.length > 0 || results.examples.b_false_accusation_c_avoided.length > 0) && <section className="mt-10 border-t border-line pt-6"><h2 className="display text-3xl">Cases worth reading</h2><div className="mt-4 flex flex-wrap gap-2">{[...results.examples.c_caught_b_missed, ...results.examples.b_false_accusation_c_avoided].map((listingId) => <Link key={listingId} href={`/?listing=${listingId}`} className="press border border-line bg-surface px-3 py-2 hover:border-cobalt hover:text-cobalt-ink">{listingId}</Link>)}</div></section>}</div></main>;
 }

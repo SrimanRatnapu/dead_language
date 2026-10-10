@@ -1,144 +1,63 @@
 "use client";
-import { useEffect, useRef } from "react";
-import { AGENTS, CAPABILITY_LABEL, STANCE_LABEL } from "@/lib/agents";
-import type { CaseState, FeedItem } from "@/lib/caseState";
-import type { AgentName, Evidence } from "@/lib/types";
+import { AGENT_ORDER, AGENTS, CAPABILITY_LABEL, STANCE_LABEL } from "@/lib/agents";
+import type { CaseState, Failure, Round, Selection } from "@/lib/caseState";
+import type { AgentName, Evidence, StancePost } from "@/lib/types";
 import { EvidenceChip } from "./EvidenceChip";
 import { Icon } from "./Icon";
 
 type Open = (id: string) => void;
-
-function Avatar({ agent }: { agent: AgentName }) {
-  const a = AGENTS[agent];
-  return <span className={`flex size-8 shrink-0 items-center justify-center rounded-full font-semibold ${a.tint} ${a.text}`} aria-hidden>{a.label[0]}</span>;
-}
-
-const lower = (s: string) => s.replace(/^./, (c) => c.toLowerCase());
-
 function Chips({ ids, state, onOpen }: { ids: string[]; state: CaseState; onOpen: Open }) {
-  return <span className="ml-1.5 inline-flex flex-wrap gap-1">{ids.map((id) => <EvidenceChip key={id} evidence={state.evidence[id]} onOpen={onOpen} />)}</span>;
+  return <span className="ml-1 inline-flex flex-wrap gap-1 align-middle">{ids.map((id) => <EvidenceChip key={id} evidence={state.evidence[id]} onOpen={onOpen} />)}</span>;
 }
-
-function Post({ item, state, onOpen }: { item: Extract<FeedItem, { kind: "post" }>; state: CaseState; onOpen: Open }) {
-  const { post } = item;
-  const a = AGENTS[post.agent];
-  return (
-    <div className="rise flex gap-3">
-      <Avatar agent={post.agent} />
-      <div className="min-w-0 flex-1">
-        <p className="mb-1 flex items-center gap-2">
-          <span className={`font-semibold ${a.text}`}>{a.label}</span>
-          <span className="rounded-full bg-sunken px-2 py-0.5 text-muted">{STANCE_LABEL[post.stance]}</span>
-          {post.ready_to_close && <Icon name="check" size={15} className="text-green" />}
-        </p>
-        <div className="flex flex-col gap-2.5 rounded-2xl rounded-tl-md border border-line bg-surface p-3.5 text-[0.95rem] leading-relaxed">
-          {post.changed_because && (
-            <p className={`rounded-lg px-3 py-2 font-medium ${a.tint} ${a.text}`}>
-              Changed their mind because {lower(post.changed_because)}
-              <Chips ids={post.changed_because_evidence} state={state} onOpen={onOpen} />
-            </p>
-          )}
-          {post.claims.map((c, i) => <p key={i}>{c.text}<Chips ids={c.evidence_ids} state={state} onOpen={onOpen} /></p>)}
-          {post.rebuttal && (
-            <p className="text-muted">
-              <span className="text-ink">{post.rebuttal.response}</span>
-              <Chips ids={post.rebuttal.evidence_ids} state={state} onOpen={onOpen} />
-            </p>
-          )}
-          {post.challenge && <p className="text-muted">{post.challenge.question}</p>}
-          {post.requests.map((r, i) => (
-            <p key={i} className="flex items-start gap-1.5 text-muted">
-              <Icon name={r.capability} size={14} className="mt-1 shrink-0" />
-              <span>Checking {CAPABILITY_LABEL[r.capability].toLowerCase()}</span>
-            </p>
-          ))}
-        </div>
-      </div>
+function EvidenceTile({ evidence, onOpen }: { evidence: Evidence; onOpen: Open }) {
+  return <button onClick={() => onOpen(evidence.id)} className="evidence-tile press text-left">
+    <span className="flex items-center justify-between gap-3"><span className="mono text-cobalt-ink">{evidence.id} · {CAPABILITY_LABEL[evidence.capability]}</span>{evidence.confidence !== null && <span className="mono text-muted">{Math.round(evidence.confidence * 100)}%</span>}</span>
+    <span className="mt-2 block leading-snug">{evidence.summary}</span>
+  </button>;
+}
+function Position({ agent, post, state, onOpen }: { agent: AgentName; post: StancePost | undefined; state: CaseState; onOpen: Open }) {
+  const agentMeta = AGENTS[agent];
+  if (!post) return <article className="position-empty"><span className={`font-semibold ${agentMeta.text}`}>{agentMeta.label}</span><span>Awaiting evidence</span></article>;
+  return <article className="position-card" style={{ "--agent": agentMeta.cssVar } as React.CSSProperties}>
+    <header className="flex items-center justify-between gap-3">
+      <span className={`font-semibold ${agentMeta.text}`}>{agentMeta.label}</span>
+      <span className="mono text-muted">{STANCE_LABEL[post.stance]} · {Math.round(post.confidence * 100)}%</span>
+    </header>
+    <div className="mt-4 space-y-3">
+      {post.claims.map((claim, index) => <p key={index} className="leading-relaxed">{claim.text}<Chips ids={claim.evidence_ids} state={state} onOpen={onOpen} /></p>)}
+      {post.changed_because && <p className="position-detail">Changed: {post.changed_because}<Chips ids={post.changed_because_evidence} state={state} onOpen={onOpen} /></p>}
+      {post.rebuttal && <p className="position-detail">To {AGENTS[post.rebuttal.target_agent].label}: {post.rebuttal.response}<Chips ids={post.rebuttal.evidence_ids} state={state} onOpen={onOpen} /></p>}
+      {post.challenge && <p className="position-detail">Asks {AGENTS[post.challenge.target_agent].label}: {post.challenge.question}</p>}
+      {post.requests.map((request, index) => <p key={index} className="position-request"><Icon name={request.capability} size={14} />Requesting {CAPABILITY_LABEL[request.capability].toLowerCase()}</p>)}
     </div>
-  );
+  </article>;
 }
-
-function Finding({ ev, onOpen }: { ev: Evidence; onOpen: Open }) {
-  return (
-    <button onClick={() => onOpen(ev.id)} className="rise press ml-11 flex items-start gap-2.5 rounded-xl border border-dashed border-line px-3 py-2 text-left hover:border-ink">
-      <Icon name={ev.capability} className="mt-0.5 shrink-0 text-muted" />
-      <span>
-        <span className="block">{ev.summary}</span>
-      </span>
-    </button>
-  );
+function RoundView({ round, state, onOpen }: { round: Round; state: CaseState; onOpen: Open }) {
+  return <section className="deliberation-round">
+    <div className="round-line"><span>Round {round.round}</span><i /></div>
+    <div className="grid gap-3 md:grid-cols-3">{AGENT_ORDER.map((agent) => <Position key={agent} agent={agent} post={round.posts[agent]} state={state} onOpen={onOpen} />)}</div>
+  </section>;
 }
-
-function Note({ children, tone = "plain" }: { children: React.ReactNode; tone?: "plain" | "bad" }) {
-  return (
-    <p className={`rise mx-auto max-w-[52ch] rounded-full px-4 py-1 text-center text-muted ${tone === "bad" ? "bg-red-tint text-red" : "bg-sunken"}`}>{children}</p>
-  );
+function ProcessNote({ selection }: { selection: Selection }) {
+  return <span className="process-note"><Icon name={selection.capability} size={14} />{selection.why}</span>;
 }
-
-
-function Item({ item, state, onOpen }: { item: FeedItem; state: CaseState; onOpen: Open }) {
-  switch (item.kind) {
-    case "round":
-      return item.round === 1 ? null : <h3 className="rise display pt-3 text-center text-xl italic text-muted">Round {item.round}</h3>;
-    case "evidence": {
-      const ev = state.evidence[item.id];
-      return ev.capability === "listing_snapshot" ? null : <Finding ev={ev} onOpen={onOpen} />;
-    }
-    case "selected":
-      return <Note>Checking {CAPABILITY_LABEL[item.selection.capability].toLowerCase()}…</Note>;
-    case "failed":
-      return (
-        <Note tone="bad">
-          {CAPABILITY_LABEL[item.failure.capability]} could not finish.
-          {item.failure.fallback ? " Trying another specialist." : ""}
-        </Note>
-      );
-    case "post":
-      return <Post item={item} state={state} onOpen={onOpen} />;
-    case "rejected":
-      return (
-        <div className="rise ml-11 rounded-xl bg-red-tint px-3 py-2 text-red">
-          <span className="font-semibold">Couldn&rsquo;t verify this claim: </span>
-          <s>{item.claim_text}</s>
-        </div>
-      );
-    case "removed":
-      return <Note tone="bad">The seller removed this listing.{item.relisted_as ? " It has already reappeared under a new account." : ""}</Note>;
-  }
+function FailureNote({ failure }: { failure: Failure }) {
+  return <span className="process-note process-note--failure">{CAPABILITY_LABEL[failure.capability]} unavailable{failure.fallback ? ` · trying ${failure.fallback.replace("deadlang-", "")}` : ""}</span>;
 }
-
 export function Debate({ state, onOpen }: { state: CaseState; onOpen: Open }) {
-  const end = useRef<HTMLDivElement>(null);
-  const stuck = useRef(true);
-  const last = state.rounds.at(-1);
-  const composing = state.caseFile || !last ? [] : last.active.filter((ag) => !last.posts[ag]);
-
-  // Follow the conversation unless the viewer scrolled up to read.
-  useEffect(() => {
-    if (stuck.current) end.current?.scrollIntoView({ block: "end", behavior: "smooth" });
-  }, [state.feed.length, composing.length, state.caseFile]);
-
-  return (
-    <div
-      className="h-full overflow-y-auto"
-      onScroll={(e) => {
-        const el = e.currentTarget;
-        stuck.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
-      }}
-    >
-      <div className="mx-auto flex max-w-[680px] flex-col gap-4 px-6 py-6">
-        {state.feed.length === 0 && <p className="text-center text-muted">Starting review…</p>}
-        {state.feed.map((item, i) => <Item key={i} item={item} state={state} onOpen={onOpen} />)}
-        {composing.map((ag) => (
-          <div key={ag} className="rise flex items-center gap-3">
-            <Avatar agent={ag} />
-            <span className={`typing flex gap-1 rounded-2xl border border-line bg-surface px-4 py-3 ${AGENTS[ag].text}`} role="status" aria-label={`${AGENTS[ag].label} is writing`}>
-              <span /><span /><span />
-            </span>
-          </div>
-        ))}
-        <div ref={end} />
-      </div>
-    </div>
-  );
+  const evidence = state.evidenceOrder.map((id) => state.evidence[id]).filter((item): item is Evidence => Boolean(item) && item.capability !== "listing_snapshot");
+  const active = state.caseFile ? [] : state.rounds.at(-1)?.active ?? [];
+  const rejected = state.rounds.flatMap((round) => round.rejected);
+  return <div className="h-full overflow-y-auto"><div className="mx-auto flex max-w-[1040px] flex-col gap-8 px-5 py-6 sm:px-8">
+    <section aria-label="Evidence board">
+      <div className="evidence-heading"><h2 className="display text-3xl">Evidence board</h2><span>{evidence.length} findings</span></div>
+      {evidence.length ? <div className="evidence-field">{evidence.map((item) => <EvidenceTile key={item.id} evidence={item} onOpen={onOpen} />)}</div> : <p className="text-muted">Building the evidence board.</p>}
+    </section>
+    {(state.selections.length > 0 || state.failures.length > 0 || state.removed) && <div className="process-strip" aria-label="Process updates">{state.selections.map((selection, index) => <ProcessNote key={`${selection.capability}-${index}`} selection={selection} />)}{state.failures.map((failure, index) => <FailureNote key={`${failure.capability}-${index}`} failure={failure} />)}{state.removed && <span className="process-note process-note--failure">Listing removed{state.removed.relisted_as ? ` · relisted as ${state.removed.relisted_as}` : ""}</span>}</div>}
+    <section aria-label="Agent positions">
+      <div className="evidence-heading"><h2 className="display text-3xl">Positions</h2>{active.length > 0 && <span className="typing text-cobalt-ink" role="status">{active.map((agent) => AGENTS[agent].label).join(" · ")} reviewing</span>}</div>
+      {state.rounds.length ? <div className="space-y-7">{state.rounds.map((round) => <RoundView key={round.round} round={round} state={state} onOpen={onOpen} />)}</div> : <p className="text-muted">The agents will speak after intake completes.</p>}
+      {rejected.length > 0 && <div className="mt-5 space-y-2">{rejected.map((item, index) => <p key={index} className="excluded-claim">Excluded claim: <s>{item.claim_text}</s></p>)}</div>}
+    </section>
+  </div></div>;
 }

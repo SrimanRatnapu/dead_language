@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ListingCard } from "@/components/ListingCard";
+import { WildlifeSignal } from "@/components/WildlifeSignal";
 import { Photo } from "@/components/Photo";
 import { usd } from "@/lib/agents";
 import { imageUrl, startCase } from "@/lib/api";
@@ -24,7 +25,6 @@ export default function Home() {
     loadReplays().then(({ data }) => setReplays(data)).catch(() => setReplays([]));
   }, []);
 
-  // Live review when the backend is up; otherwise play the recorded case so the demo never stalls.
   async function review(listingId: string, replay?: string) {
     setBusy(listingId);
     try {
@@ -39,59 +39,50 @@ export default function Home() {
   const others = rows.filter((r) => r !== golden);
 
   return (
-    <div className="h-[calc(100dvh-3rem)] overflow-y-auto">
-      <main className="mx-auto max-w-6xl px-8 py-10">
-        <div className="mb-7 flex items-end justify-between">
+    <main className="shell-grid min-h-[calc(100dvh-3.5rem)] overflow-x-hidden">
+      <div className="mx-auto max-w-7xl px-5 py-8 sm:px-8 lg:py-12">
+        <section className="grid gap-6 border-b border-line pb-10 lg:grid-cols-[.78fr_1.22fr] lg:items-center lg:pb-12">
           <div>
-            <h1 className="display text-4xl">Listings</h1>
-            <p className="mt-1 text-muted">Choose one to review.</p>
+            <p className="rule-label mb-5 text-cobalt-ink">Wildlife marketplace review</p>
+            <h1 className="display max-w-md text-5xl sm:text-6xl">They can hide the word ivory. They can&apos;t hide the price.</h1>
+            <p className="mt-5 max-w-md text-lg leading-relaxed text-muted">Three competing agents trace price, photographs, and language into evidence a human can inspect.</p>
           </div>
-          <Link href="/results" className="press rounded-full border border-line px-4 py-2 font-medium hover:border-ink">Results</Link>
-        </div>
+          <WildlifeSignal />
+        </section>
 
         {golden && (
-          <section className="mb-10 grid grid-cols-[minmax(0,1.2fr)_minmax(260px,0.8fr)] items-center gap-8 border-y border-line py-6">
-            <button onClick={() => review(golden.listing.id)} disabled={busy !== null} className="press group overflow-hidden rounded-2xl text-left">
-              <Photo
-                src={imageUrl(golden.listing.image_paths[0] ?? "")}
-                label={golden.listing.title}
-                caption="Photo unavailable offline"
-                className="aspect-[16/9] w-full group-hover:brightness-95"
-              />
+          <section className="grid gap-6 py-8 lg:grid-cols-[1.3fr_.7fr] lg:py-12">
+            <button onClick={() => review(golden.listing.id)} disabled={busy !== null} className="press group relative overflow-hidden border border-line bg-surface text-left shadow-[var(--shadow)]">
+              <Photo src={imageUrl(golden.listing.image_paths[0] ?? "")} label={golden.listing.title} caption="Photo unavailable offline" className="aspect-[16/9] w-full transition duration-500 group-hover:scale-[1.02] group-hover:brightness-75" />
+              <span className="absolute left-0 top-0 border-b border-r border-line bg-bg/90 px-3 py-2 rule-label text-cobalt-ink">Case of record</span>
+              <span className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-bg via-bg/80 to-transparent p-5 pt-16 text-lg font-medium">{golden.listing.title}</span>
             </button>
-            <div className="flex flex-col items-start gap-4">
-              <span className="font-medium text-amber-ink">Start here</span>
-              <h2 className="display text-4xl">{golden.listing.title}</h2>
-              <p className="text-lg"><strong>{usd(golden.listing.price_usd)}</strong> <span className="text-muted">listed as {golden.listing.stated_material.replaceAll("_", " ")}</span></p>
-              {golden.listing.is_reconstructed && <p className="text-muted">Reconstructed from a documented case.</p>}
-              <button onClick={() => review(golden.listing.id)} disabled={busy !== null} className="press rounded-full bg-ink px-5 py-2.5 font-medium text-bg">
-                {busy === golden.listing.id ? "Starting…" : offline ? "Play review" : "Start review"}
-              </button>
+            <div className="flex flex-col justify-between border-y border-line py-5 lg:border-y-0 lg:border-r lg:pl-8">
+              <div>
+                <p className="rule-label text-muted">Listed at</p>
+                <p className="display mt-2 text-5xl text-cobalt-ink">{usd(golden.listing.price_usd)}</p>
+                <p className="mt-5 text-muted">Named <span className="text-ink">{golden.listing.stated_material.replaceAll("_", " ")}</span>. The price and wording make it worth a closer read.</p>
+              </div>
+              <div className="mt-8 flex items-center gap-4">
+                <button onClick={() => review(golden.listing.id)} disabled={busy !== null} className="press bg-cobalt px-5 py-3 font-semibold text-bg hover:bg-cobalt-ink">
+                  {busy === golden.listing.id ? "Opening…" : offline ? "Play case" : "Review listing"}
+                </button>
+                <span className="mono text-muted">{offline ? "Recorded playback" : "Live when available"}</span>
+              </div>
             </div>
           </section>
         )}
 
         {others.length > 0 && (
-          <section>
-            <div className="mb-4 flex items-baseline justify-between">
-              <h2 className="display text-2xl">More listings</h2>
-              {replays.length > 0 && (
-                <details className="relative">
-                  <summary className="cursor-pointer list-none font-medium text-muted hover:text-ink">Replays</summary>
-                  <ul className="glass absolute right-0 z-10 mt-2 w-56 rounded-xl border border-line p-1 shadow-[var(--shadow)]">
-                    {replays.map((r) => (
-                      <li key={r}><Link href={`/replay/${r}`} className="block rounded-lg px-3 py-1.5 hover:bg-sunken">{r.replaceAll("_", " ")}</Link></li>
-                    ))}
-                  </ul>
-                </details>
-              )}
+          <section className="border-t border-line pt-7">
+            <div className="mb-6 flex items-end justify-between gap-5">
+              <h2 className="display text-3xl">Other listings</h2>
+              {replays.length > 0 && <details className="relative"><summary className="press cursor-pointer list-none border border-line px-3 py-2 text-muted hover:border-cobalt hover:text-ink">Recorded cases</summary><ul className="glass absolute right-0 z-10 mt-2 w-60 border border-line p-1 shadow-[var(--shadow)]">{replays.map((r) => <li key={r}><Link href={`/replay/${r}`} className="block px-3 py-2 hover:bg-cobalt-tint">{r.replaceAll("_", " ")}</Link></li>)}</ul></details>}
             </div>
-            <div className="grid grid-cols-4 gap-x-5 gap-y-8">
-              {others.map((row) => <ListingCard key={row.listing.id} row={row} busy={busy === row.listing.id} onReview={review} />)}
-            </div>
+            <div className="grid gap-x-5 gap-y-9 sm:grid-cols-2 lg:grid-cols-4">{others.map((row) => <ListingCard key={row.listing.id} row={row} busy={busy === row.listing.id} onReview={review} />)}</div>
           </section>
         )}
-      </main>
-    </div>
+      </div>
+    </main>
   );
 }

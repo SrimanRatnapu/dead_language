@@ -1,10 +1,9 @@
 import type { Metadata } from "next";
-import { Hanken_Grotesk, JetBrains_Mono, Instrument_Serif } from "next/font/google";
+import { Hanken_Grotesk, JetBrains_Mono } from "next/font/google";
 import Link from "next/link";
 import "./globals.css";
 
 const sans = Hanken_Grotesk({ variable: "--font-sans", subsets: ["latin"] });
-const serif = Instrument_Serif({ variable: "--font-serif", subsets: ["latin"], weight: "400", style: ["normal", "italic"] });
 const mono = JetBrains_Mono({ variable: "--font-mono", subsets: ["latin"] });
 
 export const metadata: Metadata = {
@@ -14,13 +13,16 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${sans.variable} ${serif.variable} ${mono.variable} h-full`}>
+    <html lang="en" className={`${sans.variable} ${mono.variable} h-full`}>
       <body className="flex h-full flex-col">
-        <header className="glass sticky top-0 z-20 flex h-12 shrink-0 items-center gap-6 px-6">
-          <Link href="/" className="display text-2xl italic">Dead Language</Link>
-          <nav className="ml-auto flex gap-5 text-muted">
-            <Link href="/" className="hover:text-ink">Demo</Link>
-            <Link href="/results" className="hover:text-ink">Results</Link>
+        <header className="glass sticky top-0 z-20 flex h-14 shrink-0 items-center border-b border-line/80 px-5 sm:px-8">
+          <Link href="/" className="group flex items-center gap-2.5" aria-label="Dead Language home">
+            <span className="grid size-6 place-items-center border border-cobalt/60 text-[10px] font-bold text-cobalt transition-transform duration-200 group-hover:rotate-12">DL</span>
+            <span className="font-semibold tracking-[-0.04em]">Dead Language</span>
+          </Link>
+          <nav className="ml-auto flex items-center gap-1 text-sm" aria-label="Primary navigation">
+            <Link href="/" className="press rounded-md px-3 py-1.5 text-muted hover:bg-surface hover:text-ink">Cases</Link>
+            <Link href="/results" className="press rounded-md px-3 py-1.5 text-muted hover:bg-surface hover:text-ink">Evaluation</Link>
           </nav>
         </header>
         <div className="min-h-0 flex-1">{children}</div>

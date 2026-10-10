@@ -2,24 +2,11 @@
 import { OUTCOME_LABEL, STOP_REASON_TEXT } from "@/lib/agents";
 import type { CaseState } from "@/lib/caseState";
 
-// The rarest moment gets the most motion: the outcome word lands once.
 export function Outcome({ state, onOpenCaseFile }: { state: CaseState; onOpenCaseFile: () => void }) {
   const cf = state.caseFile;
   if (!cf && !state.budgetExceeded) return null;
   const cleared = cf?.outcome === "DISMISS";
-  return (
-    <div className={`flex shrink-0 items-center gap-6 border-t border-line px-6 py-4 ${cleared ? "bg-green-tint" : "bg-surface"}`}>
-      {cf ? (
-        <>
-          <span className="land display text-5xl">{OUTCOME_LABEL[cf.outcome]}</span>
-          <span className="rise text-muted">
-            {STOP_REASON_TEXT[cf.stop_reason]}. A person reviews this before anything is sent.
-          </span>
-          <button onClick={onOpenCaseFile} className="press ml-auto rounded-full bg-ink px-5 py-2.5 font-medium text-bg">View case file</button>
-        </>
-      ) : (
-        <span>Spending limit reached: {state.budgetExceeded}</span>
-      )}
-    </div>
-  );
+  return <div className={`shrink-0 border-t border-line px-5 py-4 sm:px-8 ${cleared ? "bg-green-tint" : "bg-cobalt-tint"}`}>
+    {cf ? <div className="mx-auto flex max-w-[760px] flex-wrap items-center gap-x-5 gap-y-2"><div><p className="rule-label">Review outcome</p><span className="land display text-4xl">{OUTCOME_LABEL[cf.outcome]}</span></div><span className="max-w-md text-muted">{STOP_REASON_TEXT[cf.stop_reason]}. A person reviews this before anything is sent.</span><button onClick={onOpenCaseFile} className="press ml-auto bg-ink px-4 py-2.5 font-semibold text-surface hover:bg-cobalt">Open case file</button></div> : <span>Spending limit reached: {state.budgetExceeded}</span>}
+  </div>;
 }
