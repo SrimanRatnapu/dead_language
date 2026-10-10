@@ -3,7 +3,7 @@ import { useEffect, useRef } from "react";
 import { Icon } from "./Icon";
 
 export function Drawer({ open, title, onClose, children }: { open: boolean; title: string; onClose: () => void; children: React.ReactNode }) {
-  const panel = useRef<HTMLElement>(null);
+  const panel = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -19,10 +19,10 @@ export function Drawer({ open, title, onClose, children }: { open: boolean; titl
         onClick={onClose}
         className={`fixed inset-0 z-30 bg-ink/20 transition-opacity duration-200 ${open ? "opacity-100" : "pointer-events-none opacity-0"}`}
       />
-      <aside
+      <div
         ref={panel}
         tabIndex={-1}
-        role="dialog"
+        role="dialog" aria-modal={open}
         aria-label={title}
         aria-hidden={!open}
         data-open={open}
@@ -35,7 +35,7 @@ export function Drawer({ open, title, onClose, children }: { open: boolean; titl
           </button>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto p-5">{children}</div>
-      </aside>
+      </div>
     </>
   );
 }

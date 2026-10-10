@@ -21,11 +21,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <span className="font-semibold tracking-[-0.04em]">Dead Language</span>
           </Link>
           <nav className="ml-auto flex items-center gap-1 text-sm" aria-label="Primary navigation">
-            <Link href="/" className="press rounded-md px-3 py-1.5 text-muted hover:bg-surface hover:text-ink">Cases</Link>
-            <Link href="/results" className="press rounded-md px-3 py-1.5 text-muted hover:bg-surface hover:text-ink">Evaluation</Link>
+            <Link href="/" className="press rounded-md inline-flex min-h-11 items-center px-3 text-muted hover:bg-surface hover:text-ink">Cases</Link>
+            <Link href="/results" className="press rounded-md inline-flex min-h-11 items-center px-3 text-muted hover:bg-surface hover:text-ink">Evaluation</Link>
           </nav>
         </header>
-        <div className="min-h-0 flex-1">{children}</div>
+        <div className="min-h-0 flex-1" role="presentation">{children}</div>
       </body>
     </html>
   );

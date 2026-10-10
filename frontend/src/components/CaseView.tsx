@@ -21,7 +21,7 @@ export function CaseView({ target }: { target: CaseTarget }) {
   const [caseFileOpen, setCaseFileOpen] = useState(false);
 
   return (
-    <div className="shell-grid flex min-h-[calc(100dvh-3.5rem)] flex-col">
+    <main className="shell-grid flex min-h-[calc(100dvh-3.5rem)] flex-col">
       {events.error && <p className="shrink-0 border-b border-red/30 bg-red-tint px-6 py-2 text-red">{events.error} <Link href="/" className="underline underline-offset-2">Back to cases</Link></p>}
       <div className="mx-auto flex min-h-0 w-full max-w-[1600px] flex-1 flex-col px-4 py-4 sm:px-6 lg:px-8">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-line pb-3"><Link href="/" className="press -ml-2 inline-flex min-h-11 items-center px-2 text-sm text-muted hover:text-cobalt-ink lg:min-h-0">← All cases</Link><DemoControls listingId={state.listing?.id ?? null} events={events} speed={speed} onSpeed={setSpeed} /></div>
@@ -32,6 +32,6 @@ export function CaseView({ target }: { target: CaseTarget }) {
       </div>
       <EvidenceDrawer evidence={openEvidence ? state.evidence[openEvidence] ?? null : null} listing={state.listing} onClose={() => setOpenEvidence(null)} />
       <CaseFileDrawer caseFile={state.caseFile} evidence={state.evidence} open={caseFileOpen} onClose={() => setCaseFileOpen(false)} onOpenEvidence={setOpenEvidence} />
-    </div>
+    </main>
   );
 }

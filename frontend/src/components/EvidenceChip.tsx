@@ -5,7 +5,7 @@ import { Icon } from "./Icon";
 
 // Every claim shows what it rests on; click opens the raw evidence. Named by what it is, not by id.
 export function EvidenceChip({ evidence, onOpen }: { evidence: Evidence | undefined; onOpen: (id: string) => void }) {
-  if (!evidence) return <span className="rounded-full border border-dashed border-line px-2 text-muted">…</span>;
+  if (!evidence) return <span title="Evidence still loading" className="rounded-full border border-dashed border-line px-2 text-muted">Loading evidence…</span>;
   return (
     <button
       onClick={() => onOpen(evidence.id)}
