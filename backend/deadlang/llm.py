@@ -270,8 +270,19 @@ async def _attempt(req: dict, schema_name: str, case_id: str | None, est_in: int
              req["model"], schema_name, case_id, tokens_in, tokens_out, ms)
     for block in resp.content:
         if block.type == "tool_use" and block.name == schema_name:
-            return dict(block.input), resp
+            return _unstringify(dict(block.input)), resp
     return None, resp
+
+
+def _unstringify(out: dict) -> dict:
+    """The model sometimes returns a nested object/array as a JSON string; decode those."""
+    for k, v in out.items():
+        if isinstance(v, str) and v.lstrip()[:1] in ("{", "["):
+            try:
+                out[k] = json.loads(v)
+            except ValueError:
+                pass
+    return out
 
 
 async def _call(req: dict, schema_name: str, case_id: str | None, est_in: int) -> dict:

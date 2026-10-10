@@ -350,3 +350,9 @@ async def test_a_missing_image_file_is_an_error_and_holds_no_budget(tmp_path, en
     with pytest.raises(FileNotFoundError):
         await _vision([tmp_path / "nope.png"])
     assert llm._pending["in"] == 0
+
+
+def test_unstringify_decodes_nested_json_strings():
+    from deadlang.llm import _unstringify
+    out = _unstringify({"rebuttal": '{"target_agent":"buyer"}', "claims": '[{"a":1}]', "text": "plain", "bad": "{oops"})
+    assert out == {"rebuttal": {"target_agent": "buyer"}, "claims": [{"a": 1}], "text": "plain", "bad": "{oops"}

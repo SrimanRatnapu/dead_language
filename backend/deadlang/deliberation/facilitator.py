@@ -268,15 +268,16 @@ async def _main(listing_id: str) -> None:
 
     discovery = get_discovery()
     await discovery.register_all()
+    cid = f"C-CLI-{int(datetime.now().timestamp())}"  # unique: per-case token caps persist in .usage.json
     bus = EventBus()
     fac = Facilitator(get_marketplace_client(), get_transport(), discovery, bus)
 
     async def printer() -> None:
-        async for e in bus.subscribe("C-CLI"):
+        async for e in bus.subscribe(cid):
             print(f"[{e.seq:02d}] {e.type}: {json.dumps(e.payload, default=str)[:160]}")
 
     task = asyncio.create_task(printer())
-    case_file = await fac.run_case("C-CLI", listing_id)
+    case_file = await fac.run_case(cid, listing_id)
     await task
     print("\nOUTCOME:", case_file.outcome, "| stop:", case_file.stop_reason)
 
