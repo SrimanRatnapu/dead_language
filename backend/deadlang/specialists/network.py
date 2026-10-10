@@ -16,7 +16,10 @@ from deadlang.schemas import EvidenceDraft, Listing, SpecialistCall, SpecialistR
 MAX_ITEMS = 12
 NGRAM = 5
 MAX_OTHER_SELLERS = 3        # a phrase is rare if at most this many OTHER sellers use it
-MIN_SHARED_NGRAMS = 2
+MIN_SHARED_PHRASES = 2       # a phrase link needs this many shared rare phrases ...
+MIN_PHRASE_WORDS = 8         # ... each at least this long. On real eBay data, shorter overlaps are template
+                             # boilerplate ("import duties and taxes are"): 112 of 300 real listings matched
+                             # under a bare two-5-gram rule, 4 under this one.
 MAX_PHOTO_DISTANCE = 6       # Hamming distance between perceptual hashes
 STOPWORDS = frozenset("""a an and are as at be been but by can do for from had has have i if in into is it its
 me my no not of on or our so than that the their them then there these they this to up us was we were what when
@@ -78,7 +81,7 @@ def _listing_ngrams(listing: Listing) -> set[tuple[str, ...]]:
 
 
 def _shared_phrases(listing: Listing, shared: set[tuple[str, ...]]) -> list[str]:
-    """Merge overlapping shared 5-grams back into the longest phrases, in the listing's own word order."""
+    """Merge overlapping shared 5-grams back into phrases (the listing's own words), keeping the long ones."""
     phrases: list[str] = []
     for tokens in _token_runs(listing):
         grams, i = _ngrams(tokens), 0
@@ -91,7 +94,8 @@ def _shared_phrases(listing: Listing, shared: set[tuple[str, ...]]) -> list[str]
                 i = j + 1
             else:
                 i += 1
-    return sorted(dict.fromkeys(phrases), key=len, reverse=True)
+    long_enough = [p for p in dict.fromkeys(phrases) if len(p.split()) >= MIN_PHRASE_WORDS]
+    return sorted(long_enough, key=len, reverse=True)
 
 
 class LinkedSellers:
@@ -163,7 +167,7 @@ class LinkedSellers:
             if l.seller_id == target.seller_id:
                 continue
             shared = rare & _listing_ngrams(l)
-            if len(shared) < MIN_SHARED_NGRAMS:
+            if len(_shared_phrases(target, shared)) < MIN_SHARED_PHRASES:
                 shared = set()
             pairs = [[tp, p] for tp, th in target_photos for p in l.image_paths
                      if p in self._hashes and (th ^ self._hashes[p]).bit_count() <= MAX_PHOTO_DISTANCE]
