@@ -9,7 +9,7 @@
 
 ## Global Constraints (in addition to file 01)
 
-- The Facilitator never decides an outcome by judgment. It only applies `rules.py`.
+- The Facilitator is a referee of process, never a decider. It never decides an outcome by judgment. It only applies `rules.py` (published stop and outcome functions) and decides *who is called* by the mechanical triggers in Task 7.
 - Deliberating agents get **no tools**. Their only way to get facts is `requests` in their post.
 - Prompts are files in `deliberation/prompts/`, loaded at runtime, so prompt edits don't need code changes.
 - Every event is also appended to `fixtures/replays/runs/<case_id>.jsonl` (gitignored except the curated ones you copy to `fixtures/replays/<name>.jsonl`).
@@ -71,10 +71,11 @@ def validate_post(post: StancePost, board: EvidenceBoard, listing_text: str,
 4. **Quote check:** every substring inside double quotes (straight or curly) with ≥ 3 words must appear (lowercase, whitespace-collapsed) in `board.text_in(ids)` or in `listing_text`. Reason: `"quoted text not found in cited evidence or listing"`.
 
 **Post-level checks (reported as `post_level_problems`, used for the repair call):**
-5. Round ≥ 2 and `rebuttal` missing → `"round 2+ requires a rebuttal of the strongest opposing claim"`. Rebuttal `target_claim` must fuzzy-match (token overlap ≥ 0.6) a claim from `last_round_posts` of `target_agent` → else `"rebuttal target claim not found"`. Rebuttal `evidence_ids` must exist.
+5. Round ≥ 2, the agent was called this round, and `rebuttal` missing → `"round 2+ requires a rebuttal of the strongest opposing claim"`. Rebuttal `target_claim` must fuzzy-match (token overlap ≥ 0.6) a claim from `last_round_posts` of `target_agent` → else `"rebuttal target claim not found"`. Rebuttal `evidence_ids` must exist.
 6. Stance differs from `previous.stance` and (`changed_because` empty or `changed_because_evidence` empty or any id missing) → `"stance changed without citing the evidence that changed it"`.
 7. `len(requests) > 2` → keep the first 2, problem `"max 2 requests"`.
 8. `confidence` outside 0–1 is already prevented by the schema.
+9. `challenge` present and `challenge.target_agent == post.agent` → drop the challenge, problem `"cannot challenge yourself"`. (Answering a received challenge is prompt-enforced only, not validated.)
 
 **After repair (Task 6 decides when):** if `cleaned_post.claims` is empty and stance is `file` or `dismiss`, set stance to `need_more` and add problem `"no grounded claims left; stance set to need_more"`.
 
@@ -92,16 +93,16 @@ def validate_post(post: StancePost, board: EvidenceBoard, listing_text: str,
 ```
 def outcome(final: dict[AgentName, Stance]) -> Outcome
 def stop_reason(round_no: int, max_rounds: int,
-                this_round: dict[AgentName, StancePost],
+                this_round: dict[AgentName, StancePost],   # all three agents' CURRENT posts (carried-forward ones included)
                 prev_round: dict[AgentName, StancePost] | None,
-                new_evidence_this_round: int) -> str | None   # "unanimous" | "no_movement" | "max_rounds" | None
+                new_evidence_this_round: int) -> str | None   # "unanimous" | "ready_to_close" | "no_movement" | "max_rounds" | None
 ```
 
 Rules exactly as spec §6:
 - `outcome`: all file → FILE; all dismiss → DISMISS; ≥1 file and ≥1 dismiss → CONTESTED; else WATCHLIST.
-- `stop_reason`: unanimous (all file or all dismiss) → `"unanimous"`; else if `prev_round` exists and no stance changed and every |Δconfidence| < 0.10 and `new_evidence_this_round == 0` → `"no_movement"`; else if `round_no >= max_rounds` → `"max_rounds"`; else None. (Budget stop is handled by the Facilitator.)
+- `stop_reason`: unanimous (all file or all dismiss) → `"unanimous"`; else if `round_no >= 2` and all three posts have `ready_to_close` → `"ready_to_close"`; else if `prev_round` exists and no stance changed and every |Δconfidence| < 0.10 and `new_evidence_this_round == 0` → `"no_movement"`; else if `round_no >= max_rounds` → `"max_rounds"`; else None. (Budget stop is handled by the Facilitator.)
 
-- [ ] Step 1: Table-driven failing tests covering all four outcomes and every stop branch (including "all need_more" → WATCHLIST, and round 1 never returns no_movement).
+- [ ] Step 1: Table-driven failing tests covering all four outcomes and every stop branch (including "all need_more" → WATCHLIST, round 1 never returns no_movement or ready_to_close, and carried-forward posts count as unchanged).
 - [ ] Step 2–4: implement → PASS. Step 5: commit `delib: rules`.
 
 ---
@@ -119,12 +120,14 @@ These are product-critical. Write them exactly as below, then tune wording (not 
 > 1. Every factual statement goes in `claims`, and every claim must cite evidence IDs from the evidence board (E0, E1, …). Code checks every claim: numbers you write must appear in the evidence you cite, and anything you put in double quotes must appear word for word in that evidence or the listing. Claims that fail are deleted.
 > 2. Do not use outside knowledge as fact. You may use general reasoning ("a collector would not pay this much for bone"), but the facts it rests on must be on the board.
 > 3. If you need a fact that is not on the board, ask for it in `requests` (at most 2). Available capabilities: price_check, seller_inventory, linked_sellers, legal_lookup, material_exam (you can pass {"image_index": n} to examine one photo closely), translation. The answer will appear on the board next round for everyone.
-> 4. From round 2 on, you must rebut the strongest claim made against your position in the previous round (`rebuttal`), quoting that claim's text in `target_claim`.
+> 4. From round 2 on, whenever you are called, you must rebut the strongest claim made against your position in the previous round (`rebuttal`), quoting that claim's text in `target_claim`. If `questions_for_you` is not empty, answer each question with cited claims.
 > 5. If you change your stance, say exactly which evidence changed your mind (`changed_because` and `changed_because_evidence`). Changing your mind when evidence warrants it is good; holding a position the evidence no longer supports is bad.
 > 6. "need_more" means you cannot take a side yet and have asked for something specific.
 > 7. Confidence is your probability that your stance is the right one.
 > 8. Be brief: at most 4 claims, each one sentence.
 > 9. Never invent seller names, prices, photo contents, laws, or statistics.
+> 10. You may put one question to one other agent in `challenge` when you think their position rests on something they have not defended. Use it sparingly.
+> 11. Set `ready_to_close = true` only when you have nothing more to add and would not change your stance without new evidence. The review closes early only if all three of you do this.
 
 **`buyer.md`:**
 > You are the Buyer. You think like an experienced collector of Asian carvings who knows the ivory market well. Your goal is to work out what is really being offered. A disguised listing has to fool the filter but still convince a buyer, so ask what a collector would conclude from: the price compared with what the stated material normally sells for; photos that show close-ups of a base or cut surface; details that only matter if the item were ivory; the seller's other items; and other sellers using the same wording or photos.
@@ -177,12 +180,12 @@ class Facilitator:
 1. **Start:** snapshot = `market.get_listing_snapshot(listing_id)`, seller = `get_seller`. Emit `case.started`. Add E0: capability `listing_snapshot`, `produced_by="code"`, `specialist_name="intake"`, summary `"Listing {id} by {seller.name}: \"{title}\" for ${price:,.0f}, described as {stated_material}, ships from {ship_from}, {n} photos."`, data = full listing dump. Emit `evidence.added`.
 2. **Intake** (requested_by `"intake"`, run concurrently): price_check, seller_inventory, linked_sellers, legal_lookup, material_exam (all photos), translation (only if `language != "en"`). Each goes through `_run_specialist`.
 3. **`_run_specialist(capability, params, requested_by)`:** `sel = discovery.select(capability, exclude=tried)`; emit `specialist.selected` with `sel.why`; `reply = transport.call_specialist(sel.specialist_name, SpecialistCall(...))`; on `ok=False`: if error is `"timeout"` or a connection error → `discovery.mark_unhealthy`, emit `specialist.failed` with the next selection's name as `fallback`, and retry once with the next candidate (only one fallback hop); if error is `"listing_removed"` → call `notify_listing_removed` and stop; any other error → emit `specialist.failed` with `fallback: null`. On `ok=True` add every draft to the board (emit `evidence.added` each).
-4. **Rounds** `r = 1..max_rounds`: emit `round.started`. Build one `DeliberationTurn` per agent (shared evidence + transcript; per-agent `your_previous`). `results = transport.broadcast_turns(turns)`.
-   - For each agent: error string → reuse its previous post (round > 1) with `confidence` unchanged, or a `need_more` post with zero claims in round 1; log it.
+4. **Rounds** `r = 1..max_rounds`: decide the **active** agents mechanically. Round 1: all three. Round ≥ 2: an agent is active if (a) the board has evidence added after that agent's previous turn, or (b) a validated post from the previous round has it as `rebuttal.target_agent` or `challenge.target_agent`. Emit `round.started` with `active`. Build one `DeliberationTurn` per active agent (shared evidence + transcript; per-agent `your_previous`; `questions_for_you` from the previous round's challenges aimed at it). `results = transport.broadcast_turns(turns)`. Inactive agents are not called; their previous post is carried forward unchanged and not re-emitted.
+   - For each active agent: error string → reuse its previous post (round > 1) with `confidence` unchanged, or a `need_more` post with zero claims in round 1; log it.
    - Validate each post (Task 3). If any rejections or post-level problems → **one** repair call via `transport.call_agent(agent, turn with repair_feedback)`; validate again; remaining rejections → emit `claim.rejected` for each; apply the empty-claims rule.
-   - Emit `stance.posted` for each cleaned post (order: buyer, defender, caseload).
-   - Collect `requests` from all three posts; dedupe by `(capability, json(params))`; keep at most 3 this round and stop accepting new ones once the case has run 6 requested specialist calls. Run them (requested_by = the asking agent; if two agents asked for the same thing, use the first). Count new evidence items.
-   - `reason = rules.stop_reason(...)`. If set → break.
+   - Emit `stance.posted` for each cleaned post of an active agent (order: buyer, defender, caseload).
+   - Collect `requests` from the active posts; dedupe by `(capability, json(params))`; keep at most 3 this round and stop accepting new ones once the case has run 6 requested specialist calls. Run them (requested_by = the asking agent; if two agents asked for the same thing, use the first). Count new evidence items.
+   - `reason = rules.stop_reason(...)` using all three current posts (carried-forward included). If set → break. If no agent was active in a round, that round is a no-op and `stop_reason` returns `no_movement`.
    - Wrap each round in `try/except BudgetExceeded` → emit `budget.exceeded`, `reason = "budget"`, break.
 5. **End:** `outcome = rules.outcome(final stances)`; build the `CaseFile` (casefile.py); emit `case.ended`; return it.
 6. **`notify_listing_removed`:** add a `system_notice` evidence item: `"Listing {id} was removed by the seller at {HH:MM}; the review continues from the snapshot in E0."` plus, if `relisted_as`, a second notice `"A new listing {relisted_as} appeared after the removal; linked_sellers can check whether it is related."`; emit `listing.removed`. The API's remove endpoint calls this for every running case on that listing.

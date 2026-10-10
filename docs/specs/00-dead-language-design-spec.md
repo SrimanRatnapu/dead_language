@@ -26,7 +26,7 @@ Pitch line: **"They can hide the word ivory. They can't hide the price."**
 
 ## 3. What we are building (one paragraph)
 
-For every suspicious listing, three AI agents with **competing goals** review the case together. None of them is in charge. Neutral **specialists** (mostly plain code, a few AI) supply facts to a shared **evidence board**. The three agents argue in rounds, citing evidence by ID, until they all agree, stop changing their minds, or run out of rounds. The result is one of four outcomes: **FILE** (a case file goes to a human for approval), **DISMISS**, **CONTESTED** (sent to a human with both sides' best arguments), or **WATCHLIST** (not enough evidence; re-check the seller later). Nothing is ever sent to authorities automatically.
+For every suspicious listing, three AI agents with **competing goals** review the case together. None of them is in charge. Neutral **specialists** (mostly plain code, a few AI) supply facts to a shared **evidence board**. The three agents argue over a few short rounds, citing evidence by ID, but there is **no fixed speaking order or turn script**: an agent speaks only when something relevant changed (new evidence, or a peer rebutted or questioned it), can put a question directly to a peer, and declares for itself when it is ready to close. The review ends when they all agree, are all ready to close, stop changing their minds, or run out of rounds. The result is one of four outcomes: **FILE** (a case file goes to a human for approval), **DISMISS**, **CONTESTED** (sent to a human with both sides' best arguments), or **WATCHLIST** (not enough evidence; re-check the seller later). Nothing is ever sent to authorities automatically.
 
 ### Language rule (applies to code, UI, slides, Devpost)
 
@@ -65,7 +65,7 @@ There are **two** Material Examiners registered for the same capability: **thoro
 
 ### 4.3 The Facilitator (not a decision-maker)
 
-The Facilitator is plain code. It runs the rounds, routes specialist requests to the right specialist (found by capability through the AGNTCY Directory), checks every claim against the evidence board, and applies the **pre-agreed stopping and outcome rules** below. It never decides the outcome itself; the outcome is a fixed function of the three agents' final stances. The Cisco brief explicitly allows "shared messaging or facilitation" as long as no supervisor imposes the final decision.
+The Facilitator is plain code and a **referee of process only**: it runs the rounds, wakes the agents a change is relevant to, routes specialist requests to the right specialist (found by capability through the AGNTCY Directory), checks every claim against the evidence board, and applies the **pre-agreed stopping and outcome rules** below. It never decides the outcome itself; the outcome is a fixed, published function of the three agents' final stances that anyone can recompute from the public posts. It holds no opinion and can be replaced by any other implementation of the same rules. The Cisco brief explicitly allows "shared messaging or facilitation" as long as no supervisor imposes the final decision.
 
 ---
 
@@ -92,20 +92,22 @@ The three deliberating agents could make things up. Every rule below exists to s
 
 ## 6. Deliberation protocol
 
-- **Rounds:** up to **4**. In each round all three agents are sent the same snapshot (board + transcript) **at the same time** (AGNTCY broadcast), so nobody gets an ordering advantage.
-- **Each post** (`StancePost`) contains: stance (`file` / `dismiss` / `need_more`), confidence 0–1, claims with evidence IDs, a rebuttal (required from round 2: answer the strongest opposing claim from the previous round), up to 2 specialist requests, and `changed_because` if the stance changed.
+- **Rounds:** up to **4**. In round 1 all three agents are sent the same snapshot (board + transcript) **at the same time** (AGNTCY broadcast), so nobody gets an ordering advantage. From round 2 an agent is called **only if triggered**: (a) new evidence was added since its last post, (b) another agent's validated post targets it (a rebuttal or a challenge), or (c) a specialist it requested has answered. An untriggered agent keeps its previous post and is not called.
+- **Each post** (`StancePost`) contains: stance (`file` / `dismiss` / `need_more`), confidence 0–1, claims with evidence IDs, a rebuttal (required from round 2 when the agent is called: answer the strongest opposing claim from the previous round), up to 2 specialist requests, an optional **challenge** (one question to one named peer, which that peer must answer in its next post), `ready_to_close` (true when the agent has nothing more to add), and `changed_because` if the stance changed.
 - **Between rounds:** the Facilitator validates posts (Section 5), runs requested specialists (max 3 specialist calls per round, max 6 per case, duplicates merged), adds results to the board, and emits events for the UI.
 - **Stop after a round when any of these is true:**
   1. **Unanimous:** all three stances are `file`, or all three are `dismiss`.
-  2. **No movement:** no agent changed stance, every agent's confidence moved by less than 0.10, and no new evidence was added this round.
-  3. **Max rounds:** round 4 finished.
-  4. **Budget:** the case hit its token cap.
+  2. **Agreed to close:** from round 2 on, all three current posts have `ready_to_close = true`.
+  3. **No movement:** no agent changed stance, every agent's confidence moved by less than 0.10, and no new evidence was added this round (this includes a round in which no agent was triggered).
+  4. **Max rounds:** round 4 finished.
+  5. **Budget:** the case hit its token cap.
 - **Outcome rule (applied to the final stances):**
   - all `file` → **FILE**
   - all `dismiss` → **DISMISS**
   - at least one `file` AND at least one `dismiss` → **CONTESTED** (keep the disagreement, send to a human with each side's best argument)
   - anything else (some `need_more`, no file-vs-dismiss conflict) → **WATCHLIST**
 - **Why unanimity for FILE:** a false accusation is costly, so any one agent can block filing — but blocking with a grounded reason against another agent's grounded reason produces CONTESTED, which goes to a human. The system never hides disagreement.
+- **Outcome rule is public:** the mapping above and the stop rules are written down before any case runs and are the only thing that ends a case. The Facilitator cannot override them, and the UI shows which rule ended each case.
 - **When to ask a human:** FILE (approval before anything is sent) and CONTESTED (decide). This answers Cisco's "explain when the system should stop, preserve disagreement, or seek human input."
 
 ### Case file (FILE and CONTESTED)

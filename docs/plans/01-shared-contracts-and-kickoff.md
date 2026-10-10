@@ -222,6 +222,14 @@ class Rebuttal(BaseModel):
     response: str
     evidence_ids: list[str] = Field(default_factory=list)
 
+class Challenge(BaseModel):          # one question from one agent to a named peer
+    target_agent: AgentName
+    question: str
+
+class PeerQuestion(BaseModel):       # a Challenge as delivered to its target
+    asker: AgentName
+    question: str
+
 class StancePost(BaseModel):
     agent: AgentName
     round: int
@@ -232,6 +240,8 @@ class StancePost(BaseModel):
     requests: list[SpecialistRequest] = Field(default_factory=list)   # max 2
     changed_because: Optional[str] = None         # required if stance changed vs own previous
     changed_because_evidence: list[str] = Field(default_factory=list)
+    challenge: Optional[Challenge] = None         # max 1; target must answer it (with cited claims) in its next post
+    ready_to_close: bool = False                  # True = "I have nothing more to add"
 
 class DeliberationTurn(BaseModel):    # body sent to a deliberating agent
     case_id: str
@@ -241,6 +251,7 @@ class DeliberationTurn(BaseModel):    # body sent to a deliberating agent
     transcript: list[StancePost]       # validated posts from earlier rounds
     your_previous: Optional[StancePost] = None
     repair_feedback: Optional[list[str]] = None   # only on a repair call
+    questions_for_you: list[PeerQuestion] = Field(default_factory=list)   # challenges from peers' last posts
 
 Outcome = Literal["FILE", "DISMISS", "CONTESTED", "WATCHLIST"]
 
@@ -250,7 +261,7 @@ class CaseFile(BaseModel):
     seller_id: str
     outcome: Outcome
     rounds_used: int
-    stop_reason: Literal["unanimous", "no_movement", "max_rounds", "budget"]
+    stop_reason: Literal["unanimous", "ready_to_close", "no_movement", "max_rounds", "budget"]
     final_positions: list[StancePost]
     evidence: list[Evidence]
     legal_basis: list[str]
@@ -354,7 +365,7 @@ class Discovery(Protocol):
 def get_discovery() -> Discovery   # AgntcyDirectoryDiscovery if DISCOVERY=agntcy, else LocalDiscovery
 ```
 
-Note: `broadcast_turns` sends each agent its own `DeliberationTurn` (they differ only in `your_previous`). With AGNTCY broadcast, Person B may send one shared payload containing all three turns keyed by agent name; each agent picks its own. That is Person B's internal choice.
+Note: `broadcast_turns` sends each agent its own `DeliberationTurn` (they differ only in `your_previous` and `questions_for_you`). From round 2 the dict contains **only the triggered agents** (see spec §6), so it may have 0–3 keys; untriggered agents are simply absent and the Facilitator carries their previous post forward. With AGNTCY broadcast, Person B may send one shared payload containing all turns keyed by agent name; each agent picks its own. That is Person B's internal choice.
 
 ### 4.4 Deliberating agent handler (C → B)
 
@@ -419,7 +430,7 @@ SSE format: `event: <Event.type>` and `data: <Event JSON>` per message.
 | `evidence.added` | `{"evidence": Evidence}` |
 | `specialist.selected` | `{"capability", "specialist_name", "why", "requested_by", "candidates": [str]}` |
 | `specialist.failed` | `{"capability", "specialist_name", "error", "fallback": str | null}` |
-| `round.started` | `{"round": int}` |
+| `round.started` | `{"round": int, "active": [AgentName]}` (agents called this round; round 1 is all three, later rounds only the triggered ones) |
 | `stance.posted` | `{"post": StancePost}` (already validated; rejected claims removed) |
 | `claim.rejected` | `{"agent", "round", "claim_text", "reasons": [str]}` |
 | `listing.removed` | `{"listing_id", "relisted_as": str | null}` |
