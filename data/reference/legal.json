@@ -1,0 +1,27 @@
+{
+  "species": {
+    "elephant_ivory": {
+      "common_name": "African or Asian elephant ivory",
+      "cites": "Asian elephant: Appendix I. African elephant: Appendix I, except the populations of Botswana, Namibia, South Africa and Zimbabwe, which are in Appendix II with an annotation that restricts trade in their ivory.",
+      "source": "https://cites.org/eng/app/appendices.php"
+    }
+  },
+  "jurisdictions": {
+    "US-federal": {
+      "rule": "Interstate sale of African elephant ivory is prohibited except ESA antiques (at least 100 years old, not repaired with ivory since Dec 27, 1973, imported through an antique port where applicable) and de minimis items (ivory under 200 grams, not more than 50% of the item by volume or value, made before July 6, 2016, with import-date conditions). Intrastate sale is allowed federally only with proof of lawful import before Jan 18, 1990; states may be stricter.",
+      "source": "https://www.fws.gov/frequently-asked-questions-about-elephant-ivory"
+    },
+    "US-CA": {
+      "rule": "California Fish and Game Code section 2022 makes it unlawful to purchase, sell, offer for sale, or possess with intent to sell ivory. Narrow exceptions: antiques at least 100 years old with ivory under 5% by volume and documented provenance; musical instruments made no later than 1975 with ivory under 20% by volume and documentation; certain educational or scientific institutions; federal permits and law enforcement. First offense is a misdemeanor with fines of $1,000 to $40,000 depending on value.",
+      "source": "https://codes.findlaw.com/ca/fish-and-game-code/fgc-sect-2022/",
+      "antique_min_age_years": 100,
+      "antique_max_ivory_percent": 5,
+      "instrument_max_ivory_percent": 20,
+      "instrument_latest_year": 1975
+    },
+    "default": {
+      "rule": "No state-specific rule in our table; federal rules apply for US sellers. For non-US sellers, CITES Appendix I bars commercial international trade.",
+      "source": "https://cites.org/eng/app/appendices.php"
+    }
+  }
+}
