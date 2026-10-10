@@ -34,6 +34,6 @@ relist:                      # hidden until its original is removed; same main p
 
 demo:
   d1_network: n1b-1
-  d2_tagua: auto             # or "<source>:<source id>" of a real tagua listing chosen by eye
+  d2_tagua: "ebay:v1|236895484972|0"   # tagua "baby in a nut": brown seed skin visible, normal price ("auto" = let the build pick)
   d3_removed: n1a-1
   d4_ambiguous: s3-1

@@ -5,6 +5,7 @@ Run from the repo root:  uv run --project backend python scripts/build_dataset.p
 Inputs : data/raw/{ebay,manual}/*.json (real listings; see pull_ebay.py / ingest_manual_csv.py),
          data/raw/met/ and data/museum/ (CC0 photos; see pull_met.py),
          data/seed/reconstructed.yaml, data/seed/networks.yaml, optional data/seed/label_overrides.csv
+         and data/seed/exclude_real.csv
 Outputs: data/listings.jsonl, data/sellers.jsonl, data/labels.csv, data/images/*, data/eval_set.txt,
          data/demo_cases.json, data/phash_cache.json, data/raw/seller_map.json (real handle -> pseudonym)
 
@@ -19,6 +20,7 @@ import hashlib
 import io
 import json
 import random
+import re
 import statistics
 import sys
 from collections import Counter, defaultdict
@@ -71,12 +73,27 @@ def photo_source(ref: str) -> Path:
     return path
 
 
+def redact(text: str, handle: str) -> str:
+    """Sellers often name their own shop in the text; replace that with the pseudonym."""
+    if len(handle) < 7 and handle.isalpha():
+        return text                                    # too word-like to replace safely (e.g. "grade")
+    return re.sub(rf"(?<![A-Za-z0-9]){re.escape(handle)}(?![A-Za-z0-9])", pseudonym(handle), text, flags=re.I)
+
+
 def load_real() -> list[dict]:
+    excluded = set()                                   # real listings removed by eye, with the reason
+    if (SEED / "exclude_real.csv").exists():
+        with (SEED / "exclude_real.csv").open(newline="") as f:
+            excluded = {(row["source"], row["source_id"]) for row in csv.DictReader(f)}
     records = []
     for source in ("ebay", "manual"):
         for path in sorted((RAW / source).glob("*.json")):
             r = json.loads(path.read_text())
+            if (r["source"], r["source_id"]) in excluded or (r.get("category") or "").startswith("Pottery & Glass"):
+                continue                               # "vegetable ivory" also finds ivory-coloured dinnerware
             if r.get("title") and r.get("seller_handle") and float(r.get("price_usd") or 0) > 0:
+                r["title"] = redact(r["title"], r["seller_handle"])
+                r["description"] = redact(r["description"], r["seller_handle"])
                 records.append(r)
     return records
 
@@ -216,7 +233,8 @@ def main() -> None:
     for name in ("d1_network", "d3_removed", "d4_ambiguous"):
         demo[name] = listing_id[f"seed:{demo[name]}"]
     if demo.get("d2_tagua") in (None, "auto"):
-        tagua = [l for l in real_listings if l.stated_material == "tagua" and l.image_paths]
+        tagua = [l for l in real_listings if l.stated_material == "tagua" and l.item_type == "figurine"
+                 and l.image_paths]
         median = statistics.median([l.price_usd for l in tagua]) if tagua else 0
         fits = sorted((l for l in tagua if 0.5 * median <= l.price_usd <= 1.5 * median),
                       key=lambda l: (-len(l.image_paths), l.id))

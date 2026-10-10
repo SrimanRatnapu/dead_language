@@ -138,8 +138,11 @@ def main() -> None:
 
     found: dict[str, str] = {}                       # itemId -> the query that found it
     sellers: Counter[str] = Counter()
+    bone_tagua_hits: list[dict] = []
     for query in QUERIES:
         hits = ebay.search(query)
+        if "bone" in query or "tagua" in query:
+            bone_tagua_hits += hits
         for h in hits:
             found.setdefault(h["itemId"], query)
             sellers[(h.get("seller") or {}).get("username") or ""] += 1
@@ -156,8 +159,32 @@ def main() -> None:
 
     (RAW / "ebay").mkdir(parents=True, exist_ok=True)
     (RAW / "ebay_images").mkdir(parents=True, exist_ok=True)
-    saved = 0
+    # Take items round-robin across the searches (80% of --max), then across the seller inventories,
+    # so every material is represented instead of the first queries filling the whole quota.
+    groups: dict[str, list[str]] = {}
     for item_id, query in found.items():
+        groups.setdefault(query, []).append(item_id)
+
+    def round_robin(names: list[str]) -> list[str]:
+        longest = max((len(groups[n]) for n in names), default=0)
+        return [groups[n][i] for i in range(longest) for n in names if i < len(groups[n])]
+
+    by_query = round_robin([g for g in groups if not g.startswith("seller:")])
+    by_seller = round_robin([g for g in groups if g.startswith("seller:")])
+    # N3 "honest dealer": up to 10 bone/tagua items of the seller with the most hits in those searches.
+    dealers: Counter[str] = Counter()
+    for h in bone_tagua_hits:
+        dealers[(h.get("seller") or {}).get("username") or ""] += 1
+    dealers.pop("", None)
+    dealer = dealers.most_common(1)[0][0] if dealers else None
+    dealer_items = list(dict.fromkeys(h["itemId"] for h in bone_tagua_hits
+                                      if (h.get("seller") or {}).get("username") == dealer))[:10]
+    head = int(args.max * 0.8) - len(dealer_items)
+    order = list(dict.fromkeys(dealer_items + by_query[:head] + by_seller + by_query[head:]))
+
+    saved = 0
+    for item_id in order:
+        query = found[item_id]
         if saved >= args.max:
             break
         safe = re.sub(r"[^A-Za-z0-9]+", "_", item_id).strip("_")
