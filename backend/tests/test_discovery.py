@@ -85,3 +85,49 @@ async def test_latency_orders_within_a_tier():
     sel = await d.select("material_exam")
     assert sel.specialist_name == "deadlang-examiner-thorough-2"
     assert sel.candidates[-1] == "deadlang-examiner-quick"
+
+
+# ---------------- situational agents (cards only; the agents themselves belong to their owners) ----------------
+
+SITUATIONAL = {
+    "deadlang-photo-reuse": "photo_reuse",
+    "deadlang-provenance": "provenance_check",
+    "deadlang-exemption-reviewer": "exemption_review",
+}
+
+
+def test_situational_cards_exist_and_their_tags_parse():
+    from deadlang.agntcy.cards import SITUATIONAL_NAMES
+    assert set(SITUATIONAL_NAMES) == set(SITUATIONAL)
+    for name, capability in SITUATIONAL.items():
+        card = card_for(name)
+        tags = card_tags(card)
+        assert card.name == name and card.skills[0].id == capability
+        assert tags["capability"] == capability and tags["tier"] == "preferred"
+        assert tags["produced_by"] in ("code", "model") and tags["model"]
+        assert card.additional_interfaces[0].url.endswith(f"/default/default/{name}")
+
+
+def test_situational_card_descriptions_say_when_to_call_the_agent():
+    for name in SITUATIONAL:
+        card = card_for(name)
+        assert "call when" in card.description.lower(), name
+        assert "call when" in card.skills[0].description.lower(), name
+
+
+def test_provenance_card_is_for_antique_claims():
+    text = card_for("deadlang-provenance").description.lower()
+    assert "antique" in text and "certificate" in text
+
+
+def test_situational_agents_are_not_offered_until_they_are_running():
+    from deadlang.agntcy.cards import names_for_capability
+    assert not set(SITUATIONAL) & set(ALL_AGENT_NAMES)          # discovery and the Directory only list live agents
+    for name, capability in SITUATIONAL.items():
+        assert names_for_capability(capability) == [name]
+
+
+async def test_situational_agents_are_selectable_once_their_cards_are_registered():
+    d = LocalDiscovery([card_for(n) for n in ALL_AGENT_NAMES] + [card_for("deadlang-photo-reuse")])
+    assert (await d.select("photo_reuse")).specialist_name == "deadlang-photo-reuse"
+    assert await d.select("provenance_check") is None

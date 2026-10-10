@@ -55,6 +55,27 @@ def _specs() -> dict[str, CardSpec]:
             "translation", "preferred", "model", fast,
             "Translates a non-English listing into plain English.",
             "Takes a listing ID; returns the English title, description and notable phrases."),
+        # Situational agents: called only when the case calls for them. Cards only for now; the owner builds
+        # the agent. Check produced_by / model below against what they actually build.
+        "deadlang-photo-reuse": CardSpec(
+            "photo_reuse", "preferred", "code", "none",
+            "Finds other listings and sellers that use the same or near-identical photos. Call when the photos "
+            "look like stock or catalogue images, or when the seller or its linked sellers show repeated items.",
+            "Call when the photos may be reused. Takes a listing ID; returns the other listings and sellers "
+            "whose photos match, with how close each match is."),
+        "deadlang-provenance": CardSpec(
+            "provenance_check", "preferred", "code", "none",
+            "Checks an item's claimed age, origin or paperwork against what the listing actually shows. Call "
+            "when the listing claims an antique date, period, or certificate.",
+            "Call when the listing claims an age, origin or paperwork. Takes a listing ID; returns what is "
+            "claimed and whether anything in the listing supports it."),
+        "deadlang-exemption-reviewer": CardSpec(
+            "exemption_review", "preferred", "model", strong,
+            "Checks whether a legal exemption (for example antique age or pre-ban ownership) could apply, given "
+            "the evidence. Call when the legal lookup shows an exemption exists and the listing makes a claim "
+            "that could meet it.",
+            "Call when an exemption might apply. Takes a listing ID and the legal evidence; returns which "
+            "exemptions could apply and what proof each would need."),
         "deadlang-buyer": CardSpec(
             "deliberate", "preferred", "model", strong,
             "Reviews a case as an experienced buyer who knows prices and materials.", deliberator),
@@ -71,6 +92,9 @@ SPECIALIST_NAMES: list[str] = [
     "deadlang-price-checker", "deadlang-seller-inventory", "deadlang-linked-sellers", "deadlang-legal-table",
     "deadlang-examiner-thorough", "deadlang-examiner-quick", "deadlang-translator",
 ]
+# Not in ALL_AGENT_NAMES on purpose: that list is who is running, and discovery or the Directory would offer
+# an agent that does not exist yet. Add a name to it when its owner has built the agent.
+SITUATIONAL_NAMES: list[str] = ["deadlang-photo-reuse", "deadlang-provenance", "deadlang-exemption-reviewer"]
 DELIBERATOR_NAMES: dict[AgentName, str] = {
     "buyer": "deadlang-buyer", "defender": "deadlang-defender", "caseload": "deadlang-caseload",
 }
