@@ -42,3 +42,8 @@ h1,h2,h3 { text-wrap: balance; }.display { font-family: var(--font-sans),system-
 .wildlife-signal--compact { width:8.75rem; min-width:8.75rem; }.wildlife-signal--compact .signal-leaf { border-width:1px; }
 @keyframes orbit-breathe { 0%,100% { transform:scale(.96) rotate(-8deg); opacity:.55; } 50% { transform:scale(1.04) rotate(8deg); opacity:1; } } @keyframes leaf-drift { to { translate:5px -9px; rotate:8deg; } } @keyframes core-pulse { 0%,100% { scale:.9; } 45% { scale:1.08; } 65% { scale:1; } }
 @media (prefers-reduced-motion:reduce) { .signal-orbit,.signal-leaf,.signal-core { animation:none; } }
+
+@keyframes flow { to { stroke-dashoffset: -22; } } .flow { animation: flow 900ms linear infinite; }
+@keyframes halo { 0% { transform: scale(.8); opacity: .45; } 100% { transform: scale(1.5); opacity: 0; } } .halo { animation: halo 1.4s var(--ease-out) infinite; }
+@keyframes flash { from { background-color: var(--amber-tint); } } .flash { animation: flash 1.2s ease-out; }
+@media (prefers-reduced-motion:reduce) { .flow,.halo,.flash { animation:none; } }

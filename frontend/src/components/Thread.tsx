@@ -2,40 +2,61 @@
 import { useEffect, useRef, useState } from "react";
 import { AGENTS, CAPABILITY_LABEL, prettyName } from "@/lib/agents";
 import type { CaseState, Failure, Selection } from "@/lib/caseState";
-import type { AgentName, Evidence, Stance, StancePost } from "@/lib/types";
+import type { AgentName, Capability, Evidence, Stance, StancePost } from "@/lib/types";
 import { EvidenceChip } from "./EvidenceChip";
 import { Icon } from "./Icon";
 import { StancePill } from "./Seats";
 
 type Open = (id: string) => void;
 type Row = { kind: "evidence"; evidence: Evidence } | { kind: "failed"; failure: Failure } | { kind: "route"; selection: Selection };
+type Wake = { kind: "start" } | { kind: "asked"; by: AgentName } | { kind: "rebutted"; by: AgentName } | { kind: "evidence"; caps: Capability[] };
 type Block =
   | { kind: "facts"; rows: Row[] }
-  | { kind: "round"; round: number; active: AgentName[] }
-  | { kind: "post"; post: StancePost; prev: Stance | null }
+  | { kind: "post"; post: StancePost; prev: Stance | null; wake: Wake[] }
   | { kind: "removed"; relisted_as: string | null };
 
 // The feed is arrival order. Fold consecutive fact-finding into one block, and remember each agent's earlier stance.
 function toBlocks(state: CaseState): Block[] {
   const blocks: Block[] = [];
   const last = new Map<AgentName, Stance>();
+  // What has landed since each agent last spoke: this is what wakes them, there is no turn order.
+  const pending = new Map<AgentName, Wake[]>();
+  const wakeFor = (a: AgentName) => pending.get(a) ?? [];
+  const evidenceSince = new Map<AgentName, Capability[]>();
   for (const item of state.feed) {
     const tail = blocks.at(-1);
     const fact: Row | null = item.kind === "evidence" && state.evidence[item.id]?.capability !== "listing_snapshot" ? { kind: "evidence", evidence: state.evidence[item.id] }
       : item.kind === "failed" ? { kind: "failed", failure: item.failure }
       : item.kind === "selected" ? { kind: "route", selection: item.selection } : null;
+    if (item.kind === "evidence" && state.evidence[item.id]) { for (const ag of Object.keys(AGENTS) as AgentName[]) evidenceSince.set(ag, [...(evidenceSince.get(ag) ?? []), state.evidence[item.id].capability]); }
     if (fact) {
       if (tail?.kind === "facts") tail.rows.push(fact); else blocks.push({ kind: "facts", rows: [fact] });
-    } else if (item.kind === "round") {
-      blocks.push({ kind: "round", round: item.round, active: state.rounds.find((r) => r.round === item.round)?.active ?? [] });
     } else if (item.kind === "post") {
-      blocks.push({ kind: "post", post: item.post, prev: last.get(item.post.agent) ?? null });
-      last.set(item.post.agent, item.post.stance);
+      const p = item.post;
+      const wake: Wake[] = [...wakeFor(p.agent)];
+      const caps = [...new Set(evidenceSince.get(p.agent) ?? [])];
+      if (!last.has(p.agent)) wake.unshift({ kind: "start" });
+      else if (caps.length) wake.push({ kind: "evidence", caps });
+      blocks.push({ kind: "post", post: p, prev: last.get(p.agent) ?? null, wake });
+      last.set(p.agent, p.stance);
+      pending.delete(p.agent);
+      evidenceSince.set(p.agent, []);
+      if (p.challenge) pending.set(p.challenge.target_agent, [...wakeFor(p.challenge.target_agent), { kind: "asked", by: p.agent }]);
+      if (p.rebuttal) pending.set(p.rebuttal.target_agent, [...wakeFor(p.rebuttal.target_agent), { kind: "rebutted", by: p.agent }]);
     } else if (item.kind === "removed") {
       blocks.push({ kind: "removed", relisted_as: item.relisted_as });
     }
   }
   return blocks;
+}
+
+function WakeLine({ wake }: { wake: Wake[] }) {
+  if (wake.length === 0) return null;
+  const parts = wake.map((w, i) => w.kind === "start" ? <span key={i}>called in when the case opened</span>
+    : w.kind === "asked" ? <span key={i}>asked a question by <b className={AGENTS[w.by].text}>{AGENTS[w.by].label}</b></span>
+    : w.kind === "rebutted" ? <span key={i}>rebutted by <b className={AGENTS[w.by].text}>{AGENTS[w.by].label}</b></span>
+    : <span key={i}>new {w.caps.map((c) => CAPABILITY_LABEL[c].toLowerCase()).join(" + ")} on the board</span>);
+  return <p className="mono mb-2 flex flex-wrap items-center gap-x-1.5 text-muted"><span aria-hidden>⚡</span>woken: {parts.map((n, i) => <span key={i}>{i > 0 && " · "}{n}</span>)}</p>;
 }
 
 function Chips({ ids, state, onOpen }: { ids: string[]; state: CaseState; onOpen: Open }) {
@@ -78,14 +99,15 @@ function Facts({ rows, open, onOpen }: { rows: Row[]; open: boolean; onOpen: Ope
   );
 }
 
-function Message({ post, prev, state, onOpen }: { post: StancePost; prev: Stance | null; state: CaseState; onOpen: Open }) {
+function Message({ post, prev, wake, state, onOpen }: { post: StancePost; prev: Stance | null; wake: Wake[]; state: CaseState; onOpen: Open }) {
   const a = AGENTS[post.agent];
   const [all, setAll] = useState(false);
   const [showRejected, setShowRejected] = useState(false);
   const rejected = state.rounds.find((r) => r.round === post.round)?.rejected.filter((r) => r.agent === post.agent) ?? [];
   const claims = all ? post.claims : post.claims.slice(0, 2);
   return (
-    <article className="rise border-l-2 pl-4" style={{ borderColor: a.cssVar }}>
+    <article className={`rise relative border border-line bg-surface/80 px-4 py-3.5 ${prev && prev !== post.stance ? "flash" : ""}`} style={{ boxShadow: `inset 3px 0 0 ${a.cssVar}` }}>
+      <WakeLine wake={wake} />
       <header className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
         <span className={`text-sm font-semibold ${a.text}`}>{a.label}</span>
         {prev && prev !== post.stance && <><StancePill stance={prev} className="opacity-60" /><span className="text-muted" aria-label="changed to">→</span></>}
@@ -93,7 +115,7 @@ function Message({ post, prev, state, onOpen }: { post: StancePost; prev: Stance
         <span className="mono text-muted">{Math.round(post.confidence * 100)}%</span>
         {post.ready_to_close && <span className="mono text-muted">· ready to close</span>}
       </header>
-      {post.changed_because && <p className="mt-2.5 bg-sunken px-3 py-2 text-[0.85rem] leading-snug"><span className="font-semibold">Changed my mind: </span>{post.changed_because}<Chips ids={post.changed_because_evidence} state={state} onOpen={onOpen} /></p>}
+      {post.changed_because && <p className="mt-2.5 border-l-2 border-amber bg-amber-tint px-3 py-2 text-[0.85rem] leading-snug"><span className="font-semibold">Changed my mind: </span>{post.changed_because}<Chips ids={post.changed_because_evidence} state={state} onOpen={onOpen} /></p>}
       {post.rebuttal && <p className="mt-2.5 text-[0.85rem] leading-snug text-muted"><span className={`font-semibold ${AGENTS[post.rebuttal.target_agent].text}`}>↩ {AGENTS[post.rebuttal.target_agent].label}: </span>{post.rebuttal.response}<Chips ids={post.rebuttal.evidence_ids} state={state} onOpen={onOpen} /></p>}
       {claims.length > 0 && <ul className="mt-2.5 space-y-2">{claims.map((c, i) => <li key={i} className="text-[0.9rem] leading-snug">{c.text}<Chips ids={c.evidence_ids} state={state} onOpen={onOpen} /></li>)}</ul>}
       {post.claims.length > 2 && <button onClick={() => setAll(!all)} className="press mt-1.5 min-h-8 text-[0.8rem] font-medium text-cobalt-ink hover:underline">{all ? "Show less" : `Show ${post.claims.length - 2} more`}</button>}
@@ -120,22 +142,22 @@ export function Thread({ state, onOpen }: { state: CaseState; onOpen: Open }) {
   const waiting = finished ? [] : (lastRound?.active ?? []).filter((a) => lastRound?.posts[a] === undefined);
   const key = `${blocks.length}:${waiting.join()}`;
 
-  // Follow the stream while the reader is at the bottom; stop the moment they scroll up.
-  useEffect(() => { const el = ref.current; if (el && pinned) el.scrollTop = el.scrollHeight; }, [key, pinned]);
-  const onScroll = () => { const el = ref.current; if (el) setPinned(el.scrollHeight - el.scrollTop - el.clientHeight < 96); };
+  // Newest first. Stay glued to the top while the reader is there; stop when they scroll down.
+  useEffect(() => { const el = ref.current; if (el && pinned) el.scrollTop = 0; }, [key, pinned]);
+  const onScroll = () => { const el = ref.current; if (el) setPinned(el.scrollTop < 96); };
   const lastPost = blocks.findLastIndex((b) => b.kind === "post");
+  const shown = blocks.map((b, i) => ({ b, i })).reverse();
 
   return (
     <div ref={ref} onScroll={onScroll} className="relative lg:h-full lg:overflow-y-auto">
-      <div className="mx-auto flex max-w-[760px] flex-col gap-6 px-5 py-6 sm:px-8">
-        {blocks.map((b, i) => b.kind === "facts" ? <Facts key={i} rows={b.rows} open={i > lastPost || b.rows.length <= 2} onOpen={onOpen} />
-          : b.kind === "round" ? <div key={i} className="rise mt-2 flex items-center gap-3"><span className="rule-label">Round {b.round}</span><i className="h-px flex-1 bg-line" />{b.active.length > 0 && b.active.length < 3 && <span className="mono text-muted">{b.active.map((a) => AGENTS[a].label).join(" · ")}</span>}</div>
-          : b.kind === "post" ? <Message key={i} post={b.post} prev={b.prev} state={state} onOpen={onOpen} />
+      <div className="mx-auto flex max-w-[760px] flex-col gap-4 px-5 py-6 sm:px-8">
+        {waiting.map((a) => <Pending key={a}>{AGENTS[a].label} was woken and is reading the board</Pending>)}
+        {shown.map(({ b, i }) => b.kind === "facts" ? <Facts key={i} rows={b.rows} open={i > lastPost || b.rows.length <= 2} onOpen={onOpen} />
+          : b.kind === "post" ? <Message key={i} post={b.post} prev={b.prev} wake={b.wake} state={state} onOpen={onOpen} />
           : <p key={i} className="rise border-l-2 border-red pl-4 text-[0.85rem] text-red">Seller removed the listing{b.relisted_as ? ` · relisted as ${b.relisted_as}` : ""}. The review continues from the saved snapshot.</p>)}
         {blocks.length === 0 && !finished && <Pending>Gathering facts</Pending>}
-        {waiting.map((a) => <Pending key={a}>{AGENTS[a].label} is reviewing</Pending>)}
       </div>
-      {!pinned && <div className="pointer-events-none sticky bottom-4 flex justify-center"><button onClick={() => setPinned(true)} className="press pointer-events-auto min-h-11 rounded-full bg-ink px-4 text-[0.82rem] font-semibold text-surface shadow-[var(--shadow)]">↓ Latest</button></div>}
+      {!pinned && <div className="pointer-events-none sticky bottom-4 flex justify-center"><button onClick={() => { setPinned(true); ref.current?.scrollTo({ top: 0, behavior: "smooth" }); }} className="press pointer-events-auto min-h-11 rounded-full bg-ink px-4 text-[0.82rem] font-semibold text-surface shadow-[var(--shadow)]">↑ Newest</button></div>}
     </div>
   );
 }
