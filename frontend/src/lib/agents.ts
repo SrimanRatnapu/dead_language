@@ -40,3 +40,10 @@ export const STOP_REASON_TEXT: Record<StopReason, string> = {
 export const prettyName = (n: string) => n.replace(/^deadlang-/, "").replaceAll("-", " ");
 
 export const usd = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
+
+// Stance colors are shared by the seats strip and the thread so a stance reads the same everywhere.
+export const STANCE_STYLE: Record<Stance, string> = {
+  file: "bg-cobalt-tint text-cobalt-ink",
+  dismiss: "bg-green-tint text-green",
+  need_more: "bg-sunken text-muted",
+};
