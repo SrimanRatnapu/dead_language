@@ -13,7 +13,6 @@ import base64
 import io
 import json
 import logging
-import os
 import time
 from pathlib import Path
 from typing import Any
@@ -21,7 +20,7 @@ from typing import Any
 import anthropic
 from PIL import Image
 
-from deadlang import config
+from deadlang import config, fileio
 
 log = logging.getLogger("deadlang.llm")
 
@@ -70,18 +69,7 @@ def _load_usage() -> dict:
 
 
 def _write_usage(data: dict) -> None:
-    path = Path(config.USAGE_FILE)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_name(f"{path.name}.{os.getpid()}.tmp")
-    tmp.write_text(json.dumps(data, indent=2))
-    for attempt in range(5):   # Windows: replace fails while another process has the file open
-        try:
-            os.replace(tmp, path)
-            return
-        except PermissionError:
-            if attempt == 4:
-                raise
-            time.sleep(0.05)
+    fileio.write_json_atomic(config.USAGE_FILE, data)
 
 
 def usage_snapshot(case_id: str | None = None) -> dict:
@@ -119,6 +107,11 @@ def _check_budget(case_id: str | None, est_in: int, max_out: int) -> None:
 
 
 # ---------------- request building ----------------
+
+def estimate_input_tokens(system: str, user: str, images: int = 0) -> int:
+    """The estimate the budget check uses before every call (also used by the cost reports)."""
+    return int(len(system + user) / CHARS_PER_TOKEN) + TOKENS_PER_IMAGE * images
+
 
 def _is_legacy(model: str) -> bool:
     return model.startswith(_LEGACY_PREFIXES)
@@ -186,7 +179,7 @@ async def call_json(*, model: str, system: str, user: str, schema_name: str,
                     schema: dict, case_id: str | None, max_tokens: int = 2000,
                     temperature: float = 0.0) -> dict:
     req = _request(model, system, user, schema_name, schema, max_tokens, temperature)
-    est_in = int(len(system + user) / CHARS_PER_TOKEN)
+    est_in = estimate_input_tokens(system, user)
     return await _call(req, schema_name, case_id, est_in)
 
 
@@ -195,5 +188,5 @@ async def call_vision_json(*, model: str, system: str, user: str, image_paths: l
                            max_tokens: int = 1500, temperature: float = 0.0) -> dict:
     content = [_encode_image(Path(p)) for p in image_paths] + [{"type": "text", "text": user}]
     req = _request(model, system, content, schema_name, schema, max_tokens, temperature)
-    est_in = int(len(system + user) / CHARS_PER_TOKEN) + TOKENS_PER_IMAGE * len(image_paths)
+    est_in = estimate_input_tokens(system, user, images=len(image_paths))
     return await _call(req, schema_name, case_id, est_in)

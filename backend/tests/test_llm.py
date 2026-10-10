@@ -1,5 +1,6 @@
 import base64
 import io
+import json
 from types import SimpleNamespace
 
 import anthropic
@@ -144,3 +145,17 @@ async def test_vision_downscales_and_puts_images_before_text(tmp_path):
     assert content[0]["source"]["media_type"] == "image/jpeg"
     decoded = Image.open(io.BytesIO(base64.b64decode(content[0]["source"]["data"])))
     assert max(decoded.size) <= llm.MAX_IMAGE_SIDE
+
+
+def test_estimate_input_tokens_matches_what_the_budget_check_uses():
+    assert llm.estimate_input_tokens("a" * 350, "b" * 350) == 200
+    assert llm.estimate_input_tokens("a" * 350, "b" * 350, images=2) == 200 + 2 * llm.TOKENS_PER_IMAGE
+
+
+def test_write_json_atomic_replaces_the_file_and_leaves_no_temp(tmp_path):
+    from deadlang import fileio
+    target = tmp_path / "sub" / "out.json"
+    fileio.write_json_atomic(target, {"a": 1})
+    fileio.write_json_atomic(target, {"a": 2})
+    assert json.loads(target.read_text()) == {"a": 2}
+    assert [p.name for p in target.parent.iterdir()] == ["out.json"]
