@@ -154,17 +154,21 @@ def _release(res: _Reservation) -> None:
             _pending["cases"][res.case_id] = left
 
 
+def _record_now(res: _Reservation, tokens_in: int, tokens_out: int) -> None:
+    """Add usage to the file and release the reservation. Never awaits, so nothing can interleave with it."""
+    data = _load_usage()   # re-read every time so other processes' usage is kept
+    rows = [data["global"]] + ([data["cases"].setdefault(res.case_id, _empty())] if res.case_id else [])
+    for row in rows:
+        row["input_tokens"] += tokens_in
+        row["output_tokens"] += tokens_out
+        row["calls"] += 1
+    _write_usage(data)
+    _release(res)
+
+
 async def _record(res: _Reservation, tokens_in: int, tokens_out: int) -> None:
-    """Write actual usage and release the reservation in one step."""
-    async with _get_lock():   # re-read under the lock so other processes' usage is kept
-        data = _load_usage()
-        rows = [data["global"]] + ([data["cases"].setdefault(res.case_id, _empty())] if res.case_id else [])
-        for row in rows:
-            row["input_tokens"] += tokens_in
-            row["output_tokens"] += tokens_out
-            row["calls"] += 1
-        _write_usage(data)
-        _release(res)
+    async with _get_lock():
+        _record_now(res, tokens_in, tokens_out)
 
 
 # ---------------- request building ----------------
@@ -258,14 +262,26 @@ async def _create(req: dict, schema_name: str) -> Any:
 async def _attempt(req: dict, schema_name: str, case_id: str | None, est_in: int) -> tuple[dict | None, Any]:
     """One request, budget-reserved and recorded. Returns (tool input or None, the response)."""
     res = await _reserve(case_id, est_in, req["max_tokens"])
+    resp = None
     try:
         start = time.perf_counter()
         resp = await _create(req, schema_name)
         ms = (time.perf_counter() - start) * 1000
         tokens_in, tokens_out = resp.usage.input_tokens, resp.usage.output_tokens
         await _record(res, tokens_in, tokens_out)
+    except (asyncio.CancelledError, anthropic.APITimeoutError):
+        # The request was (or may have been) sent and then cut off, e.g. by the transport's timeout. It may
+        # still be billed, so count it as spent rather than letting it vanish: the real usage if the response
+        # had already arrived, otherwise the reserved estimate (conservative).
+        if res.active:
+            spent = (resp.usage.input_tokens, resp.usage.output_tokens) if resp is not None                 else (res.tokens_in, res.tokens_out)
+            try:
+                _record_now(res, *spent)
+            except OSError:
+                log.exception("llm: could not record usage for a cut-off call")
+        raise
     finally:
-        _release(res)                                   # no-op after _record; covers errors and cancellation
+        _release(res)                                   # no-op once recorded; covers every other error
     log.info("llm model=%s schema=%s case=%s in=%d out=%d ms=%.0f",
              req["model"], schema_name, case_id, tokens_in, tokens_out, ms)
     for block in resp.content:
@@ -289,6 +305,8 @@ async def _call(req: dict, schema_name: str, case_id: str | None, est_in: int) -
     out, resp = await _attempt(req, schema_name, case_id, est_in)
     if out is not None:
         return out
+    if getattr(resp, "stop_reason", None) == "refusal":
+        raise ValueError("no tool output (the model declined to answer)")    # asking again would just be refused again
     # The model answered in words instead of calling the tool (possible when tool_choice is "auto").
     # Ask once more, with its reply in the conversation; this call is budget-checked and recorded too.
     nudge = f"Call the {schema_name} tool now with your answer."
