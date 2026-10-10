@@ -34,6 +34,14 @@ class FakeMarket:
     async def get_listing_snapshot(self, listing_id: str) -> Listing:
         return self.listing
 
+    async def all_active(self) -> list[Listing]:
+        return [self.listing]
+
+    async def remove_listing(self, listing_id: str) -> str | None:
+        return "L0456"
+
+    async def reset_demo(self) -> None: ...
+
     async def get_seller(self, seller_id: str) -> Seller:
         return self.seller
 
