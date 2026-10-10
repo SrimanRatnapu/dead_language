@@ -7,6 +7,7 @@ import { DecodedListing } from "./DecodedListing";
 import { DemoControls } from "./DemoControls";
 import { EvidenceDrawer } from "./EvidenceDrawer";
 import { Outcome } from "./Outcome";
+import { Phases } from "./Phases";
 import { ProcessLog } from "./ProcessLog";
 import { Seats } from "./Seats";
 import { Thread } from "./Thread";
@@ -32,7 +33,7 @@ export function CaseView({ target }: { target: CaseTarget }) {
         {scripted && <p className="mb-3 border-l-2 border-amber bg-amber-tint px-3 py-2 text-sm text-amber-ink"><span className="font-semibold">Scripted walkthrough.</span> The evidence, claim checks and outcome rule ran for real on our dataset. The agents&apos; wording and the photo readings are written by hand until a live run is recorded.</p>}
         <div className="grid min-h-0 flex-1 border border-line bg-bg/70 lg:grid-cols-[minmax(330px,31%)_minmax(0,1fr)]">
           <aside aria-label="Listing under review" className="order-2 overflow-y-auto border-t border-line bg-surface/70 lg:order-1 lg:min-h-0 lg:border-t-0 lg:border-r"><DecodedListing state={state} onOpenEvidence={setOpenEvidence} /></aside>
-          <section aria-label="Case review" className="order-1 flex flex-col lg:order-2 lg:min-h-0"><div className="shrink-0 border-b border-line bg-surface/40"><Seats state={state} /></div><Outcome state={state} onOpenCaseFile={() => setCaseFileOpen(true)} /><div className="lg:min-h-0 lg:flex-1"><Thread state={state} onOpen={setOpenEvidence} /></div></section>
+          <section aria-label="Case review" className="order-1 flex flex-col lg:order-2 lg:min-h-0"><div className="shrink-0 border-b border-line bg-surface/40"><Phases state={state} onOpen={setOpenEvidence} /><Seats state={state} /></div><Outcome state={state} onOpenCaseFile={() => setCaseFileOpen(true)} /><div className="lg:min-h-0 lg:flex-1"><Thread state={state} onOpen={setOpenEvidence} /></div></section>
         </div>
       </div>
       <EvidenceDrawer evidence={openEvidence ? state.evidence[openEvidence] ?? null : null} listing={state.listing} onClose={() => setOpenEvidence(null)} />

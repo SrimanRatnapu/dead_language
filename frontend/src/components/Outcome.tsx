@@ -14,7 +14,7 @@ export function Outcome({ state, onOpenCaseFile }: { state: CaseState; onOpenCas
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2" aria-label="How the outcome was set">
         {cf.final_positions.map((p) => <span key={p.agent} className={`inline-flex items-center gap-2 border px-2.5 py-1 text-base ${heavy ? "border-surface/40" : "border-line bg-surface/70"}`}><i className="size-2 rounded-full" style={{ background: AGENTS[p.agent].cssVar }} /><b>{AGENTS[p.agent].label}</b> {STANCE_LABEL[p.stance].toLowerCase()}</span>)}
         <span aria-hidden>→</span>
-        <span className={`display ${heavy ? "text-4xl" : "text-3xl"}`}>{OUTCOME_LABEL[cf.outcome]}</span>
+        <span className={`display ${heavy ? "text-3xl" : "text-2xl"}`}>{OUTCOME_LABEL[cf.outcome]}</span>
       </div>
       <p className={heavy ? "text-surface/85" : "text-muted"}>No one decided this. A published rule read the three final positions. {STOP_REASON_TEXT[cf.stop_reason]}. Nothing is sent without a person.</p>
       <button onClick={onOpenCaseFile} className={`press min-h-11 w-fit px-4 py-2.5 font-semibold ${heavyBtn}`}>Open case file</button>

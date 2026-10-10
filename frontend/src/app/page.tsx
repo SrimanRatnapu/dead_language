@@ -10,7 +10,7 @@ export default function Listings() {
   return (
     <main className="shell-grid min-h-[calc(100dvh-3.5rem)]">
       <div className="mx-auto max-w-7xl px-5 py-8 sm:px-8">
-        <h1 className="display text-4xl sm:text-5xl">Listings</h1>
+        <h1 className="text-xl font-semibold tracking-tight">Listings</h1>
         <p className="mt-3 max-w-xl text-base text-muted">Open any listing to read it, then run a review on it.</p>
         {rows === null ? <p className="mt-10 text-muted">Loading listings…</p>
           : rows.length === 0 ? <p className="mt-10 text-muted">No listings found.</p>

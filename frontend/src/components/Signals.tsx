@@ -53,7 +53,7 @@ function RatioPlot({ price }: { price: SignalData["price"] }) {
 }
 
 function Tile({ value, label }: { value: string; label: string }) {
-  return <div className="bg-surface p-5"><dd className="display text-4xl text-cobalt-ink">{value}</dd><dt className="mt-2 text-muted">{label}</dt></div>;
+  return <div className="bg-surface p-5"><dd className="display text-2xl text-cobalt-ink">{value}</dd><dt className="mt-2 text-muted">{label}</dt></div>;
 }
 
 // Numbers computed from the dataset by the code specialists (scripts/export_demo.py). No model involved.
@@ -73,20 +73,20 @@ export function Signals({ data }: { data: SignalData }) {
 
       <section aria-labelledby="price" className="mt-12 border-t border-line pt-8">
         <p className="rule-label mb-3 text-cobalt-ink">Measured by code · no model</p>
-        <h2 id="price" className="display max-w-3xl text-4xl">Price separates them, but price alone would accuse honest sellers.</h2>
+        <h2 id="price" className="text-lg font-semibold tracking-tight">Price separates them, but price alone would accuse honest sellers.</h2>
         <RatioPlot price={p} />
         <div className="mt-6 grid gap-px border border-line bg-line md:grid-cols-2">
-          <div className="bg-surface p-5"><p className="display text-4xl">{p.planted_flagged} of {p.planted_total}</p><p className="mt-2 text-muted">reconstructed cases are priced at {p.flag_at}x or more. We set those prices to match the documented pattern, so this confirms the dataset rather than proving the method.</p></div>
-          <div className="bg-surface p-5"><p className="display text-4xl">{p.real_flagged} of {p.real_total}</p><p className="mt-2 text-muted">real listings are also at {p.flag_at}x or more. A price-only rule would file every one of them. This is the gap the Defender and the photo examiner exist to close.</p></div>
+          <div className="bg-surface p-5"><p className="display text-2xl">{p.planted_flagged} of {p.planted_total}</p><p className="mt-2 text-muted">reconstructed cases are priced at {p.flag_at}x or more. We set those prices to match the documented pattern, so this confirms the dataset rather than proving the method.</p></div>
+          <div className="bg-surface p-5"><p className="display text-2xl">{p.real_flagged} of {p.real_total}</p><p className="mt-2 text-muted">real listings are also at {p.flag_at}x or more. A price-only rule would file every one of them. This is the gap the Defender and the photo examiner exist to close.</p></div>
         </div>
       </section>
 
       <section aria-labelledby="links" className="mt-12 border-t border-line pt-8">
         <p className="rule-label mb-3 text-cobalt-ink">Measured by code · no model</p>
-        <h2 id="links" className="display max-w-3xl text-4xl">Shared wording and reused photos find the network.</h2>
+        <h2 id="links" className="text-lg font-semibold tracking-tight">Shared wording and reused photos find the network.</h2>
         <div className="mt-6 grid gap-px border border-line bg-line md:grid-cols-2">
-          <div className="bg-surface p-5"><p className="display text-4xl">{l.network_linked} of {l.network_total}</p><p className="mt-2 text-muted">listings in the designed three-seller network are linked to the other sellers by two long shared phrases or a reused photo.</p></div>
-          <div className="bg-surface p-5"><p className="display text-4xl">{l.real_linked} of {l.real_total}</p><p className="mt-2 text-muted">real listings are linked to another seller the same way. Under the first version of the rule it was over a third, because ordinary shipping boilerplate matched.</p></div>
+          <div className="bg-surface p-5"><p className="display text-2xl">{l.network_linked} of {l.network_total}</p><p className="mt-2 text-muted">listings in the designed three-seller network are linked to the other sellers by two long shared phrases or a reused photo.</p></div>
+          <div className="bg-surface p-5"><p className="display text-2xl">{l.real_linked} of {l.real_total}</p><p className="mt-2 text-muted">real listings are linked to another seller the same way. Under the first version of the rule it was over a third, because ordinary shipping boilerplate matched.</p></div>
         </div>
       </section>
     </>
