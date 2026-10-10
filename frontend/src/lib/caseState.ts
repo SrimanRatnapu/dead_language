@@ -25,7 +25,18 @@ export interface Failure {
   at: string;
 }
 
+// Everything that happened, in arrival order: drives the live conversation.
+export type FeedItem =
+  | { kind: "round"; round: number }
+  | { kind: "evidence"; id: string }
+  | { kind: "selected"; selection: Selection }
+  | { kind: "failed"; failure: Failure }
+  | { kind: "post"; post: StancePost }
+  | { kind: "rejected"; agent: AgentName; claim_text: string; reasons: string[] }
+  | { kind: "removed"; relisted_as: string | null };
+
 export interface CaseState {
+  feed: FeedItem[];
   listing: Listing | null;
   seller: Seller | null;
   evidence: Record<string, Evidence>;
@@ -40,6 +51,7 @@ export interface CaseState {
 }
 
 export const initialCaseState: CaseState = {
+  feed: [],
   listing: null,
   seller: null,
   evidence: {},
@@ -73,32 +85,47 @@ export function reduce(state: CaseState, e: Event): CaseState {
         ...next,
         evidence: { ...state.evidence, [ev.id]: ev },
         evidenceOrder: seen ? state.evidenceOrder : [...state.evidenceOrder, ev.id],
+        feed: seen ? state.feed : [...state.feed, { kind: "evidence", id: ev.id }],
       };
     }
     case "specialist.selected": {
       const { capability, specialist_name, why, requested_by } = e.payload;
-      return { ...next, selections: [...state.selections, { capability, specialist_name, why, requested_by, at: e.at }] };
+      const selection = { capability, specialist_name, why, requested_by, at: e.at };
+      return { ...next, selections: [...state.selections, selection], feed: [...state.feed, { kind: "selected", selection }] };
     }
     case "specialist.failed":
-      return { ...next, failures: [...state.failures, { ...e.payload, at: e.at }] };
+    {
+      const failure = { ...e.payload, at: e.at };
+      return { ...next, failures: [...state.failures, failure], feed: [...state.feed, { kind: "failed", failure }] };
+    }
     case "round.started":
       return {
         ...next,
         rounds: withRound(state.rounds, e.payload.round, (r) => ({ ...r, active: e.payload.active })),
+        feed: [...state.feed, { kind: "round", round: e.payload.round }],
       };
     case "stance.posted": {
       const post = e.payload.post;
-      return { ...next, rounds: withRound(state.rounds, post.round, (r) => ({ ...r, posts: { ...r.posts, [post.agent]: post } })) };
+      return {
+        ...next,
+        rounds: withRound(state.rounds, post.round, (r) => ({ ...r, posts: { ...r.posts, [post.agent]: post } })),
+        feed: [...state.feed, { kind: "post", post }],
+      };
     }
     case "claim.rejected": {
       const { agent, round, claim_text, reasons } = e.payload;
-      return { ...next, rounds: withRound(state.rounds, round, (r) => ({ ...r, rejected: [...r.rejected, { agent, claim_text, reasons }] })) };
+      return {
+        ...next,
+        rounds: withRound(state.rounds, round, (r) => ({ ...r, rejected: [...r.rejected, { agent, claim_text, reasons }] })),
+        feed: [...state.feed, { kind: "rejected", agent, claim_text, reasons }],
+      };
     }
     case "listing.removed":
       return {
         ...next,
         removed: { listing_id: e.payload.listing_id, relisted_as: e.payload.relisted_as },
         listing: state.listing ? { ...state.listing, status: "removed" } : null,
+        feed: [...state.feed, { kind: "removed", relisted_as: e.payload.relisted_as }],
       };
     case "case.ended":
       return { ...next, caseFile: e.payload.case_file };

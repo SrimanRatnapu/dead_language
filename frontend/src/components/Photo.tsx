@@ -1,13 +1,13 @@
 "use client";
 import { useState } from "react";
 
-// Images come from the backend; fall back to a labeled tile so layout holds when it is offline.
-export function Photo({ src, label, className = "" }: { src: string; label: string; className?: string }) {
+// Images come from the backend; a quiet tile holds the layout when it is offline.
+export function Photo({ src, label, className = "", caption }: { src: string; label: string; className?: string; caption?: string }) {
   const [failed, setFailed] = useState(false);
   if (failed) {
     return (
       <div className={`flex items-center justify-center bg-sunken text-muted ${className}`} role="img" aria-label={`${label} unavailable`}>
-        <span className="mono">{label}</span>
+        {caption && <span>{caption}</span>}
       </div>
     );
   }

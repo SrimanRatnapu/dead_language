@@ -1,16 +1,18 @@
 "use client";
+import { CAPABILITY_LABEL } from "@/lib/agents";
+import type { Evidence } from "@/lib/types";
+import { Icon } from "./Icon";
 
-// Every claim shows its chips; clicking opens the raw evidence.
-export function EvidenceChip({ id, onOpen, missing }: { id: string; onOpen: (id: string) => void; missing?: boolean }) {
+// Every claim shows what it rests on; click opens the raw evidence. Named by what it is, not by id.
+export function EvidenceChip({ evidence, onOpen }: { evidence: Evidence | undefined; onOpen: (id: string) => void }) {
+  if (!evidence) return <span className="rounded-full border border-dashed border-line px-2 text-muted">…</span>;
   return (
     <button
-      onClick={() => onOpen(id)}
-      title={missing ? "Evidence not loaded yet" : `Open ${id}`}
-      className={`mono press rounded border px-1.5 py-px font-medium hover:border-ink ${
-        missing ? "border-dashed border-line text-muted" : "border-line bg-sunken text-ink"
-      }`}
+      onClick={() => onOpen(evidence.id)}
+      className="press inline-flex items-center gap-1 rounded-full border border-line bg-sunken px-2 py-px align-middle text-[0.8rem] font-medium hover:border-ink"
     >
-      {id}
+      <Icon name={evidence.capability} size={12} />
+      {CAPABILITY_LABEL[evidence.capability]}
     </button>
   );
 }

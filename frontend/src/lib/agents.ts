@@ -16,16 +16,16 @@ export const CAPABILITY_LABEL: Record<Capability, string> = {
   seller_inventory: "Seller inventory",
   linked_sellers: "Linked sellers",
   legal_lookup: "Legal basis",
-  material_exam: "Material exam",
+  material_exam: "Photo exam",
   translation: "Translation",
   system_notice: "System notice",
 };
 
 export const OUTCOME_LABEL: Record<Outcome, string> = {
-  FILE: "File",
+  FILE: "File it",
   DISMISS: "Dismiss",
-  CONTESTED: "Contested",
-  WATCHLIST: "Watchlist",
+  CONTESTED: "Needs a person",
+  WATCHLIST: "Keep watching",
 };
 
 export const STOP_REASON_TEXT: Record<StopReason, string> = {
@@ -35,5 +35,8 @@ export const STOP_REASON_TEXT: Record<StopReason, string> = {
   max_rounds: "Reached the round limit",
   budget: "Budget limit reached",
 };
+
+// "deadlang-examiner-thorough" -> "examiner thorough"
+export const prettyName = (n: string) => n.replace(/^deadlang-/, "").replaceAll("-", " ");
 
 export const usd = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });

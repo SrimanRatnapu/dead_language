@@ -12,6 +12,9 @@ assert.equal(Object.keys(s.rounds[1].posts).length, 3);
 assert.equal(s.caseFile?.outcome, "FILE");
 assert.equal(s.evidenceOrder.length, events.filter((e) => e.type === "evidence.added").length);
 assert.equal(s.rounds[0].rejected.length, 1);
+// feed keeps arrival order: first item is evidence, last post comes after the second round marker
+assert.equal(s.feed[0].kind, "evidence");
+assert.equal(s.feed.filter((f) => f.kind === "post").length, 6);
 // replayed events (reconnect) are ignored
 assert.deepEqual(events.reduce(reduce, s), s);
 console.log("caseState ok");

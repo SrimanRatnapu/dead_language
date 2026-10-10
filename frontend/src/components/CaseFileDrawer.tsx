@@ -1,9 +1,8 @@
 "use client";
 import { AGENT_ORDER, AGENTS, OUTCOME_LABEL, STANCE_LABEL } from "@/lib/agents";
-import type { CaseFile } from "@/lib/types";
+import type { CaseFile, Evidence } from "@/lib/types";
 import { Drawer } from "./Drawer";
 import { EvidenceChip } from "./EvidenceChip";
-import { StanceMark } from "./StanceMark";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -14,7 +13,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-export function CaseFileDrawer({ caseFile, open, onClose, onOpenEvidence }: { caseFile: CaseFile | null; open: boolean; onClose: () => void; onOpenEvidence: (id: string) => void }) {
+export function CaseFileDrawer({ caseFile, evidence, open, onClose, onOpenEvidence }: { caseFile: CaseFile | null; evidence: Record<string, Evidence>; open: boolean; onClose: () => void; onOpenEvidence: (id: string) => void }) {
   return (
     <Drawer open={open && !!caseFile} title={caseFile ? `Case file · ${OUTCOME_LABEL[caseFile.outcome]}` : "Case file"} onClose={onClose}>
       {caseFile && (
@@ -36,13 +35,12 @@ export function CaseFileDrawer({ caseFile, open, onClose, onOpenEvidence }: { ca
                   <li key={a} className="flex flex-col gap-1">
                     <span className="flex items-center gap-2">
                       <span className={`font-semibold ${AGENTS[a].text}`}>{AGENTS[a].label}</span>
-                      <StanceMark stance={p.stance} size={8} />
-                      {STANCE_LABEL[p.stance]} <span className="mono text-muted">{p.confidence.toFixed(2)}</span>
+                      {STANCE_LABEL[p.stance]} <span className="text-muted">· {Math.round(p.confidence * 100)}% sure</span>
                     </span>
                     {p.claims.map((c, i) => (
                       <span key={i} className="text-muted">
                         {c.text}{" "}
-                        {c.evidence_ids.map((id) => <EvidenceChip key={id} id={id} onOpen={onOpenEvidence} />)}
+                        {c.evidence_ids.map((id) => <EvidenceChip key={id} evidence={evidence[id]} onOpen={onOpenEvidence} />)}
                       </span>
                     ))}
                   </li>
@@ -59,7 +57,7 @@ export function CaseFileDrawer({ caseFile, open, onClose, onOpenEvidence }: { ca
 
           <Section title="Linked sellers">
             {caseFile.linked_seller_ids.length ? (
-              <p className="flex flex-wrap gap-1.5">{caseFile.linked_seller_ids.map((s) => <span key={s} className="mono rounded bg-sunken px-1.5">{s}</span>)}</p>
+              <p className="flex flex-wrap gap-1.5">{caseFile.linked_seller_ids.map((s) => <span key={s} className="rounded bg-sunken px-1.5">{s}</span>)}</p>
             ) : <p className="text-muted">None found.</p>}
           </Section>
         </div>
