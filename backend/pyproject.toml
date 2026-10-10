@@ -1,0 +1,28 @@
+[project]
+name = "deadlang"
+version = "0.1.0"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "agntcy-app-sdk>=0.5.5",
+    "anthropic>=1.13.0",
+    "fastapi>=0.143.0",
+    "httpx>=0.28.1",
+    "imagehash>=4.3.2",
+    "mcp[cli]>=1.30.0",
+    "pillow>=12.3.0",
+    "pydantic>=2.14.0",
+    "python-dotenv>=1.2.4",
+    "sse-starlette>=3.5.0",
+    "uvicorn[standard]>=0.54.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+asyncio_mode = "auto"
+markers = ["integration: needs live services or API keys"]
