@@ -9,7 +9,7 @@ from deadlang.evidence.board import EvidenceBoard, render_evidence
 from deadlang.schemas import Listing, StancePost
 
 SYSTEM = ("You review one marketplace listing for possible disguised elephant ivory. "
-          "Decide whether to file it for human investigation or dismiss it.")
+          "Decide whether to file it for human investigation or dismiss it. Keep the reason to one sentence.")
 
 _DECISION = {"decision": {"type": "string", "enum": ["file", "dismiss"]},
              "confidence": {"type": "number", "minimum": 0, "maximum": 1},
@@ -29,7 +29,7 @@ async def listing_only(listing: Listing, case_id: str | None = None) -> dict:
     user = (f'Title: {listing.title}\nPrice: ${listing.price_usd:,.0f}\nStated material: {listing.stated_material}\n'
             f"Ships from: {listing.ship_from}\nDescription: {listing.description}")
     return await llm.call_json(model=_model(), system=SYSTEM, user=user, schema_name="report_decision",
-                               schema=SCHEMA, case_id=case_id, max_tokens=500)
+                               schema=SCHEMA, case_id=case_id, max_tokens=1000)
 
 
 async def single_agent_with_evidence(board: EvidenceBoard, listing_text: str,
@@ -39,7 +39,7 @@ async def single_agent_with_evidence(board: EvidenceBoard, listing_text: str,
               "must appear in the cited evidence. Never invent facts.")
     out = await llm.call_json(model=_model(), system=system,
                               user="# Evidence board\n" + render_evidence(board.all()),
-                              schema_name="report_decision", schema=SCHEMA_CLAIMS, case_id=case_id, max_tokens=1000)
+                              schema_name="report_decision", schema=SCHEMA_CLAIMS, case_id=case_id, max_tokens=1500)
     as_post = StancePost(agent="buyer", round=1, stance=out["decision"], confidence=out["confidence"],
                          claims=out.get("claims", []))
     cleaned, rejections, _ = validate_post(as_post, board, listing_text, None, 1, [])
