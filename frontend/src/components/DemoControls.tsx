@@ -11,7 +11,8 @@ interface Props {
   onSpeed: (s: Speed) => void;
 }
 
-// Hidden behind a toggle so the projector view stays clean.
+// Playback controls sit in the page toolbar (always visible, never over content).
+// Live-only demo actions live in a popover behind "Demo actions".
 export function DemoControls({ listingId, events, speed, onSpeed }: Props) {
   const [open, setOpen] = useState(false);
   const [note, setNote] = useState<string | null>(null);
@@ -22,33 +23,33 @@ export function DemoControls({ listingId, events, speed, onSpeed }: Props) {
       await fn();
       setNote(null);
     } catch {
-      setNote(`${label} failed — is the backend running?`);
+      setNote(`${label} failed. Check that the backend is running, then try again.`);
     }
   }
 
-  const btn = "press flex items-center gap-1.5 rounded-md border border-line bg-surface px-2.5 py-1.5 hover:border-ink";
+  const btn = "press inline-flex min-h-11 items-center gap-1.5 rounded-md border border-line bg-surface px-3 hover:border-ink lg:min-h-9";
+  const ended = events.status === "ended";
   return (
-    <div className="fixed bottom-20 right-4 z-10 flex flex-col items-end gap-2">
+    <div className="relative flex flex-wrap items-center gap-2">
+      {events.controllable && (
+        <>
+          <button className={btn} onClick={events.status === "paused" ? events.play : events.pause} disabled={ended}>
+            <Icon name={events.status === "paused" ? "play" : "pause"} size={14} />
+            {events.status === "paused" ? "Play" : "Pause"}
+          </button>
+          <button className={btn} onClick={events.skipToEnd} disabled={ended}>
+            <Icon name="skip" size={14} />Skip to end
+          </button>
+          <div className="flex items-center gap-1" role="group" aria-label="Replay speed">
+            {([1, 2, 4] as const).map((s) => (
+              <button key={s} aria-pressed={speed === s} onClick={() => onSpeed(s)} className={`${btn} ${speed === s ? "border-ink bg-sunken" : ""}`}>{s}×</button>
+            ))}
+          </div>
+        </>
+      )}
+      <button onClick={() => setOpen((o) => !o)} aria-expanded={open} className={`${btn} text-muted`}>Demo actions</button>
       {open && (
-        <div className="glass rise flex w-64 flex-col gap-2 rounded-lg border border-line p-3 shadow-[var(--shadow)]">
-          {events.controllable && (
-            <>
-              <div className="flex gap-1.5">
-                <button className={btn} onClick={events.status === "paused" ? events.play : events.pause} disabled={events.status === "ended"}>
-                  <Icon name={events.status === "paused" ? "play" : "pause"} size={14} />
-                  {events.status === "paused" ? "Play" : "Pause"}
-                </button>
-                <button className={btn} onClick={events.skipToEnd} disabled={events.status === "ended"}>
-                  <Icon name="skip" size={14} />Skip to end
-                </button>
-              </div>
-              <div className="flex items-center gap-1.5" role="group" aria-label="Replay speed">
-                {([1, 2, 4] as const).map((s) => (
-                  <button key={s} aria-pressed={speed === s} onClick={() => onSpeed(s)} className={`${btn} ${speed === s ? "border-ink bg-sunken" : ""}`}>{s}×</button>
-                ))}
-              </div>
-            </>
-          )}
+        <div className="glass rise absolute right-0 top-full z-20 mt-2 flex w-64 flex-col gap-2 rounded-lg border border-line p-3 shadow-[var(--shadow)]">
           <button className={btn} disabled={!live || !listingId} title={live ? "" : "Live cases only"} onClick={() => listingId && run("Remove listing", () => removeListing(listingId))}>
             Remove listing
           </button>
@@ -56,10 +57,10 @@ export function DemoControls({ listingId, events, speed, onSpeed }: Props) {
             Stop thorough examiner
           </button>
           <button className={btn} onClick={() => run("Reset", resetDemo)}>Reset demo</button>
-          {note && <p className="text-red">{note}</p>}
+          {!live && <p className="text-muted">Remove and stop apply to live cases only.</p>}
+          {note && <p role="alert" className="rounded-md bg-red-tint px-3 py-2 text-red">{note}</p>}
         </div>
       )}
-      <button onClick={() => setOpen((o) => !o)} aria-expanded={open} className={`${btn} text-muted`}>Demo</button>
     </div>
   );
 }

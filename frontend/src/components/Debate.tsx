@@ -48,7 +48,7 @@ export function Debate({ state, onOpen }: { state: CaseState; onOpen: Open }) {
   const evidence = state.evidenceOrder.map((id) => state.evidence[id]).filter((item): item is Evidence => Boolean(item) && item.capability !== "listing_snapshot");
   const active = state.caseFile ? [] : state.rounds.at(-1)?.active ?? [];
   const rejected = state.rounds.flatMap((round) => round.rejected);
-  return <div className="h-full overflow-y-auto"><div className="mx-auto flex max-w-[1040px] flex-col gap-8 px-5 py-6 sm:px-8">
+  return <div className="lg:h-full lg:overflow-y-auto"><div className="mx-auto flex max-w-[1040px] flex-col gap-8 px-5 py-6 sm:px-8">
     <section aria-label="Evidence board">
       <div className="evidence-heading"><h2 className="display text-3xl">Evidence board</h2><span>{evidence.length} findings</span></div>
       {evidence.length ? <div className="evidence-field">{evidence.map((item) => <EvidenceTile key={item.id} evidence={item} onOpen={onOpen} />)}</div> : <p className="text-muted">Building the evidence board.</p>}
