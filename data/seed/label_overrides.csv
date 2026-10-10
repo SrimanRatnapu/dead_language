@@ -1,0 +1,5 @@
+source,source_id,truth,should_flag,notes
+ebay,v1|800764809455|0,legal_bone,false,"bone described with an ivory color; parser read ivory_color"
+ebay,v1|206590341370|0,legal_bone,false,"bone described with an ivory color; parser read ivory_color"
+ebay,v1|257511447520|0,legal_bone,false,"seller says bone with an ivory color; parser read ivory_color"
+ebay,v1|326980154796|0,legal_bone,false,"title says cow bone; description wonders about celluloid, so the parser read resin"

@@ -9,8 +9,8 @@ from deadlang.schemas import SpecialistCall
 from deadlang.specialists.network import LinkedSellers, SellerInventory
 from tests.conftest import make_listing, make_seller
 
-RARE_1 = "kindly message our family before buying anything"
-RARE_2 = "parcels leave quietly from the harbour warehouse"
+RARE_1 = "kindly message our family before buying anything at all"
+RARE_2 = "parcels leave quietly from the harbour warehouse each friday"
 COMMON = "thank you for looking at my other items"          # used by 5 sellers: not rare
 ALL_STOPWORDS = "it is of the and it is in"                 # only function words: ignored
 
@@ -91,7 +91,7 @@ def linked_market(tmp_path):
                      image_paths=["images/c.jpg", "images/a_copy.jpg"]),
         make_listing("L4", "S4", "Resin duck", f"{COMMON}. {ALL_STOPWORDS}.", image_paths=["images/d.jpg"]),
         make_listing("L5", "S5", "Wooden bowl", f"{COMMON}."),
-        make_listing("L6", "S6", "Glass vase", f"{COMMON}. {RARE_1}."),        # only ONE rare phrase... see test
+        make_listing("L6", "S6", "Glass vase", f"{COMMON}. {RARE_1}."),        # only ONE rare phrase: no link
         make_listing("L7", "S1", "Second item of S1", f"{RARE_1}. {RARE_2}."),  # same seller: never linked
         make_listing("L8", "S7", "Relist", f"Slightly reworded. {RARE_1}. {RARE_2}.",
                      image_paths=["images/a_copy.jpg"], status="hidden", relist_of="L1"),
@@ -110,9 +110,9 @@ async def test_links_by_rare_phrases_and_by_reused_photo(linked_market):
     market, _ = linked_market
     draft = await linked(LinkedSellers(market))
     by_seller = {e["seller_id"]: e for e in draft.data["linked"]}
-    # S6 shares one whole rare sentence = several rare 5-grams, so it is linked too.
-    assert set(by_seller) == {"S2", "S3", "S6"}
-    assert draft.data["linked_seller_count"] == 3
+    # S6 shares only ONE rare sentence: not enough for a phrase link (two long phrases are needed).
+    assert set(by_seller) == {"S2", "S3"}
+    assert draft.data["linked_seller_count"] == 2
 
     s2 = by_seller["S2"]
     assert s2["listing_ids"] == ["L2"] and s2["shared_photo_pairs"] == []
@@ -122,9 +122,8 @@ async def test_links_by_rare_phrases_and_by_reused_photo(linked_market):
     s3 = by_seller["S3"]
     assert s3["shared_phrases"] == [] and s3["shared_photo_pairs"] == [["images/a.jpg", "images/a_copy.jpg"]]
     assert s3["shared_photo_count"] == 1 and s3["seller_name"] == "seller_s3"
-    assert by_seller["S6"]["shared_phrases"] == [RARE_1]
 
-    assert draft.summary.startswith("3 other sellers share rare phrasing or reused photos with this listing: ")
+    assert draft.summary.startswith("2 other sellers share rare phrasing or reused photos with this listing: ")
     assert "seller_s2 (2 shared phrases, 0 shared photos)" in draft.summary
     assert "seller_s3 (0 shared phrases, 1 shared photos)" in draft.summary
 

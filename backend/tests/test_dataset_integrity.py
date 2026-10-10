@@ -134,10 +134,10 @@ def test_no_real_usernames_leak(listings, sellers):
         pytest.skip("data/raw/seller_map.json only exists on the machine that built the dataset")
     real_names = {name.lower() for name in json.loads(seller_map.read_text())}
     assert not real_names & {s.name.lower() for s in sellers}
-    public_text = (DATA / "sellers.jsonl").read_text().lower()
+    public_text = ((DATA / "sellers.jsonl").read_text() + (DATA / "listings.jsonl").read_text()).lower()
     for name in real_names:
-        if len(name) >= 6:
-            assert name not in public_text, "a real seller username appears in sellers.jsonl"
+        if len(name) >= 7 or not name.isalpha():       # shorter all-letter names are ordinary words
+            assert name not in public_text, "a real seller username appears in the public dataset"
 
 
 def test_mix_of_reconstructed_cases(listings, labels):
