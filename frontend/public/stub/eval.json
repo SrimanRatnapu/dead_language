@@ -1,0 +1,36 @@
+{
+ "n_cases": 60,
+ "n_should_flag": 30,
+ "n_should_clear": 30,
+ "conditions": {
+  "listing_only": {
+   "caught": 0,
+   "wrongly_flagged": 0,
+   "sent_to_human": 0,
+   "tokens_per_case": 0,
+   "claims_rejected": null
+  },
+  "single_agent": {
+   "caught": 0,
+   "wrongly_flagged": 0,
+   "sent_to_human": 0,
+   "tokens_per_case": 0,
+   "claims_rejected": 0
+  },
+  "three_agent": {
+   "caught": 0,
+   "wrongly_flagged": 0,
+   "sent_to_human": 0,
+   "tokens_per_case": 0,
+   "claims_rejected": 0
+  }
+ },
+ "examiner": null,
+ "example_cases": [
+  {
+   "label": "Network case",
+   "replay": "sample_case"
+  }
+ ],
+ "_stub": true
+}
