@@ -150,3 +150,15 @@ async def test_specialist_request_caps_and_dedupe():
     requested = [c for n, c in t.calls if c.params]
     assert len(requested) == 3                                              # duplicate merged, capped at 3 per round
     assert (requested[0].params, requested[1].params) == ({"k": 0}, {"k": 1})
+
+
+async def test_precomputed_intake_is_reused_without_calling_specialists_again():
+    t = FakeTransport(posts={(a, 1): post(a, 1, "file") for a in ("buyer", "defender", "caseload")})
+    fac, bus = setup(t)
+    st = await fac.run_intake("eval-intake", "L0101")
+    n_calls = len(t.calls)
+    assert n_calls == 5 and st.board.count() == 6
+    cf = await fac.run_case("C-1", "L0101", intake=st)
+    assert len(t.calls) == n_calls                                          # no new specialist calls
+    assert [e.id for e in cf.evidence] == [e.id for e in st.board.all()] and cf.outcome == "FILE"
+    assert all(e.case_id == "C-1" for e in cf.evidence)

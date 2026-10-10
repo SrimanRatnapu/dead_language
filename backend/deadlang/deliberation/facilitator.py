@@ -27,6 +27,7 @@ MAX_CALLS_PER_CASE = 6
 class CaseState:
     case_id: str
     listing: Listing
+    seller: Seller
     board: EvidenceBoard
     current: dict[AgentName, StancePost] = field(default_factory=dict)   # each agent's latest validated post
     transcript: list[StancePost] = field(default_factory=list)           # every validated post, in order
@@ -182,32 +183,55 @@ class Facilitator:
         return st.board.count() - start_count
 
     # ------------------------------------------------------------------ case
-    async def run_case(self, case_id: str, listing_id: str) -> CaseFile:
+    async def _new_state(self, case_id: str, listing_id: str) -> CaseState:
         listing = await self.market.get_listing_snapshot(listing_id)
         seller = await self.market.get_seller(listing.seller_id)
-        st = CaseState(case_id, listing, EvidenceBoard(case_id))
-        self._running[case_id] = st
-        try:
-            self.bus.emit(case_id, "case.started", {"listing": listing.model_dump(mode="json"),
-                                                    "seller": seller.model_dump(mode="json")})
-            return await self._run(st, listing, seller)
-        finally:
-            self._running.pop(case_id, None)
+        st = CaseState(case_id, listing, seller, EvidenceBoard(case_id))
+        self.bus.emit(case_id, "case.started", {"listing": listing.model_dump(mode="json"),
+                                                "seller": seller.model_dump(mode="json")})
+        return st
 
-    async def _run(self, st: CaseState, listing: Listing, seller: Seller) -> CaseFile:
-        case_id = st.case_id
+    async def _intake(self, st: CaseState) -> None:
+        listing, seller = st.listing, st.seller
         self._add(st, EvidenceDraft(
             capability="listing_snapshot", produced_by="code", specialist_name="intake", data=listing.model_dump(mode="json"),
             summary=(f'Listing {listing.id} by {seller.name}: "{listing.title}" for ${listing.price_usd:,.0f}, '
                      f"described as {listing.stated_material}, ships from {listing.ship_from}, "
                      f"{len(listing.image_paths)} photos.")), "intake")
+        caps: list[Capability] = ["price_check", "seller_inventory", "linked_sellers", "legal_lookup", "material_exam"]
+        if listing.language != "en":
+            caps.append("translation")
+        await asyncio.gather(*(self._run_specialist(st, c, {}, "intake") for c in caps))
+
+    async def run_intake(self, case_id: str, listing_id: str) -> CaseState:
+        """Intake only (E0 + specialists). The eval runner computes it once and reuses it via run_case(intake=...)."""
+        st = await self._new_state(case_id, listing_id)
+        self._running[case_id] = st
+        try:
+            await self._intake(st)
+        finally:
+            self._running.pop(case_id, None)
+        return st
+
+    async def run_case(self, case_id: str, listing_id: str, intake: CaseState | None = None) -> CaseFile:
+        st = await self._new_state(case_id, listing_id)
+        self._running[case_id] = st
+        try:
+            return await self._run(st, intake)
+        finally:
+            self._running.pop(case_id, None)
+
+    async def _run(self, st: CaseState, intake: CaseState | None) -> CaseFile:
+        case_id, listing, seller = st.case_id, st.listing, st.seller
         reason: str | None = None
         rounds_used = 0
         try:
-            caps: list[Capability] = ["price_check", "seller_inventory", "linked_sellers", "legal_lookup", "material_exam"]
-            if listing.language != "en":
-                caps.append("translation")
-            await asyncio.gather(*(self._run_specialist(st, c, {}, "intake") for c in caps))
+            if intake is None:
+                await self._intake(st)
+            else:                                           # replay precomputed intake evidence in order
+                for ev in intake.board.all():
+                    self._add(st, EvidenceDraft.model_validate(ev.model_dump(include=set(EvidenceDraft.model_fields))),
+                              ev.requested_by)
 
             for r in range(1, self.max_rounds + 1):
                 rounds_used = r
