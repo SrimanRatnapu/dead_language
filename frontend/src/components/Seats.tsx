@@ -29,6 +29,7 @@ export function Seats({ state }: { state: CaseState }) {
         <h2 className="rule-label">{lastRound ? `Round ${lastRound.round}` : "Positions"}</h2>
         <p className="text-[0.82rem] font-medium" aria-live="polite">{readout(latest)}</p>
       </div>
+      <p className="mb-2 text-[0.8rem] text-muted"><span className="rule-label mr-2">Helpers</span>{state.selections.length === 0 ? "none called in yet" : `${new Set(state.selections.map((s) => s.specialist_name)).size} called in as needed${state.failures.length ? ` · ${state.failures.length} backup used` : ""} · ${state.selections.filter((s) => s.requested_by in AGENTS).length} asked for by the agents`}</p>
       <div className="grid grid-cols-3 gap-px bg-line">
         {AGENT_ORDER.map((agent) => {
           const a = AGENTS[agent];

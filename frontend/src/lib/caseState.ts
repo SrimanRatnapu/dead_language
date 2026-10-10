@@ -14,6 +14,7 @@ export interface Selection {
   specialist_name: string;
   why: string;
   requested_by: Requester;
+  candidates: string[];
   at: string;
 }
 
@@ -89,8 +90,8 @@ export function reduce(state: CaseState, e: Event): CaseState {
       };
     }
     case "specialist.selected": {
-      const { capability, specialist_name, why, requested_by } = e.payload;
-      const selection = { capability, specialist_name, why, requested_by, at: e.at };
+      const { capability, specialist_name, why, requested_by, candidates } = e.payload;
+      const selection = { capability, specialist_name, why, requested_by, candidates: candidates ?? [specialist_name], at: e.at };
       return { ...next, selections: [...state.selections, selection], feed: [...state.feed, { kind: "selected", selection }] };
     }
     case "specialist.failed":

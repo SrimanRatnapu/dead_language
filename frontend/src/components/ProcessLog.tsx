@@ -12,7 +12,7 @@ function line(item: FeedItem, state: CaseState): Line {
       return { tag: "round", tone: "text-cobalt-ink", text: `Round ${item.round} opens`, detail: active.length ? `Called: ${active.map((a) => AGENTS[a].label).join(", ")}` : undefined };
     }
     case "selected":
-      return { tag: "route", tone: "text-muted", text: `${CAPABILITY_LABEL[item.selection.capability]} → ${prettyName(item.selection.specialist_name)}`, detail: `${item.selection.why} Asked by ${item.selection.requested_by}.` };
+      return { tag: "route", tone: "text-muted", text: `${CAPABILITY_LABEL[item.selection.capability]} → ${prettyName(item.selection.specialist_name)}`, detail: `Matched ${item.selection.candidates.length} candidate${item.selection.candidates.length === 1 ? "" : "s"}: ${item.selection.candidates.map(prettyName).join(", ")}. ${item.selection.why} Asked by ${item.selection.requested_by}.` };
     case "failed":
       return { tag: "fail", tone: "text-red", text: `${prettyName(item.failure.specialist_name)} did not answer (${item.failure.error})`, detail: item.failure.fallback ? `Falling back to ${prettyName(item.failure.fallback)}.` : undefined };
     case "evidence": {
@@ -37,15 +37,8 @@ export function ProcessLog({ state, open, onClose }: { state: CaseState; open: b
   const cf = state.caseFile;
   return (
     <Drawer open={open} title="Process log" onClose={onClose}>
-      <p className="mb-4 text-muted">Every step the pipeline took, in order. Specialists report facts, the claim check runs in code, and a fixed rule sets the outcome.</p>
+      <p className="mb-4 text-muted">Every step the pipeline took, newest first. Specialists report facts, the claim check runs in code, and a fixed rule sets the outcome.</p>
       <ol className="border-t border-line">
-        {lines.map((l, i) => (
-          <li key={i} className="grid grid-cols-[2.2rem_3.4rem_1fr] gap-x-2 border-b border-line py-2.5">
-            <span className="mono pt-0.5 text-muted">{String(i + 1).padStart(2, "0")}</span>
-            <span className={`mono pt-0.5 uppercase ${l.tone}`}>{l.tag}</span>
-            <span><span className="font-medium">{l.text}</span>{l.detail && <span className="mt-0.5 block text-[.82rem] leading-snug text-muted">{l.detail}</span>}</span>
-          </li>
-        ))}
         {cf && (
           <li className="grid grid-cols-[2.2rem_3.4rem_1fr] gap-x-2 bg-cobalt-tint py-2.5">
             <span className="mono pt-0.5 text-muted">{String(lines.length + 1).padStart(2, "0")}</span>
@@ -53,6 +46,13 @@ export function ProcessLog({ state, open, onClose }: { state: CaseState; open: b
             <span><span className="font-semibold">Outcome: {OUTCOME_LABEL[cf.outcome]}</span><span className="mt-0.5 block text-[.82rem] text-muted">{STOP_REASON_TEXT[cf.stop_reason]} after {cf.rounds_used} round{cf.rounds_used === 1 ? "" : "s"}. Nothing is sent without a person.</span></span>
           </li>
         )}
+        {lines.map((l, i) => ({ l, i })).reverse().map(({ l, i }) => (
+          <li key={i} className="grid grid-cols-[2.2rem_3.4rem_1fr] gap-x-2 border-b border-line py-2.5">
+            <span className="mono pt-0.5 text-muted">{String(i + 1).padStart(2, "0")}</span>
+            <span className={`mono pt-0.5 uppercase ${l.tone}`}>{l.tag}</span>
+            <span><span className="font-medium">{l.text}</span>{l.detail && <span className="mt-0.5 block text-[.82rem] leading-snug text-muted">{l.detail}</span>}</span>
+          </li>
+        ))}
       </ol>
       {lines.length === 0 && <p className="mt-4 text-muted">Waiting for the first event.</p>}
     </Drawer>

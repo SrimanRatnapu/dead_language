@@ -1,14 +1,14 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { AGENTS, CAPABILITY_LABEL, prettyName } from "@/lib/agents";
-import type { CaseState, Failure } from "@/lib/caseState";
+import type { CaseState, Failure, Selection } from "@/lib/caseState";
 import type { AgentName, Evidence, Stance, StancePost } from "@/lib/types";
 import { EvidenceChip } from "./EvidenceChip";
 import { Icon } from "./Icon";
 import { StancePill } from "./Seats";
 
 type Open = (id: string) => void;
-type Row = { kind: "evidence"; evidence: Evidence } | { kind: "failed"; failure: Failure };
+type Row = { kind: "evidence"; evidence: Evidence } | { kind: "failed"; failure: Failure } | { kind: "route"; selection: Selection };
 type Block =
   | { kind: "facts"; rows: Row[] }
   | { kind: "round"; round: number; active: AgentName[] }
@@ -22,7 +22,8 @@ function toBlocks(state: CaseState): Block[] {
   for (const item of state.feed) {
     const tail = blocks.at(-1);
     const fact: Row | null = item.kind === "evidence" && state.evidence[item.id]?.capability !== "listing_snapshot" ? { kind: "evidence", evidence: state.evidence[item.id] }
-      : item.kind === "failed" ? { kind: "failed", failure: item.failure } : null;
+      : item.kind === "failed" ? { kind: "failed", failure: item.failure }
+      : item.kind === "selected" ? { kind: "route", selection: item.selection } : null;
     if (fact) {
       if (tail?.kind === "facts") tail.rows.push(fact); else blocks.push({ kind: "facts", rows: [fact] });
     } else if (item.kind === "round") {
@@ -42,21 +43,29 @@ function Chips({ ids, state, onOpen }: { ids: string[]; state: CaseState; onOpen
 }
 
 function Facts({ rows, open, onOpen }: { rows: Row[]; open: boolean; onOpen: Open }) {
-  const first = rows.find((r): r is Extract<Row, { kind: "evidence" }> => r.kind === "evidence");
-  const by = first?.evidence.requested_by;
+  const first = rows.find((r): r is Extract<Row, { kind: "route" }> => r.kind === "route");
+  const by = first?.selection.requested_by;
   const asked = by && by in AGENTS ? AGENTS[by as AgentName] : null;
-  const caps = [...new Set(rows.flatMap((r) => (r.kind === "evidence" ? [r.evidence.capability] : [])))];
+  const caps = [...new Set(rows.flatMap((r) => (r.kind === "route" ? [r.selection.capability] : [])))];
+  const facts = rows.filter((r) => r.kind === "evidence").length;
   return (
     <details open={open} className="group rise border-y border-line">
       <summary className="press flex min-h-11 cursor-pointer list-none items-center gap-3 py-2 text-[0.82rem] text-muted hover:text-ink">
         <span className="rotate-0 transition-transform duration-200 group-open:rotate-90"><Icon name="chevron" size={14} /></span>
         <span className="font-medium text-ink">{asked ? <><span className={asked.text}>{asked.label}</span> asked for {CAPABILITY_LABEL[caps[0]]?.toLowerCase() ?? "evidence"}</> : "Fact-finding"}</span>
-        <span className="mono">{rows.length} {rows.length === 1 ? "fact" : "facts"}</span>
+        <span className="mono">{caps.length} {caps.length === 1 ? "lookup" : "lookups"} · {facts} {facts === 1 ? "fact" : "facts"}</span>
         <span className="ml-auto flex gap-1.5 group-open:hidden" aria-hidden>{caps.map((c) => <Icon key={c} name={c} size={14} />)}</span>
       </summary>
       <ul className="pb-2">
-        {rows.map((row, i) => row.kind === "failed"
-          ? <li key={i} className="flex gap-3 py-2 text-[0.82rem] text-red"><span className="w-5" /><span>{CAPABILITY_LABEL[row.failure.capability]} unavailable{row.failure.fallback ? ` · switched to ${prettyName(row.failure.fallback)}` : ""}</span></li>
+        {rows.map((row, i) => row.kind === "route"
+          ? <li key={i} className="flex flex-wrap items-center gap-x-2 gap-y-1 pt-3 pb-1 text-[0.8rem] text-muted" title={row.selection.why}>
+              <span className="rule-label">Helper found</span>
+              <span>{CAPABILITY_LABEL[row.selection.capability]}</span><span aria-hidden>→</span>
+              <span className="font-semibold text-ink">{prettyName(row.selection.specialist_name)}</span>
+              <span className="mono">{row.selection.candidates.length > 1 ? `best of ${row.selection.candidates.length}: ${row.selection.candidates.map(prettyName).join(" / ")}` : "only match"}</span>
+            </li>
+          : row.kind === "failed"
+          ? <li key={i} className="py-1 text-[0.8rem] font-medium text-red">✕ {prettyName(row.failure.specialist_name)} did not respond{row.failure.fallback ? <> · switching to <b>{prettyName(row.failure.fallback)}</b></> : " · no backup available"}</li>
           : <li key={row.evidence.id}>
               <button onClick={() => onOpen(row.evidence.id)} className="press grid min-h-11 w-full grid-cols-[1.25rem_6.5rem_1fr] items-start gap-3 py-2 text-left hover:bg-cobalt-tint/60">
                 <Icon name={row.evidence.capability} size={16} className="mt-0.5 text-cobalt-ink" />
