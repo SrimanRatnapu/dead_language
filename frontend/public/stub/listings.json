@@ -1,0 +1,372 @@
+[
+ {
+  "listing": {
+   "id": "L0101",
+   "marketplace": "reconstructed",
+   "seller_id": "S0042",
+   "title": "Antique carved bone netsuke, fisherman with octopus",
+   "description": "Stub listing for UI development.",
+   "price_usd": 1450.0,
+   "category": "Antiques > Asian Antiques > Netsuke",
+   "stated_material": "bone",
+   "item_type": "netsuke",
+   "size_cm": 4.5,
+   "weight_g": null,
+   "ship_from": "HK",
+   "language": "en",
+   "image_paths": [
+    "images/L0101_0.jpg"
+   ],
+   "posted_at": "2026-09-01T00:00:00+00:00",
+   "source_url": null,
+   "is_reconstructed": true,
+   "reconstruction_source": null,
+   "status": "active",
+   "relist_of": null
+  },
+  "seller": {
+   "id": "S0042",
+   "name": "OrientalCuriosHK",
+   "location": "HK",
+   "joined": "2021-03-02",
+   "feedback_score": 120
+  },
+  "triage": {
+   "score": 0.92,
+   "reason": "Priced 15.3x the median for bone netsuke; seller lists 5 similar"
+  }
+ },
+ {
+  "listing": {
+   "id": "L0109",
+   "marketplace": "reconstructed",
+   "seller_id": "S0043",
+   "title": "Old carved figure, family collection, ships discreetly",
+   "description": "Stub listing for UI development.",
+   "price_usd": 1100.0,
+   "category": "Antiques > Asian Antiques > Netsuke",
+   "stated_material": "ivory_mentioned",
+   "item_type": "figurine",
+   "size_cm": 4.5,
+   "weight_g": null,
+   "ship_from": "SG",
+   "language": "en",
+   "image_paths": [
+    "images/L0109_0.jpg"
+   ],
+   "posted_at": "2026-09-01T00:00:00+00:00",
+   "source_url": null,
+   "is_reconstructed": true,
+   "reconstruction_source": null,
+   "status": "active",
+   "relist_of": null
+  },
+  "seller": {
+   "id": "S0043",
+   "name": "Asia Heritage Shop",
+   "location": "SG",
+   "joined": "2021-03-02",
+   "feedback_score": 120
+  },
+  "triage": {
+   "score": 0.88,
+   "reason": "Shares a rare phrase with another flagged seller"
+  }
+ },
+ {
+  "listing": {
+   "id": "L0103",
+   "marketplace": "reconstructed",
+   "seller_id": "S0060",
+   "title": "Old carved netsuke, ivory colored, from estate",
+   "description": "Stub listing for UI development.",
+   "price_usd": 980.0,
+   "category": "Antiques > Asian Antiques > Netsuke",
+   "stated_material": "ivory_color",
+   "item_type": "netsuke",
+   "size_cm": 4.5,
+   "weight_g": null,
+   "ship_from": "US-CA",
+   "language": "en",
+   "image_paths": [
+    "images/L0103_0.jpg"
+   ],
+   "posted_at": "2026-09-01T00:00:00+00:00",
+   "source_url": null,
+   "is_reconstructed": true,
+   "reconstruction_source": null,
+   "status": "active",
+   "relist_of": null
+  },
+  "seller": {
+   "id": "S0060",
+   "name": "Kyoto Estate Finds",
+   "location": "US-CA",
+   "joined": "2021-03-02",
+   "feedback_score": 120
+  },
+  "triage": {
+   "score": 0.85,
+   "reason": "Priced 9x comparable resin pieces; 'ivory colored' wording"
+  }
+ },
+ {
+  "listing": {
+   "id": "L0106",
+   "marketplace": "reconstructed",
+   "seller_id": "S0063",
+   "title": "Hand carved figurine, old white material",
+   "description": "Stub listing for UI development.",
+   "price_usd": 720.0,
+   "category": "Antiques > Asian Antiques > Netsuke",
+   "stated_material": "unknown",
+   "item_type": "figurine",
+   "size_cm": 4.5,
+   "weight_g": null,
+   "ship_from": "VN",
+   "language": "en",
+   "image_paths": [
+    "images/L0106_0.jpg"
+   ],
+   "posted_at": "2026-09-01T00:00:00+00:00",
+   "source_url": null,
+   "is_reconstructed": true,
+   "reconstruction_source": null,
+   "status": "active",
+   "relist_of": null
+  },
+  "seller": {
+   "id": "S0063",
+   "name": "Harbour Curios",
+   "location": "VN",
+   "joined": "2021-03-02",
+   "feedback_score": 120
+  },
+  "triage": {
+   "score": 0.78,
+   "reason": "Material not stated; price far above comparable carvings"
+  }
+ },
+ {
+  "listing": {
+   "id": "L0110",
+   "marketplace": "ebay",
+   "seller_id": "S0066",
+   "title": "Carved netsuke style figure, mammoth tooth look",
+   "description": "Stub listing for UI development.",
+   "price_usd": 210.0,
+   "category": "Antiques > Asian Antiques > Netsuke",
+   "stated_material": "unknown",
+   "item_type": "netsuke",
+   "size_cm": 4.5,
+   "weight_g": null,
+   "ship_from": "US-TX",
+   "language": "en",
+   "image_paths": [
+    "images/L0110_0.jpg"
+   ],
+   "posted_at": "2026-09-01T00:00:00+00:00",
+   "source_url": null,
+   "is_reconstructed": false,
+   "reconstruction_source": null,
+   "status": "active",
+   "relist_of": null
+  },
+  "seller": {
+   "id": "S0066",
+   "name": "Craft Corner",
+   "location": "US-TX",
+   "joined": "2021-03-02",
+   "feedback_score": 120
+  },
+  "triage": {
+   "score": 0.55,
+   "reason": "Material unclear; price above comparable pieces"
+  }
+ },
+ {
+  "listing": {
+   "id": "L0102",
+   "marketplace": "ebay",
+   "seller_id": "S0051",
+   "title": "Carved tagua nut figurine, small elephant",
+   "description": "Stub listing for UI development.",
+   "price_usd": 38.0,
+   "category": "Antiques > Asian Antiques > Netsuke",
+   "stated_material": "tagua",
+   "item_type": "figurine",
+   "size_cm": 4.5,
+   "weight_g": null,
+   "ship_from": "US-FL",
+   "language": "en",
+   "image_paths": [
+    "images/L0102_0.jpg"
+   ],
+   "posted_at": "2026-09-01T00:00:00+00:00",
+   "source_url": null,
+   "is_reconstructed": false,
+   "reconstruction_source": null,
+   "status": "active",
+   "relist_of": null
+  },
+  "seller": {
+   "id": "S0051",
+   "name": "Tagua Treasures",
+   "location": "US-FL",
+   "joined": "2021-03-02",
+   "feedback_score": 120
+  },
+  "triage": {
+   "score": 0.41,
+   "reason": "Price in the normal range; described as tagua nut"
+  }
+ },
+ {
+  "listing": {
+   "id": "L0108",
+   "marketplace": "manual",
+   "seller_id": "S0065",
+   "title": "Bone bead necklace, 1970s",
+   "description": "Stub listing for UI development.",
+   "price_usd": 40.0,
+   "category": "Antiques > Asian Antiques > Netsuke",
+   "stated_material": "bone",
+   "item_type": "jewelry",
+   "size_cm": 4.5,
+   "weight_g": null,
+   "ship_from": "US-WA",
+   "language": "en",
+   "image_paths": [
+    "images/L0108_0.jpg"
+   ],
+   "posted_at": "2026-09-01T00:00:00+00:00",
+   "source_url": null,
+   "is_reconstructed": false,
+   "reconstruction_source": null,
+   "status": "active",
+   "relist_of": null
+  },
+  "seller": {
+   "id": "S0065",
+   "name": "Shell & Bone Co",
+   "location": "US-WA",
+   "joined": "2021-03-02",
+   "feedback_score": 120
+  },
+  "triage": {
+   "score": 0.3,
+   "reason": "Common bone jewelry at a normal price"
+  }
+ },
+ {
+  "listing": {
+   "id": "L0104",
+   "marketplace": "ebay",
+   "seller_id": "S0061",
+   "title": "Vintage bone carved dragon pendant",
+   "description": "Stub listing for UI development.",
+   "price_usd": 64.0,
+   "category": "Antiques > Asian Antiques > Netsuke",
+   "stated_material": "bone",
+   "item_type": "jewelry",
+   "size_cm": 4.5,
+   "weight_g": null,
+   "ship_from": "US-NY",
+   "language": "en",
+   "image_paths": [
+    "images/L0104_0.jpg"
+   ],
+   "posted_at": "2026-09-01T00:00:00+00:00",
+   "source_url": null,
+   "is_reconstructed": false,
+   "reconstruction_source": null,
+   "status": "active",
+   "relist_of": null
+  },
+  "seller": {
+   "id": "S0061",
+   "name": "Maple Antiques",
+   "location": "US-NY",
+   "joined": "2021-03-02",
+   "feedback_score": 120
+  },
+  "triage": {
+   "score": 0.22,
+   "reason": "Price matches comparable bone pendants"
+  }
+ },
+ {
+  "listing": {
+   "id": "L0107",
+   "marketplace": "ebay",
+   "seller_id": "S0064",
+   "title": "Carved wood netsuke, monkey",
+   "description": "Stub listing for UI development.",
+   "price_usd": 55.0,
+   "category": "Antiques > Asian Antiques > Netsuke",
+   "stated_material": "wood",
+   "item_type": "netsuke",
+   "size_cm": 4.5,
+   "weight_g": null,
+   "ship_from": "US-MA",
+   "language": "en",
+   "image_paths": [
+    "images/L0107_0.jpg"
+   ],
+   "posted_at": "2026-09-01T00:00:00+00:00",
+   "source_url": null,
+   "is_reconstructed": false,
+   "reconstruction_source": null,
+   "status": "active",
+   "relist_of": null
+  },
+  "seller": {
+   "id": "S0064",
+   "name": "Estate & Attic",
+   "location": "US-MA",
+   "joined": "2021-03-02",
+   "feedback_score": 120
+  },
+  "triage": {
+   "score": 0.12,
+   "reason": "Described as wood; price typical"
+  }
+ },
+ {
+  "listing": {
+   "id": "L0105",
+   "marketplace": "ebay",
+   "seller_id": "S0062",
+   "title": "Resin netsuke replica, crouching rat",
+   "description": "Stub listing for UI development.",
+   "price_usd": 24.0,
+   "category": "Antiques > Asian Antiques > Netsuke",
+   "stated_material": "resin",
+   "item_type": "netsuke",
+   "size_cm": 4.5,
+   "weight_g": null,
+   "ship_from": "US-OH",
+   "language": "en",
+   "image_paths": [
+    "images/L0105_0.jpg"
+   ],
+   "posted_at": "2026-09-01T00:00:00+00:00",
+   "source_url": null,
+   "is_reconstructed": false,
+   "reconstruction_source": null,
+   "status": "active",
+   "relist_of": null
+  },
+  "seller": {
+   "id": "S0062",
+   "name": "Resin Works",
+   "location": "US-OH",
+   "joined": "2021-03-02",
+   "feedback_score": 120
+  },
+  "triage": {
+   "score": 0.08,
+   "reason": "Described as resin; price typical for resin replicas"
+  }
+ }
+]
