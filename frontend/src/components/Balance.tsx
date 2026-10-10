@@ -15,10 +15,10 @@ function history(rounds: Round[], agent: AgentName): StancePost[] {
 
 export function Balance({ rounds }: { rounds: Round[] }) {
   return (
-    <div className="flex flex-col gap-2 px-6 py-4">
+    <div className="flex flex-col gap-2 px-6 py-3">
       <div className="grid grid-cols-[88px_1fr_120px] items-end gap-4 text-muted">
-        <span />
-        <div className="flex justify-between font-medium"><span>Dismiss</span><span>File</span></div>
+        <span className="font-medium text-ink">Positions</span>
+        <div className="flex justify-between"><span>Dismiss</span><span>File</span></div>
         <span />
       </div>
       {AGENT_ORDER.map((agent) => {
@@ -46,7 +46,7 @@ export function Balance({ rounds }: { rounds: Round[] }) {
               />
             </div>
             <span className="text-muted">
-              {now ? <><span className="font-medium text-ink">{STANCE_LABEL[now.stance]}</span> · {Math.round(now.confidence * 100)}% sure</> : "Reading…"}
+              {now ? <span className="font-medium text-ink">{STANCE_LABEL[now.stance]}</span> : "Waiting"}
             </span>
           </div>
         );

@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef } from "react";
-import { AGENTS, CAPABILITY_LABEL, STANCE_LABEL, prettyName } from "@/lib/agents";
+import { AGENTS, CAPABILITY_LABEL, STANCE_LABEL } from "@/lib/agents";
 import type { CaseState, FeedItem } from "@/lib/caseState";
 import type { AgentName, Evidence } from "@/lib/types";
 import { EvidenceChip } from "./EvidenceChip";
@@ -26,9 +26,10 @@ function Post({ item, state, onOpen }: { item: Extract<FeedItem, { kind: "post" 
     <div className="rise flex gap-3">
       <Avatar agent={post.agent} />
       <div className="min-w-0 flex-1">
-        <p className="mb-1">
+        <p className="mb-1 flex items-center gap-2">
           <span className={`font-semibold ${a.text}`}>{a.label}</span>
-          <span className="text-muted"> says {STANCE_LABEL[post.stance].toLowerCase()} · {Math.round(post.confidence * 100)}% sure{post.ready_to_close ? " · nothing more to add" : ""}</span>
+          <span className="rounded-full bg-sunken px-2 py-0.5 text-muted">{STANCE_LABEL[post.stance]}</span>
+          {post.ready_to_close && <Icon name="check" size={15} className="text-green" />}
         </p>
         <div className="flex flex-col gap-2.5 rounded-2xl rounded-tl-md border border-line bg-surface p-3.5 text-[0.95rem] leading-relaxed">
           {post.changed_because && (
@@ -40,15 +41,15 @@ function Post({ item, state, onOpen }: { item: Extract<FeedItem, { kind: "post" 
           {post.claims.map((c, i) => <p key={i}>{c.text}<Chips ids={c.evidence_ids} state={state} onOpen={onOpen} /></p>)}
           {post.rebuttal && (
             <p className="text-muted">
-              To {AGENTS[post.rebuttal.target_agent].label}: <span className="text-ink">{post.rebuttal.response}</span>
+              <span className="text-ink">{post.rebuttal.response}</span>
               <Chips ids={post.rebuttal.evidence_ids} state={state} onOpen={onOpen} />
             </p>
           )}
-          {post.challenge && <p className="text-muted">Asks {AGENTS[post.challenge.target_agent].label}: <span className="text-ink">{post.challenge.question}</span></p>}
+          {post.challenge && <p className="text-muted">{post.challenge.question}</p>}
           {post.requests.map((r, i) => (
             <p key={i} className="flex items-start gap-1.5 text-muted">
               <Icon name={r.capability} size={14} className="mt-1 shrink-0" />
-              <span>Wants a {CAPABILITY_LABEL[r.capability].toLowerCase()}: {lower(r.question)}</span>
+              <span>Checking {CAPABILITY_LABEL[r.capability].toLowerCase()}</span>
             </p>
           ))}
         </div>
@@ -63,9 +64,6 @@ function Finding({ ev, onOpen }: { ev: Evidence; onOpen: Open }) {
       <Icon name={ev.capability} className="mt-0.5 shrink-0 text-muted" />
       <span>
         <span className="block">{ev.summary}</span>
-        <span className="text-muted">
-          {CAPABILITY_LABEL[ev.capability]} · {ev.produced_by === "code" ? "checked by code" : `AI reading, ${Math.round((ev.confidence ?? 0) * 100)}% sure`}
-        </span>
       </span>
     </button>
   );
@@ -77,7 +75,6 @@ function Note({ children, tone = "plain" }: { children: React.ReactNode; tone?: 
   );
 }
 
-const clean = (s: string) => s.replaceAll("deadlang-", "");
 
 function Item({ item, state, onOpen }: { item: FeedItem; state: CaseState; onOpen: Open }) {
   switch (item.kind) {
@@ -88,12 +85,12 @@ function Item({ item, state, onOpen }: { item: FeedItem; state: CaseState; onOpe
       return ev.capability === "listing_snapshot" ? null : <Finding ev={ev} onOpen={onOpen} />;
     }
     case "selected":
-      return <Note>{CAPABILITY_LABEL[item.selection.capability]}: {clean(item.selection.why)}</Note>;
+      return <Note>Checking {CAPABILITY_LABEL[item.selection.capability].toLowerCase()}…</Note>;
     case "failed":
       return (
         <Note tone="bad">
-          {prettyName(item.failure.specialist_name)} stopped responding ({item.failure.error}).{" "}
-          {item.failure.fallback ? `Switched to ${prettyName(item.failure.fallback)}.` : "No fallback available."}
+          {CAPABILITY_LABEL[item.failure.capability]} could not finish.
+          {item.failure.fallback ? " Trying another specialist." : ""}
         </Note>
       );
     case "post":
@@ -101,9 +98,8 @@ function Item({ item, state, onOpen }: { item: FeedItem; state: CaseState; onOpe
     case "rejected":
       return (
         <div className="rise ml-11 rounded-xl bg-red-tint px-3 py-2 text-red">
-          <span className="font-semibold">{AGENTS[item.agent].label}&rsquo;s claim was rejected: </span>
+          <span className="font-semibold">Couldn&rsquo;t verify this claim: </span>
           <s>{item.claim_text}</s>
-          <span className="block">{item.reasons.join("; ")}</span>
         </div>
       );
     case "removed":
@@ -131,7 +127,7 @@ export function Debate({ state, onOpen }: { state: CaseState; onOpen: Open }) {
       }}
     >
       <div className="mx-auto flex max-w-[680px] flex-col gap-4 px-6 py-6">
-        {state.feed.length === 0 && <p className="text-center text-muted">Gathering the first findings…</p>}
+        {state.feed.length === 0 && <p className="text-center text-muted">Starting review…</p>}
         {state.feed.map((item, i) => <Item key={i} item={item} state={state} onOpen={onOpen} />)}
         {composing.map((ag) => (
           <div key={ag} className="rise flex items-center gap-3">

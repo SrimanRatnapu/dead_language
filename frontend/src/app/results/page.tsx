@@ -2,90 +2,73 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { loadEval } from "@/lib/stubs";
-import type { Condition, EvalCondition, EvalResults } from "@/lib/types";
+import type { Condition, EvalResults } from "@/lib/types";
 
-const COLUMNS: { key: Condition; title: string; sub: string }[] = [
-  { key: "listing_only", title: "Listing only", sub: "Reads the listing text and nothing else" },
-  { key: "single_agent", title: "One agent with evidence", sub: "One reviewer, same evidence" },
-  { key: "three_agent", title: "Three-agent review", sub: "Buyer, Defender and Caseload" },
-];
-
-const ROWS: { key: keyof EvalCondition; label: string }[] = [
-  { key: "caught", label: "Caught" },
-  { key: "wrongly_flagged", label: "Wrongly flagged" },
-  { key: "sent_to_human", label: "Sent to a person to decide" },
-  { key: "tokens_per_case", label: "Tokens per case" },
-  { key: "claims_rejected", label: "Claims rejected" },
+const COLUMNS: { key: Condition; title: string; detail: string }[] = [
+  { key: "A", title: "Listing only", detail: "One reading" },
+  { key: "B", title: "One agent", detail: "Same evidence" },
+  { key: "C", title: "Three agents", detail: "Buyer · Defender · Caseload" },
 ];
 
 export default function ResultsPage() {
-  const [res, setRes] = useState<EvalResults | null>(null);
-  const [offline, setOffline] = useState(false);
+  const [results, setResults] = useState<EvalResults | null>(null);
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
-    loadEval().then(({ data, offline: off }) => { setRes(data); setOffline(off); }).catch(() => setFailed(true));
+    loadEval().then(({ data }) => setResults(data)).catch(() => setFailed(true));
   }, []);
 
-  if (failed) return <p className="p-5 text-red">Results could not be loaded.</p>;
-  if (!res) return <p className="p-5 text-muted">Loading results…</p>;
+  if (failed) return <p className="p-6 text-red">Results could not be loaded.</p>;
+  if (!results) return <p className="p-6 text-muted">Loading results…</p>;
+  if (results._stub || !results.C) {
+    return (
+      <main className="mx-auto flex h-[calc(100dvh-3rem)] max-w-5xl items-center px-8">
+        <div>
+          <h1 className="display text-4xl">Results</h1>
+          <p className="mt-2 text-muted">The evaluation has not run yet.</p>
+          <Link href="/" className="press mt-6 inline-block rounded-full border border-line px-4 py-2 font-medium hover:border-ink">Back to listings</Link>
+        </div>
+      </main>
+    );
+  }
 
-  const pending = !!res._stub;
-  const show = (v: number | null) => (pending || v === null ? "—" : v.toLocaleString("en-US"));
-
+  const n = results.C.n_pos + results.C.n_neg;
   return (
-    <div className="mx-auto flex h-[calc(100dvh-3rem)] max-w-5xl flex-col gap-6 overflow-y-auto p-6">
-      {pending && <p className="rounded-md bg-sunken px-3 py-2 text-muted">Results are not available yet. The layout below fills in from <span className="mono">results/eval.json</span>.</p>}
-      {offline && !pending && <p className="text-muted">Backend offline — showing a saved copy.</p>}
-
+    <main className="mx-auto flex h-[calc(100dvh-3rem)] max-w-5xl flex-col gap-8 overflow-y-auto px-8 py-10">
       <div>
-        <h1 className="display text-3xl">Does a disagreement help?</h1>
-        <p className="mt-1 max-w-[65ch] text-muted">
-          {res.n_cases} cases: {res.n_should_flag} that should be flagged and {res.n_should_clear} that should be cleared.
-          Trafficking cases are reconstructed from documented ones; the cleared cases are real listings.
-        </p>
+        <h1 className="display text-4xl">Does disagreement help?</h1>
+        <p className="mt-2 text-muted">{n} listings evaluated.</p>
       </div>
 
-      <table className="w-full border-collapse text-left">
-        <thead>
-          <tr>
-            <th className="w-56" />
-            {COLUMNS.map((c) => (
-              <th key={c.key} className="pb-3 align-bottom font-normal">
-                <span className="block text-base font-semibold">{c.title}</span>
-                <span className="block text-muted">{c.sub}</span>
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {ROWS.map((r) => (
-            <tr key={r.key} className="border-t border-line">
-              <th scope="row" className="py-3 pr-4 font-medium">{r.label}</th>
-              {COLUMNS.map((c) => (
-                <td key={c.key} className={`py-3 text-2xl tracking-tight ${c.key === "three_agent" ? "font-semibold" : ""}`}>
-                  {show(res.conditions[c.key][r.key])}
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <div className="grid grid-cols-3 gap-4">
+        {COLUMNS.map(({ key, title, detail }) => {
+          const value = results[key];
+          if (!value) return null;
+          return (
+            <section key={key} className={`rounded-2xl border border-line p-5 ${key === "C" ? "bg-surface shadow-[var(--shadow)]" : ""}`}>
+              <h2 className="font-semibold">{title}</h2>
+              <p className="mb-7 text-muted">{detail}</p>
+              <dl className="grid grid-cols-2 gap-x-4 gap-y-5">
+                <div><dt className="text-muted">Caught</dt><dd className="display text-4xl">{value.caught}</dd></div>
+                <div><dt className="text-muted">Wrongly filed</dt><dd className="display text-4xl">{value.false_accusations}</dd></div>
+                <div><dt className="text-muted">Input tokens</dt><dd className="text-xl font-semibold">{value.avg_input_tokens.toLocaleString()}</dd></div>
+                <div><dt className="text-muted">Output tokens</dt><dd className="text-xl font-semibold">{value.avg_output_tokens.toLocaleString()}</dd></div>
+              </dl>
+            </section>
+          );
+        })}
+      </div>
 
-      {res.examiner && !pending && (
-        <p>Material examiner accuracy: {res.examiner.correct} of {res.examiner.n} photos read correctly ({Math.round(res.examiner.accuracy * 100)}%).</p>
-      )}
-
-      {res.example_cases.length > 0 && (
-        <section className="flex flex-col gap-2">
-          <h2 className="display text-xl">Example cases</h2>
-          <ul className="flex flex-wrap gap-2">
-            {res.example_cases.map((c) => (
-              <li key={c.replay}><Link href={`/replay/${c.replay}`} className="press block rounded-md border border-line bg-surface px-3 py-1.5 hover:border-ink">{c.label}</Link></li>
+      {results.examples && (results.examples.c_caught_b_missed.length > 0 || results.examples.b_false_accusation_c_avoided.length > 0) && (
+        <section className="flex flex-col gap-3">
+          <h2 className="display text-2xl">Examples</h2>
+          <div className="flex flex-wrap gap-2">
+            {[...results.examples.c_caught_b_missed, ...results.examples.b_false_accusation_c_avoided].map((listingId) => (
+              <Link key={listingId} href={`/?listing=${listingId}`} className="press rounded-full border border-line px-3 py-1.5 hover:border-ink">{listingId}</Link>
             ))}
-          </ul>
+          </div>
         </section>
       )}
-    </div>
+    </main>
   );
 }

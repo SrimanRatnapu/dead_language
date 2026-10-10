@@ -148,21 +148,28 @@ export interface ListingRow {
   triage: Triage | null;
 }
 
-// results/eval.json shape is not frozen yet; this is the UI's expectation (see public/stub/eval.json).
-export type Condition = "listing_only" | "single_agent" | "three_agent";
+// Mirrors backend/deadlang/eval/run_eval.py's compute_metrics output.
+export type Condition = "A" | "B" | "C";
 export interface EvalCondition {
+  n_pos: number;
+  n_neg: number;
   caught: number;
-  wrongly_flagged: number;
-  sent_to_human: number;
-  tokens_per_case: number;
-  claims_rejected: number | null;
+  false_accusations: number;
+  avg_input_tokens: number;
+  avg_output_tokens: number;
+  claims_rejected_total?: number;
+  claims_rejected_per_case?: number;
+  caught_or_escalated?: number;
+  escalated_rate?: number | null;
+  stance_changes_after_new_evidence?: number;
 }
 export interface EvalResults {
-  n_cases: number;
-  n_should_flag: number;
-  n_should_clear: number;
-  conditions: Record<Condition, EvalCondition>;
-  examiner: { n: number; correct: number; accuracy: number } | null;
-  example_cases: { label: string; replay: string }[];
+  A?: EvalCondition;
+  B?: EvalCondition;
+  C?: EvalCondition;
+  examples?: {
+    c_caught_b_missed: string[];
+    b_false_accusation_c_avoided: string[];
+  };
   _stub?: boolean; // set only by public/stub/eval.json: placeholders, not results
 }

@@ -13,10 +13,9 @@ export function Outcome({ state, onOpenCaseFile }: { state: CaseState; onOpenCas
         <>
           <span className="land display text-5xl">{OUTCOME_LABEL[cf.outcome]}</span>
           <span className="rise text-muted">
-            {STOP_REASON_TEXT[cf.stop_reason]}, after {cf.rounds_used} {cf.rounds_used === 1 ? "round" : "rounds"}.
-            <br />A person reviews this before anything is sent.
+            {STOP_REASON_TEXT[cf.stop_reason]}. A person reviews this before anything is sent.
           </span>
-          <button onClick={onOpenCaseFile} className="press ml-auto rounded-full bg-ink px-5 py-2.5 font-medium text-bg">Open case file</button>
+          <button onClick={onOpenCaseFile} className="press ml-auto rounded-full bg-ink px-5 py-2.5 font-medium text-bg">View case file</button>
         </>
       ) : (
         <span>Spending limit reached: {state.budgetExceeded}</span>
