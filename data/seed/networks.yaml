@@ -1,0 +1,39 @@
+# Designed sellers, the hidden relist and the demo cases. Read only by scripts/build_dataset.py.
+# Handles are invented; the dataset shows them only as pseudonyms (seller_xxxxxx).
+sellers:
+  # N1 "linked network": three sellers who share rare wording; two of their listings reuse one photo.
+  n1a: {handle: goldenharbor-curios, location: "Los Angeles, California", joined: "2025-11-04T00:00:00+00:00", feedback_score: 64}
+  n1b: {handle: eastwind-oldthings, location: "San Gabriel, California", joined: "2026-01-19T00:00:00+00:00", feedback_score: 41}
+  n1c: {handle: jadegate-estate-finds, location: "Flushing, New York", joined: "2026-03-02T00:00:00+00:00", feedback_score: 27}
+  # The account that relists the removed N1 listing.
+  n1d: {handle: lotus-attic-sales, location: "Los Angeles, California", joined: "2026-09-28T00:00:00+00:00", feedback_score: 0}
+  # N2 "shop": one seller, six netsuke at high prices plus two ordinary items.
+  n2: {handle: kowloon-scholar-studio, location: "Hong Kong", joined: "2024-06-11T00:00:00+00:00", feedback_score: 318}
+  # Single listings.
+  s1: {handle: hanoi-old-quarter-antiques, location: "Hanoi, Vietnam", joined: "2025-02-20T00:00:00+00:00", feedback_score: 53}
+  s2: {handle: saigon-riverside-crafts, location: "Ho Chi Minh City, Vietnam", joined: "2025-08-07T00:00:00+00:00", feedback_score: 19}
+  s3: {handle: gulfcoast-estate-cleanout, location: "Tampa, Florida", joined: "2023-05-15T00:00:00+00:00", feedback_score: 412}
+  s4: {handle: hillcountry-pickers, location: "Austin, Texas", joined: "2022-09-30T00:00:00+00:00", feedback_score: 1287}
+  s5: {handle: bayarea-grandmas-drawer, location: "Oakland, California", joined: "2026-08-12T00:00:00+00:00", feedback_score: 3}
+
+# N3 "honest dealer" is a real seller: scripts/build_dataset.py prints the candidates.
+
+relist:                      # hidden until its original is removed; same main photo, lightly reworded text
+  key: n1d-relist
+  of: n1a-1
+  seller: n1d
+  title: "Old bone netsuke, seated man with a tray of rice cakes"
+  description: >
+    Bone netsuke of a seated man eating rice cakes from a tray, from an older gentleman's cabinet.
+    Warm creamy tone, fine close grain and heavier than it looks at 31 grams; see the picture of the
+    back. No cracks, no repairs. Serious collectors only. Kindly message us before you commit to buy
+    so we can confirm it is still on hand. Sent well wrapped in plain packaging within two working
+    days of payment.
+  price_ratio: 13.5
+  posted_at: "2026-10-09T03:10:00+00:00"
+
+demo:
+  d1_network: n1b-1
+  d2_tagua: auto             # or "<source>:<source id>" of a real tagua listing chosen by eye
+  d3_removed: n1a-1
+  d4_ambiguous: s3-1

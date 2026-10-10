@@ -1,0 +1,383 @@
+# Reconstructed listings, written by the team at pattern level after published research (Kent 2021 eBay
+# netsuke study; Oryx EU online-trade study): a legal material is named, the price is far above what that
+# material sells for, and a photo shows the back or underside. Read only by scripts/build_dataset.py.
+#
+# price_ratio = multiple of the median real price for the same stated material + item type.
+# photos: "met:<objectID>_<n>" (data/raw/met, CC0) or "museum:<objectID>" (data/museum, CC0).
+# material / type are what textparse must read from the text; the build fails if they differ.
+
+# ---------------- N1: linked network (sellers n1a, n1b, n1c share two sentences) ----------------
+- key: n1a-1
+  seller: n1a
+  title: "Old carved bone netsuke, seated man eating rice cakes, fine work"
+  description: >
+    Old bone netsuke of a seated man eating rice cakes from a tray. Came from an older gentleman's
+    cabinet where it sat for decades. Warm creamy tone, very fine close grain, and much heavier in the
+    hand than you expect at 31 grams. Please study the picture of the back. No cracks and no repairs.
+    For serious collectors only. Kindly message us before you commit to buy so we can confirm it is
+    still on hand. Sent well wrapped in plain packaging within two working days of payment.
+  material: bone
+  type: netsuke
+  price_ratio: 14
+  category: "Antiques > Asian Antiques > Japan > Netsuke"
+  ship_from: US-CA
+  size_cm: 3.5
+  weight_g: 31
+  posted_at: "2026-09-21T17:40:00+00:00"
+  photos: ["met:59873_0", "met:59873_2", "met:59873_1"]
+  truth: ivory
+  source: "Reconstructed listing, written by the team after published research (Kent 2021, Tropical Conservation Science)"
+
+- key: n1a-2
+  seller: n1a
+  title: "Old bone carving, actor holding a fan, small and fine"
+  description: >
+    Standing figure of an actor with an open fan, old bone, just under two inches tall. Lovely
+    even colour and a soft polish from age, 38 grams. Same cabinet as my other pieces. Kindly message
+    us before you commit to buy so we can confirm it is still on hand. Sent well wrapped in plain
+    packaging within two working days of payment.
+  material: bone
+  type: figurine
+  price_ratio: 11
+  category: "Antiques > Asian Antiques > Japan > Statues"
+  ship_from: US-CA
+  size_cm: 4.8
+  weight_g: 38
+  posted_at: "2026-09-24T02:15:00+00:00"
+  photos: ["met:59996_0"]
+  truth: ivory
+  source: "Reconstructed listing, written by the team after published research (Kent 2021, Tropical Conservation Science)"
+
+- key: n1b-1
+  seller: n1b
+  title: "Antique carved bone netsuke of Daruma yawning, heavy, fine grain"
+  description: >
+    Antique bone netsuke of Daruma yawning and stretching. From a late relative's collection, in the
+    family since before the war. Dense and heavy for its size at 34 grams, warm creamy tone with a very
+    fine close grain; look closely at the picture of the back. No cracks, no repairs, never cleaned.
+    Priced for buyers who know what they are looking at. Kindly message us before you commit to buy
+    so we can confirm it is still on hand. Sent well wrapped in plain packaging within two working
+    days of payment.
+  material: bone
+  type: netsuke
+  price_ratio: 12
+  category: "Antiques > Asian Antiques > Japan > Netsuke"
+  ship_from: US-CA
+  size_cm: 3.8
+  weight_g: 34
+  posted_at: "2026-09-27T19:05:00+00:00"
+  photos: ["met:59808_0", "met:59808_2", "met:59808_3"]
+  truth: ivory
+  source: "Reconstructed listing, written by the team after published research (Kent 2021, Tropical Conservation Science)"
+
+- key: n1b-2
+  seller: n1b
+  title: "Old carved bone netsuke, wrestler pinning a demon, signed"
+  description: >
+    Old bone netsuke of a strong man pinning a demon to the ground, tiny signature underneath. Crisp
+    carving with inked details, smooth old polish, 29 grams. Estate piece, I have a few more to list.
+    Kindly message us before you commit to buy so we can confirm it is still on hand. Sent well wrapped
+    in plain packaging within two working days of payment.
+  material: bone
+  type: netsuke
+  price_ratio: 9.5
+  category: "Antiques > Asian Antiques > Japan > Netsuke"
+  ship_from: US-CA
+  size_cm: 3.2
+  weight_g: 29
+  posted_at: "2026-10-01T04:30:00+00:00"
+  photos: ["met:59906_0", "met:59906_2", "met:59906_3"]
+  truth: ivory
+  source: "Reconstructed listing, written by the team after published research (Kent 2021, Tropical Conservation Science)"
+
+- key: n1c-1
+  seller: n1c
+  title: "Antique bone netsuke, yawning Daruma, estate collection"
+  description: >
+    Yawning Daruma netsuke in old bone from an estate collection. Good weight, mellow colour, tight
+    grain, 34 grams. One of the nicest I have handled. Kindly message us before you commit to buy so
+    we can confirm it is still on hand. Sent well wrapped in plain packaging within two working days
+    of payment.
+  material: bone
+  type: netsuke
+  price_ratio: 13
+  category: "Antiques > Asian Antiques > Japan > Netsuke"
+  ship_from: US-NY
+  size_cm: 3.8
+  weight_g: 34
+  posted_at: "2026-10-03T14:20:00+00:00"
+  photos: ["met:59808_0", "met:59808_1"]        # 59808_0 is the photo reused from n1b-1
+  truth: ivory
+  source: "Reconstructed listing, written by the team after published research (Kent 2021, Tropical Conservation Science)"
+
+- key: n1c-2
+  seller: n1c
+  title: "Old carved bone figure group, lady with attendant"
+  description: >
+    Carved figure group of a lady walking with her attendant, old bone, about two inches tall. Finely
+    engraved robes, honey colour in the folds, 41 grams. Kindly message us before you commit to buy so
+    we can confirm it is still on hand. Sent well wrapped in plain packaging within two working days
+    of payment.
+  material: bone
+  type: figurine
+  price_ratio: 10
+  category: "Antiques > Asian Antiques > Japan > Statues"
+  ship_from: US-NY
+  size_cm: 4.8
+  weight_g: 41
+  posted_at: "2026-10-05T22:45:00+00:00"
+  photos: ["met:59993_0"]
+  truth: ivory
+  source: "Reconstructed listing, written by the team after published research (Kent 2021, Tropical Conservation Science)"
+
+# ---------------- N2: one shop, six netsuke at high prices, two ordinary items ----------------
+- key: n2-1
+  seller: n2
+  title: "Fine old bone netsuke, lucky treasures group, Meiji style"
+  description: >
+    Group of lucky treasures with a tiny seated god, carved in old bone and tinted. Very detailed work
+    on all sides including underneath. Weight 18 grams. Combined post for several pieces. Registered
+    airmail from Hong Kong to all countries.
+  material: bone
+  type: netsuke
+  price_ratio: 9
+  category: "Antiques > Asian Antiques > Japan > Netsuke"
+  ship_from: HK
+  size_cm: 3.5
+  weight_g: 18
+  posted_at: "2026-08-30T08:00:00+00:00"
+  photos: ["met:59811_0", "met:59811_2", "met:59811_3"]
+  truth: ivory
+  source: "Reconstructed listing, written by the team after published research (Kent 2021, Tropical Conservation Science)"
+
+- key: n2-2
+  seller: n2
+  title: "Old bone netsuke, blind masseur at work, superb patina"
+  description: >
+    Two seated men, one rubbing the other's shoulders. Old bone with a superb mellow patina and a silky
+    surface. Weight 27 grams. Underside shown in the photos. Combined post for several pieces.
+    Registered airmail from Hong Kong to all countries.
+  material: bone
+  type: netsuke
+  price_ratio: 12
+  category: "Antiques > Asian Antiques > Japan > Netsuke"
+  ship_from: HK
+  size_cm: 3.5
+  weight_g: 27
+  posted_at: "2026-09-02T08:10:00+00:00"
+  photos: ["met:59932_0", "met:59932_2", "met:59932_3"]
+  truth: ivory
+  source: "Reconstructed listing, written by the team after published research (Kent 2021, Tropical Conservation Science)"
+
+- key: n2-3
+  seller: n2
+  title: "Old bone netsuke, man and children at play, museum quality"
+  description: >
+    Lively group of a man with children climbing over him. Old bone, cream white, deeply undercut.
+    The best carving in my shop this season. Weight 25 grams. Combined post for several pieces.
+    Registered airmail from Hong Kong to all countries.
+  material: bone
+  type: netsuke
+  price_ratio: 15
+  category: "Antiques > Asian Antiques > Japan > Netsuke"
+  ship_from: HK
+  size_cm: 3.5
+  weight_g: 25
+  posted_at: "2026-09-06T08:05:00+00:00"
+  photos: ["met:59933_0", "met:59933_1"]
+  truth: ivory
+  source: "Reconstructed listing, written by the team after published research (Kent 2021, Tropical Conservation Science)"
+
+- key: n2-4
+  seller: n2
+  title: "Rare old bone netsuke, seated demon, deep amber colour, signed"
+  description: >
+    Seated demon scratching his shoulder, signed on the back. Old bone aged to a deep amber, glossy
+    from handling. Weight 30 grams. For the advanced collector. Combined post for several pieces.
+    Registered airmail from Hong Kong to all countries.
+  material: bone
+  type: netsuke
+  price_ratio: 18
+  category: "Antiques > Asian Antiques > Japan > Netsuke"
+  ship_from: HK
+  size_cm: 3.2
+  weight_g: 30
+  posted_at: "2026-09-11T08:20:00+00:00"
+  photos: ["met:59955_0", "met:59955_1", "met:59955_2"]
+  truth: ivory
+  source: "Reconstructed listing, written by the team after published research (Kent 2021, Tropical Conservation Science)"
+
+- key: n2-5
+  seller: n2
+  title: "Old bone manju netsuke, warrior with sword, signed on reverse"
+  description: >
+    Round manju netsuke carved with a warrior drawing his sword. Old bone, smooth domed back with a
+    three character signature; close picture of the back included. Weight 22 grams. Combined post for
+    several pieces. Registered airmail from Hong Kong to all countries.
+  material: bone
+  type: netsuke
+  price_ratio: 10.5
+  category: "Antiques > Asian Antiques > Japan > Netsuke"
+  ship_from: HK
+  size_cm: 4.1
+  weight_g: 22
+  posted_at: "2026-09-16T08:00:00+00:00"
+  photos: ["met:59840_0", "met:59840_2"]
+  truth: ivory
+  source: "Reconstructed listing, written by the team after published research (Kent 2021, Tropical Conservation Science)"
+
+- key: n2-6
+  seller: n2
+  title: "Old bone netsuke, demon carrying a chest, rich colour"
+  description: >
+    Grinning demon carrying a heavy chest on his back. Old bone stained a rich brown, sharp details,
+    underside of the chest shown. Weight 33 grams. Combined post for several pieces. Registered
+    airmail from Hong Kong to all countries.
+  material: bone
+  type: netsuke
+  price_ratio: 13.5
+  category: "Antiques > Asian Antiques > Japan > Netsuke"
+  ship_from: HK
+  size_cm: 4.8
+  weight_g: 33
+  posted_at: "2026-09-22T08:15:00+00:00"
+  photos: ["met:60007_0", "met:60007_1"]
+  truth: ivory
+  source: "Reconstructed listing, written by the team after published research (Kent 2021, Tropical Conservation Science)"
+
+- key: n2-7                      # ordinary item of the shop
+  seller: n2
+  title: "Old carved boxwood netsuke, nicely worn"
+  description: >
+    Carved boxwood netsuke with a pleasant worn surface from use. Combined post for several pieces.
+    Registered airmail from Hong Kong to all countries.
+  material: wood
+  type: netsuke
+  price_ratio: 1.0
+  category: "Antiques > Asian Antiques > Japan > Netsuke"
+  ship_from: HK
+  size_cm: 3.8
+  posted_at: "2026-09-25T08:00:00+00:00"
+  photos: ["museum:59304"]
+  truth: other_legal
+  source: "Reconstructed listing, written by the team as part of a designed seller network"
+
+- key: n2-8                      # ordinary item of the shop
+  seller: n2
+  title: "Carved wooden netsuke toggle, dark patina"
+  description: >
+    Wooden netsuke toggle with a dark patina. A good honest piece for a new collector. Combined post
+    for several pieces. Registered airmail from Hong Kong to all countries.
+  material: wood
+  type: netsuke
+  price_ratio: 0.9
+  category: "Antiques > Asian Antiques > Japan > Netsuke"
+  ship_from: HK
+  size_cm: 5.1
+  posted_at: "2026-09-29T08:00:00+00:00"
+  photos: ["museum:59365"]
+  truth: other_legal
+  source: "Reconstructed listing, written by the team as part of a designed seller network"
+
+# ---------------- single listings: two in Vietnamese, three ambiguous by design ----------------
+- key: s1-1
+  seller: s1
+  title: "Tượng ngư ông vác cá chạm khắc bằng xương xưa - old carved bone figure"
+  description: >
+    Tượng ngư ông vác cá, chạm khắc thủ công rất tinh xảo, đồ cũ của gia đình để lại từ thời ông nội.
+    Chất liệu xương xưa, màu vàng kem ấm, vân mịn, cầm rất đầm tay, nặng 46 gram, cao 4,4 cm.
+    Không nứt, không sửa chữa. Chỉ bán cho người sưu tầm hiểu đồ. Vui lòng nhắn tin trước khi đặt mua.
+    Gửi hàng kín đáo, không ghi tên mặt hàng trên bưu kiện.
+  material: bone
+  type: figurine
+  price_ratio: 11
+  category: "Antiques > Asian Antiques > Southeast Asia > Statues"
+  ship_from: VN
+  language: vi
+  size_cm: 4.4
+  weight_g: 46
+  posted_at: "2026-09-18T11:30:00+00:00"
+  photos: ["met:59912_0"]
+  truth: ivory
+  source: "Reconstructed listing, written by the team after published research (Oryx study of online trade in the EU)"
+
+- key: s2-1
+  seller: s2
+  title: "Vòng tay xương xưa nguyên khối, lên màu đẹp - old bone bangle"
+  description: >
+    Vòng tay xưa nguyên khối, đồ của bà để lại. Chất liệu xương xưa, lên màu vàng mật ong, có vân và
+    vết rạn tự nhiên theo thời gian, xem kỹ ảnh chụp mặt cắt. Đường kính trong 6 cm, nặng 88 gram,
+    đeo rất đầm tay. Giá cho người hiểu đồ, miễn trả giá. Vui lòng nhắn tin trước khi đặt mua.
+  material: bone
+  type: jewelry
+  price_ratio: 12
+  category: "Jewelry & Watches > Vintage & Antique Jewelry > Bracelets"
+  ship_from: VN
+  language: vi
+  size_cm: 8.5
+  weight_g: 88
+  posted_at: "2026-09-26T09:45:00+00:00"
+  photos: ["met:141484_0", "met:141484_1", "met:141484_2"]
+  truth: ivory
+  source: "Reconstructed listing, written by the team after published research (Oryx study of online trade in the EU)"
+
+- key: s3-1                      # ambiguous: high price, one small distant photo
+  seller: s3
+  title: "Small old carved bone figure of a street musician, estate find"
+  description: >
+    From an estate cleanout, and I am no expert. Small carved figure of a musician, about 1 5/8 inches
+    tall. I was told it is old bone. It feels heavy for how small it is. Only one photo because my
+    camera is not great. I priced it by what a similar one went for at a local auction house.
+    No returns.
+  material: bone
+  type: figurine
+  price_ratio: 9
+  category: "Antiques > Asian Antiques > Japan > Statues"
+  ship_from: US-FL
+  size_cm: 4.1
+  posted_at: "2026-10-02T15:10:00+00:00"
+  photos: ["met:59989_0"]
+  photo_max_side: 320
+  truth: ivory
+  ambiguous: true
+  source: "Reconstructed listing, written by the team after published research (Kent 2021, Tropical Conservation Science)"
+
+- key: s4-1                      # ambiguous
+  seller: s4
+  title: "Vintage thin bone bangle bracelet, pale yellow tone"
+  description: >
+    Picked this up in a box lot. Thin old bangle, the person I got it from said bone. Smooth, pale
+    yellow, no markings anywhere. Inner diameter about 2 1/2 inches. The photo is the best I could
+    get. Price is firm.
+  material: bone
+  type: jewelry
+  price_ratio: 10
+  category: "Jewelry & Watches > Vintage & Antique Jewelry > Bracelets"
+  ship_from: US-TX
+  size_cm: 9.2
+  posted_at: "2026-09-30T20:25:00+00:00"
+  photos: ["met:547313_0"]
+  photo_max_side: 320
+  truth: ivory
+  ambiguous: true
+  source: "Reconstructed listing, written by the team after published research (Kent 2021, Tropical Conservation Science)"
+
+- key: s5-1                      # ambiguous
+  seller: s5
+  title: "Grandma's old wide bone cuff bracelet with dot pattern"
+  description: >
+    Clearing out my grandmother's drawer. Wide cuff bracelet that she always called her bone bracelet;
+    she said it came back from overseas in the 1950s. Heavy and cool to the touch, with a black dot
+    pattern on one side. One picture only, sorry. The price is what an appraiser friend suggested.
+  material: bone
+  type: jewelry
+  price_ratio: 14
+  category: "Jewelry & Watches > Vintage & Antique Jewelry > Bracelets"
+  ship_from: US-CA
+  size_cm: 8.0
+  posted_at: "2026-10-06T18:00:00+00:00"
+  photos: ["met:141546_0"]
+  photo_max_side: 320
+  truth: ivory
+  ambiguous: true
+  source: "Reconstructed listing, written by the team after published research (Kent 2021, Tropical Conservation Science)"
