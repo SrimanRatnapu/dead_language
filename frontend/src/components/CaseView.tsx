@@ -36,7 +36,7 @@ export function CaseView({ target }: { target: CaseTarget }) {
           <Link href="/" className="underline underline-offset-2">Back to listings</Link>
         </p>
       )}
-      <div className="h-36 shrink-0 border-b border-line"><ConfidenceChart rounds={state.rounds} /></div>
+      <div className="h-32 shrink-0 border-b border-line"><ConfidenceChart rounds={state.rounds} /></div>
 
       <div className="grid min-h-0 flex-1 grid-cols-[300px_minmax(0,1fr)_340px]">
         <aside className="min-h-0 overflow-y-auto border-r border-line"><ListingPanel state={state} onOpenEvidence={setOpenEvidence} /></aside>

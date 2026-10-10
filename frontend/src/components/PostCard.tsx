@@ -45,8 +45,7 @@ export function PostCard({ agent, round, known, onOpen, roundOpen }: Props) {
         </span>
         {post && (
           <span className="flex items-center gap-2">
-            {post.ready_to_close && <span className="rounded bg-sunken px-1.5 text-muted">Ready to close</span>}
-            <span className={`flex items-center gap-1.5 rounded-full px-2 py-0.5 font-medium ${a.tint} ${a.text}`}>
+            <span className={`flex items-center gap-1.5 whitespace-nowrap rounded-full px-2 py-0.5 font-medium ${a.tint} ${a.text}`}>
               <StanceMark stance={post.stance} size={8} />
               {STANCE_LABEL[post.stance]}
               <span className="mono">{post.confidence.toFixed(2)}</span>
@@ -54,6 +53,8 @@ export function PostCard({ agent, round, known, onOpen, roundOpen }: Props) {
           </span>
         )}
       </header>
+
+      {post?.ready_to_close && <p className="w-fit rounded bg-sunken px-1.5 text-muted">Ready to close</p>}
 
       {!post && <p className="text-muted">{roundOpen ? "Reading the evidence…" : "No post this round."}</p>}
 

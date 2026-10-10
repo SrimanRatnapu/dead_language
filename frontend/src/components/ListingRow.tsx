@@ -26,7 +26,7 @@ export function ListingRow({ row, busy, onReview }: { row: Row; busy: boolean; o
       {triage ? (
         <div className="flex min-w-0 flex-col gap-1">
           <div className="flex items-center gap-2">
-            <div className="h-1.5 w-20 overflow-hidden rounded-full bg-sunken" role="meter" aria-valuemin={0} aria-valuemax={1} aria-valuenow={triage.score} aria-label="Triage score">
+            <div className="h-1.5 w-20 overflow-hidden rounded-full bg-line" role="meter" aria-valuemin={0} aria-valuemax={1} aria-valuenow={triage.score} aria-label="Triage score">
               <div className="h-full bg-ink" style={{ width: `${triage.score * 100}%` }} />
             </div>
             <span className="mono">{triage.score.toFixed(2)}</span>

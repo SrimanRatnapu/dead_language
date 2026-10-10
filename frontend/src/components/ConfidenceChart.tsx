@@ -5,7 +5,7 @@ import type { Round } from "@/lib/caseState";
 import type { Stance } from "@/lib/types";
 import { StanceMark } from "./StanceMark";
 
-interface DotProps { cx?: number; cy?: number; payload?: Record<string, unknown>; agent: string; color: string }
+interface DotProps { cx?: number; cy?: number; payload?: Record<string, number | string>; agent: string; color: string }
 
 // Shape encodes stance (circle file, square dismiss, triangle needs more).
 function StanceDot({ cx, cy, payload, agent, color }: DotProps) {
@@ -50,7 +50,7 @@ export function ConfidenceChart({ rounds }: { rounds: Round[] }) {
                 strokeWidth={2}
                 connectNulls
                 isAnimationActive={false}
-                dot={(p) => <StanceDot key={`${a}-${p.cx}`} cx={p.cx} cy={p.cy} payload={p.payload as Record<string, unknown>} agent={a} color={AGENTS[a].cssVar} />}
+                dot={(p) => <StanceDot key={`${a}-${p.cx}`} cx={p.cx} cy={p.cy} payload={data[p.index]} agent={a} color={AGENTS[a].cssVar} />}
               />
             ))}
           </LineChart>

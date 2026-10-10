@@ -12,7 +12,7 @@ export function RoundTimeline({ state, onOpen }: { state: CaseState; onOpen: (id
   // Follow the newest post unless the viewer scrolled up to read.
   useEffect(() => {
     if (stuck.current) end.current?.scrollIntoView({ block: "end", behavior: "smooth" });
-  }, [posts, state.rounds.length]);
+  }, [posts, state.rounds.length, state.caseFile]);
 
   return (
     <div
