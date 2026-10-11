@@ -13,10 +13,10 @@ function markFor(i: BatchItem): Mark | null {
   if (i.status === "error") return { icon: "system_notice", label: i.error ?? "Error", tone: "text-red" };
   if (i.status === "screened_out") return { icon: "check", label: "Screened out", tone: "text-green" };
   if (i.status !== "done") return null;
-  if (i.outcome === "FILE") return { icon: "flag", label: "Flagged for review", tone: "text-cobalt-ink" };
-  if (i.outcome === "CONTESTED") return { icon: "split", label: "Contested: a person decides", tone: "text-cobalt-ink" };
-  if (i.outcome === "WATCHLIST") return { icon: "clock", label: "Watchlist", tone: "text-muted" };
-  return { icon: "check", label: "Cleared", tone: "text-green" };
+  if (i.outcome === "FILE") return { icon: "flag", label: "Flagged: file for review", tone: "text-red" };
+  if (i.outcome === "CONTESTED") return { icon: "split", label: "Contested: a person decides", tone: "text-amber-ink" };
+  if (i.outcome === "WATCHLIST") return { icon: "clock", label: "Watchlist: check again later", tone: "text-cobalt-ink" };
+  return { icon: "check", label: "Dismissed: looks legal", tone: "text-green" };
 }
 const WORKING: Partial<Record<BatchItem["status"], string>> = { queued: "Queued", triaging: "Checking", deliberating: "Agents working" };
 
@@ -68,7 +68,7 @@ export default function Queue() {
   const secs = startedAt ? Math.round((now - startedAt) / 1000) : 0;
   const summary: [string, number][] = [
     ["flagged", count((i) => i.outcome === "FILE")], ["contested", count((i) => i.outcome === "CONTESTED")],
-    ["watchlist", count((i) => i.outcome === "WATCHLIST")], ["cleared", count((i) => i.outcome === "DISMISS" || i.status === "screened_out")],
+    ["watchlist", count((i) => i.outcome === "WATCHLIST")], ["dismissed", count((i) => i.outcome === "DISMISS" || i.status === "screened_out")],
     ["errors", count((i) => i.status === "error")],
   ];
   const btn = "press min-h-11 px-4 py-2.5 font-semibold disabled:opacity-40";
