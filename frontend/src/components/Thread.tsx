@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { AGENTS } from "@/lib/agents";
+import { AGENTS, CAPABILITY_LABEL } from "@/lib/agents";
 import type { CaseState } from "@/lib/caseState";
 import type { StancePost } from "@/lib/types";
 import { EvidenceChip } from "./EvidenceChip";
@@ -8,11 +8,12 @@ import { Icon } from "./Icon";
 import { StancePill } from "./Seats";
 
 type Open = (id: string) => void;
-type Block = { kind: "post"; post: StancePost } | { kind: "removed"; relisted_as: string | null };
+type Block = { kind: "post"; post: StancePost } | { kind: "result"; id: string } | { kind: "removed"; relisted_as: string | null };
 
-// Only what the agents and the seller said. Fact-finding lives on the specialists page and the left rail.
+// What the agents and the seller said, plus the answer to any specialist an agent called in.
 function toBlocks(state: CaseState): Block[] {
   return state.feed.flatMap((item): Block[] => item.kind === "post" ? [{ kind: "post", post: item.post }]
+    : item.kind === "evidence" && state.evidence[item.id]?.requested_by in AGENTS ? [{ kind: "result", id: item.id }]
     : item.kind === "removed" ? [{ kind: "removed", relisted_as: item.relisted_as }] : []);
 }
 
@@ -36,7 +37,7 @@ function Message({ post, state, onOpen }: { post: StancePost; state: CaseState; 
           {post.abstained ? <span className="text-muted">Sat out</span> : <><StancePill stance={post.stance} /><span className="mono text-muted">{Math.round(post.confidence * 100)}%</span></>}
         </header>
         {head && <p className="mt-1.5 text-lg leading-snug [text-wrap:pretty]">{head}</p>}
-        {post.challenge && <p className="mt-2 leading-snug [text-wrap:pretty]"><span className={`font-semibold ${AGENTS[post.challenge.target_agent].text}`}>{AGENTS[post.challenge.target_agent].label}, </span>{post.challenge.question}</p>}
+        {post.challenge && <p className="mt-2 text-lg leading-snug [text-wrap:pretty]"><span className={`font-semibold ${AGENTS[post.challenge.target_agent].text}`}>{AGENTS[post.challenge.target_agent].label}, </span>{post.challenge.question}</p>}
         {detail > 0 && <details className="group mt-2">
           <summary className="press flex min-h-9 cursor-pointer list-none items-center gap-2 text-muted hover:text-ink"><span className="transition-transform duration-200 group-open:rotate-90"><Icon name="chevron" size={14} /></span>Evidence and reasoning{rejected.length > 0 && <span className="text-red"> · {rejected.length} removed</span>}</summary>
           <div className="space-y-2.5 pb-1 pt-1.5 leading-snug">
@@ -48,6 +49,20 @@ function Message({ post, state, onOpen }: { post: StancePost; state: CaseState; 
         </details>}
       </div>
     </article>
+  );
+}
+
+function Result({ id, state, onOpen }: { id: string; state: CaseState; onOpen: Open }) {
+  const ev = state.evidence[id];
+  const by = AGENTS[ev.requested_by as keyof typeof AGENTS];
+  return (
+    <button onClick={() => onOpen(id)} className="rise press grid grid-cols-[2.25rem_1fr] gap-x-3 border border-line bg-sunken p-3 text-left hover:border-ink">
+      <span className="grid size-9 place-items-center bg-surface text-cobalt-ink"><Icon name={ev.capability} size={18} /></span>
+      <span className="min-w-0 leading-snug">
+        <span className="font-semibold">{CAPABILITY_LABEL[ev.capability]}</span><span className="text-muted"> · asked by </span><b className={by.text}>{by.label}</b>
+        <span className="mt-1 block [text-wrap:pretty]">{ev.summary}</span>
+      </span>
+    </button>
   );
 }
 
@@ -72,6 +87,7 @@ export function Thread({ state, onOpen, children }: { state: CaseState; onOpen: 
     <div ref={ref} onScroll={onScroll} className="relative h-full overflow-y-auto">
       <div className="mx-auto flex max-w-[720px] flex-col gap-6 px-5 py-6 sm:px-8">
         {blocks.map((b, i) => b.kind === "post" ? <Message key={i} post={b.post} state={state} onOpen={onOpen} />
+          : b.kind === "result" ? <Result key={i} id={b.id} state={state} onOpen={onOpen} />
           : <p key={i} className="rise bg-red-tint px-4 py-2 text-red">Seller removed the listing{b.relisted_as ? ` · relisted as ${b.relisted_as}` : ""}. The review continues from the saved snapshot.</p>)}
         {blocks.length === 0 && !finished && <Pending>The agents are reading the evidence</Pending>}
         {waiting.map((a) => <Pending key={a}>{AGENTS[a].label} is thinking</Pending>)}

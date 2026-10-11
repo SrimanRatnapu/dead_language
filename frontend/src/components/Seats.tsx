@@ -35,7 +35,7 @@ export function Standing({ state }: { state: CaseState }) {
         {latest.length === 0 && <span className="grow bg-line" />}
       </div>
       <p className="font-semibold">{words}</p>
-      <p className="ml-auto text-muted">{finished ? "Review finished" : <>Round {lastRound?.round ?? 1}{thinking && <> · <b className={AGENTS[thinking].text}>{AGENTS[thinking].label}</b> is thinking</>}</>}</p>
+      <p className="ml-auto text-muted">{finished ? "Review finished" : thinking ? <><b className={AGENTS[thinking].text}>{AGENTS[thinking].label}</b> is thinking</> : null}</p>
     </div>
   );
 }
@@ -79,12 +79,11 @@ export function AgentRail({ state, onOpen }: { state: CaseState; onOpen: (id: st
             <button disabled={!ev} onClick={() => ev && onOpen(ev.id)} className="press flex w-full items-start gap-3 text-left">
               <span className="grid size-9 shrink-0 place-items-center bg-surface text-cobalt-ink"><Icon name={s.capability} size={18} /></span>
               <span className="min-w-0">
-                <span className="block truncate font-semibold leading-tight">{prettyName(s.specialist_name)}</span>
-                <span className="mt-0.5 block text-muted">{CAPABILITY_LABEL[s.capability]} · asked by <b className={by.text}>{by.label}</b></span>
-                <span className="mt-1 block [text-wrap:pretty]">
-                  {ev ? <span className="line-clamp-3">{ev.summary}</span>
-                    : fail ? <span className="text-red">Did not answer</span>
-                    : <span className="typing flex gap-1 text-muted" role="status" aria-label="Working"><span /><span /><span /></span>}
+                <span className="block truncate font-semibold leading-tight">{CAPABILITY_LABEL[s.capability]}</span>
+                <span className="mt-0.5 block text-muted">asked by <b className={by.text}>{by.label}</b></span>
+                <span className="mt-1 block text-muted">
+                  {ev ? null : fail ? <span className="text-red">Did not answer</span>
+                    : <span className="typing flex gap-1" role="status" aria-label="Working"><span /><span /><span /></span>}
                 </span>
               </span>
             </button>
