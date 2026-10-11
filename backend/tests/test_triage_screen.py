@@ -230,3 +230,28 @@ async def test_an_answer_missing_the_flag_is_still_sent_on(model):
     model.answer = {"score": 0.1, "reason": "cut off before the flag"}          # what a truncated tool call looks like
     result = await triage.screen(make_listing(), None)
     assert result.suspicious is True and "could not run" in result.reason
+
+
+# ---------------- for the full-set eval: the raw flag, and recognising a triage that could not run ----------------
+
+async def test_a_threshold_above_one_returns_the_models_own_flag_so_any_threshold_can_be_replayed(model):
+    model.answer = {"score": 0.9, "reason": "r", "suspicious": False}
+    raw = await triage.screen(make_listing(), None, threshold=1.01)
+    assert raw.suspicious is False and raw.score == 0.9                       # only the model's flag counts at this setting
+    model.answer = {"score": 0.1, "reason": "r", "suspicious": True}
+    assert (await triage.screen(make_listing(), None, threshold=1.01)).suspicious is True
+
+
+async def test_an_explicit_threshold_overrides_the_configured_one(model):
+    model.answer = {"score": 0.3, "reason": "r", "suspicious": False}
+    assert (await triage.screen(make_listing(), None, threshold=0.5)).suspicious is False
+    assert (await triage.screen(make_listing(), None, threshold=0.25)).suspicious is True
+    assert (await triage.screen(make_listing(), None)).suspicious is True       # the configured 0.2
+
+
+async def test_a_failed_triage_is_recognisable_by_a_public_prefix(model):
+    model.error = RuntimeError("credit balance is too low")
+    result = await triage.screen(make_listing(), None)
+    assert result.reason.startswith(triage.COULD_NOT_RUN) and triage.COULD_NOT_RUN == "Triage could not run"
+    model.error = None
+    assert not (await triage.screen(make_listing(), None)).reason.startswith(triage.COULD_NOT_RUN)

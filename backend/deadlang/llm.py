@@ -62,6 +62,9 @@ _pending: dict[str, Any] = {"in": 0, "out": 0, "cases": {}}    # tokens reserved
 
 # Set by the API to persist every call (model, schema_name, case_id, tokens_in, tokens_out, ms).
 usage_hook: Any = None
+# Like usage_hook but with the cache split, for tools that price each call exactly (the full-set eval):
+# (model, schema_name, case_id, tokens_in, tokens_out, cache_read, cache_write, ms). tokens_in is the uncached input.
+usage_detail_hook: Any = None
 
 
 class BudgetExceeded(Exception):
@@ -377,6 +380,8 @@ async def _attempt(req: dict, schema_name: str, case_id: str | None, est_in: int
     if usage_hook:
         # cost-equivalent input, so a hook that prices tokens at the input rate (runs.usd) is right with caching on
         usage_hook(req["model"], schema_name, case_id, billed_in, tokens_out, ms)
+    if usage_detail_hook:
+        usage_detail_hook(req["model"], schema_name, case_id, tokens_in, tokens_out, cache_read, cache_write, ms)
     for block in resp.content:
         if block.type == "tool_use" and block.name == schema_name:
             return _unstringify(dict(block.input)), resp

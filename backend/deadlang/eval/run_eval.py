@@ -155,9 +155,36 @@ async def main(modes: set[str], limit: int | None) -> None:
     print("wrote results/eval.json")
 
 
-if __name__ == "__main__":
-    ap = argparse.ArgumentParser()
+FULL_FLAGS = ("full", "dry_run", "stratified", "max_usd", "run_id", "yes", "score_only", "concurrency")
+
+
+def build_parser() -> argparse.ArgumentParser:
+    ap = argparse.ArgumentParser(description="Without the full-set flags this is the old A/B/C run on data/eval_set.txt. "
+                                             "Any flag in the second group runs the full-set end-to-end eval instead.")
     ap.add_argument("--modes", default="A,B,C")
-    ap.add_argument("--limit", type=int)
-    a = ap.parse_args()
-    asyncio.run(main(set(a.modes.split(",")), a.limit))
+    ap.add_argument("--limit", type=int, help="old run: first N of eval_set.txt; full-set run: first N of the balanced order")
+    full = ap.add_argument_group("full-set eval (every labeled stored listing: Haiku triage + the three agents)")
+    full.add_argument("--full", action="store_true", help="run the full-set eval (implied by any flag below)")
+    full.add_argument("--stratified", type=int, metavar="N", help="all true positives plus a proportional share of each negative category, N listings in all")
+    full.add_argument("--max-usd", type=float, metavar="N", help="stop cleanly before the next listing would pass N dollars of actual spend")
+    full.add_argument("--run-id", help="rows go to results/eval_rows/<run-id>.jsonl; the same id resumes")
+    full.add_argument("--dry-run", action="store_true", help="show the selection, models, estimate and commands; make no calls")
+    full.add_argument("--yes", action="store_true", help="do not ask y/N before spending")
+    full.add_argument("--score-only", action="store_true", help="rescore saved rows for --run-id; no calls")
+    full.add_argument("--concurrency", type=int, default=None, help="listings at once (default 2)")
+    return ap
+
+
+def is_full_mode(args: argparse.Namespace) -> bool:
+    return any(bool(getattr(args, k, None)) for k in FULL_FLAGS)
+
+
+if __name__ == "__main__":
+    import sys
+
+    args = build_parser().parse_args()
+    if is_full_mode(args):
+        from deadlang.eval import full_eval
+        args.concurrency = args.concurrency or full_eval.DEFAULT_CONCURRENCY
+        sys.exit(asyncio.run(full_eval.main(args)))
+    asyncio.run(main(set(args.modes.split(",")), args.limit))

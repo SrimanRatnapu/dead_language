@@ -21,6 +21,7 @@ SCHEMA_NAME = "report_screening"
 MAX_TOKENS = 600               # room for the whole answer: a verbose model once ran out mid-reason
 MAX_TEXT_CHARS = 4000
 MAX_REASON_CHARS = 300
+COULD_NOT_RUN = "Triage could not run"      # starts the reason of a failed triage, so callers can tell
 FAIL_OPEN_SCORE = 0.5          # reported when triage could not run; the listing is sent on regardless
 
 # The collector's eye, plus the rule about untrusted text. scripts/compute_triage.py uses this too.
@@ -67,10 +68,13 @@ def build_user_message(listing: Listing, seller: Seller | None = None, *, price_
 
 
 async def screen(listing: Listing, seller: Seller | None = None, *, price_ratio: float | None = None,
-                 seller_listing_count: int | None = None, case_id: str | None = None) -> TriageResult:
+                 seller_listing_count: int | None = None, case_id: str | None = None,
+                 threshold: float | None = None) -> TriageResult:
     """Cleared (suspicious=False) only when the score is below DL_TRIAGE_THRESHOLD AND the model does not flag it.
     `price_ratio` (times the median for the same stated material) and `seller_listing_count` are shown to the model
-    when the caller knows them. BudgetExceeded is raised; any other failure sends the listing on."""
+    when the caller knows them. BudgetExceeded is raised; any other failure sends the listing on. `threshold`
+    overrides DL_TRIAGE_THRESHOLD for this call; above 1 only the model's own flag counts (an offline evaluation uses
+    that to replay any threshold later)."""
     try:
         out = await llm.call_json(
             model=config.MODEL_TRIAGE, system=SCREEN_SYSTEM,
@@ -87,5 +91,5 @@ async def screen(listing: Listing, seller: Seller | None = None, *, price_ratio:
     except Exception as exc:
         log.warning("triage could not run for %s (%r); sending it to the agents", listing.id, exc)
         return TriageResult(score=FAIL_OPEN_SCORE, suspicious=True,
-                            reason=f"Triage could not run ({type(exc).__name__}), so this listing goes to the agents.")
-    return TriageResult(score=score, reason=reason, suspicious=flagged or score >= config.TRIAGE_THRESHOLD)
+                            reason=f"{COULD_NOT_RUN} ({type(exc).__name__}), so this listing goes to the agents.")
+    return TriageResult(score=score, reason=reason, suspicious=flagged or score >= (config.TRIAGE_THRESHOLD if threshold is None else threshold))
