@@ -1,0 +1,83 @@
+{
+  "quick": {
+    "n": 41,
+    "decisive": 38,
+    "correct": 13,
+    "accuracy_on_decisive": 0.342,
+    "cannot_tell_rate": 0.073,
+    "ivory_precision": 0.5,
+    "ivory_recall": 0.05,
+    "confusion": {
+      "wood": {
+        "wood": 7,
+        "other": 1,
+        "bone": 1,
+        "cannot_tell": 1
+      },
+      "bone": {
+        "resin_or_plastic": 1,
+        "tagua_nut": 2,
+        "bone": 5,
+        "elephant_ivory": 1,
+        "wood": 1
+      },
+      "elephant_ivory": {
+        "elephant_ivory": 1,
+        "bone": 10,
+        "tagua_nut": 6,
+        "wood": 1,
+        "cannot_tell": 2
+      },
+      "other": {
+        "bone": 1
+      }
+    }
+  },
+  "thorough": {
+    "n": 41,
+    "decisive": 26,
+    "correct": 10,
+    "accuracy_on_decisive": 0.385,
+    "cannot_tell_rate": 0.366,
+    "ivory_precision": null,
+    "ivory_recall": 0.0,
+    "confusion": {
+      "wood": {
+        "wood": 7,
+        "cannot_tell": 2,
+        "other": 1
+      },
+      "elephant_ivory": {
+        "cannot_tell": 9,
+        "bone": 6,
+        "wood": 1,
+        "tagua_nut": 4
+      },
+      "bone": {
+        "cannot_tell": 4,
+        "tagua_nut": 2,
+        "bone": 3,
+        "wood": 1
+      },
+      "other": {
+        "bone": 1
+      }
+    }
+  },
+  "meta": {
+    "generated_at": "2026-10-10T23:50:12.277755+00:00",
+    "images_in_set": 41,
+    "labels": {
+      "wood": 10,
+      "elephant_ivory": 20,
+      "bone": 10,
+      "other": 1
+    },
+    "missing_images": [],
+    "limit": null,
+    "models": {
+      "quick": "claude-haiku-4-5-20251001",
+      "thorough": "claude-haiku-4-5-20251001"
+    }
+  }
+}
