@@ -5,7 +5,7 @@ import { Icon, type IconName } from "@/components/Icon";
 import { Photo } from "@/components/Photo";
 import { ListingCard } from "@/components/ListingCard";
 import { DEMO_CASES } from "@/lib/demoCases";
-import { batchEventsUrl, getBatch, getListing, getHealth, imageUrl, startBatch } from "@/lib/api";
+import { batchEventsUrl, getBatch, getCaseFile, getListing, getHealth, imageUrl, startBatch } from "@/lib/api";
 import { loadListings } from "@/lib/stubs";
 import type { BatchEvent, BatchItem, BatchStart, Listing, ListingRow } from "@/lib/types";
 
@@ -38,6 +38,8 @@ export default function Cases() {
   const [problems, setProblems] = useState<string[]>([]);
   const es = useRef<EventSource | null>(null);
   const batchId = useRef<string | null>(null);
+  const itemsRef = useRef<BatchItem[]>([]);
+  useEffect(() => { itemsRef.current = items; }, [items]);
 
   useEffect(() => {
     loadListings().then(({ data }) => { setRows(data); setListings(Object.fromEntries(data.map((x) => [x.listing.id, x.listing]))); }).catch(() => setRows([]));
@@ -50,7 +52,12 @@ export default function Cases() {
     const t = setInterval(() => setNow(Date.now()), 500);
     // The event stream can drop (network blip, dev-server reload); re-read the batch so rows never stay on "Agents working".
     const p = setInterval(() => { if (batchId.current) getBatch(batchId.current).then((b) => setItems(b.items)).catch(() => {}); }, 4000);
-    return () => { clearInterval(t); clearInterval(p); };
+    // A finished case file is proof the row is done, whatever the batch stream last said.
+    const c = setInterval(() => itemsRef.current.forEach((i) => {
+      if (i.case_id && !["done", "error", "screened_out"].includes(i.status))
+        getCaseFile(i.case_id).then((cf) => setItems((cur) => cur.map((x) => x.listing_id === i.listing_id ? { ...x, status: "done", outcome: cf.outcome } : x))).catch(() => {});
+    }), 4000);
+    return () => { clearInterval(t); clearInterval(p); clearInterval(c); };
   }, [running]);
 
   async function run(source: "demo" | "live") {

@@ -196,7 +196,13 @@ def create_app(market: Any = None, transport: Any = None, discovery: Any = None,
             raise RuntimeError(f"daily spend cap reached (${config.MAX_SPEND_USD:g}); not starting a new case")
         # No triage step until Person B's screen() lands: every item is deliberated.
         set_status(status="deliberating", case_id=(case_id := start_case(item["listing_id"])))
-        await cases[case_id]["task"]
+        # Never wait on the case forever: a hung case would hold one of the concurrency slots and starve the rest of the batch.
+        # asyncio.wait (not wait_for) so a task that ignores cancellation cannot keep this slot.
+        task = cases[case_id]["task"]
+        finished, _ = await asyncio.wait({task}, timeout=config.CASE_TIMEOUT_S + 30)
+        if not finished:
+            task.cancel()
+            raise RuntimeError(f"case {case_id} hung past {config.CASE_TIMEOUT_S:g}s and was abandoned")
         cf = cases[case_id]["case_file"]
         if cf is None:
             raise RuntimeError("case failed before a case file was produced")
