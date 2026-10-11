@@ -23,12 +23,11 @@ from datetime import datetime, timezone
 from typing import Any, Callable
 
 from deadlang import config, costs, llm, triage
-from deadlang.deliberation import crosscase
 from deadlang.deliberation.facilitator import AGENTS, Facilitator
 from deadlang.eval.run_eval import CollectBus
 from deadlang.llm import BudgetExceeded
 
-OFFICER = crosscase.CROSS_CASE_ROLE
+OFFICER = "case_officer"
 RAW_FLAG = 1.01                 # threshold above any score: triage returns the model's own flag, any threshold replays offline
 DEFAULT_SEED = 0
 DEFAULT_CONCURRENCY = 2

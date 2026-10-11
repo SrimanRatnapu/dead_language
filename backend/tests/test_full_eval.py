@@ -10,7 +10,6 @@ from deadlang import config, llm
 from deadlang.agntcy.cards import ALL_AGENT_NAMES, card_for
 from deadlang.agntcy.discovery import LocalDiscovery
 from deadlang.agntcy.transport import LocalTransport
-from deadlang.deliberation import crosscase
 from deadlang.deliberation.facilitator import AGENTS
 from deadlang.eval import full_eval as fe
 from deadlang.llm import BudgetExceeded
@@ -22,7 +21,7 @@ from deadlang.specialists.price import PriceChecker
 from tests.conftest import make_listing, make_seller
 from tests.fakes import FakeTriage
 
-OFFICER = crosscase.CROSS_CASE_ROLE
+OFFICER = "case_officer"
 UNDERCOVER, COUNSEL = [a for a in AGENTS if a != OFFICER]
 
 
@@ -179,8 +178,7 @@ async def test_a_row_has_everything_the_scoring_needs(world):
     assert (row["label"], row["category"], row["language"], row["country"]) == (True, "ivory", "en", "US")
     assert row["triage"]["score"] == 0.8 and row["triage"]["flagged"] is True
     assert row["outcome"] in ("CONTESTED", "WATCHLIST", "FILE", "DISMISS") and row["rounds"] >= 1
-    assert OFFICER in row["sat_out"] and row["case_officer_abstained"] is True        # this listing has nothing to compare
-    assert OFFICER not in row["agents_ran"] and UNDERCOVER in row["agents_ran"] and COUNSEL in row["agents_ran"]
+    assert row["sat_out"] == [] and set(row["agents_ran"]) == {OFFICER, UNDERCOVER, COUNSEL}
     claims = row["claims"][UNDERCOVER]
     assert claims["made"] >= 2 and claims["rejected"] >= 1                              # the ungrounded $9,999 claim was rejected
     assert set(row["tokens"]) == {"triage", "agents"} and set(row["cost_usd"]) == {"triage", "agents", "total"}

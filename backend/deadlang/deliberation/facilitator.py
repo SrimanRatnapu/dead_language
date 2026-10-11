@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
 
-from deadlang.deliberation import crosscase, rules
+from deadlang.deliberation import rules
 from deadlang.deliberation.casefile import build_case_file
 from deadlang.deliberation.validator import Rejection, apply_empty_claims_rule, validate_post
 from deadlang.evidence.board import EvidenceBoard
@@ -146,21 +146,6 @@ class Facilitator:
         asked = any(p.challenge and p.challenge.target_agent == a for p in st.last_round_posts)
         return rules.is_ready(post, unseen_evidence=unseen, tools_left=self._tools_left(st), questions_pending=asked)
 
-    def _apply_cross_case_gate(self, st: CaseState, r: int, active: list[AgentName]) -> list[AgentName]:
-        """The Case Officer sits out while the board shows nothing to compare this listing with. It says so once,
-        as a post marked `abstained`; it is not called, is not shown to the others, and does not count in the
-        outcome."""
-        role = crosscase.CROSS_CASE_ROLE
-        prev = st.current.get(role)
-        if (prev is not None and not prev.abstained) or not crosscase.assess(st.board).nothing_to_compare:
-            return active
-        if prev is None:
-            post = StancePost(agent=role, round=r, stance="need_more", confidence=0.0, claims=[],
-                              abstained=True, take=crosscase.NO_CROSS_CASE_TAKE)
-            st.current[role] = post
-            self.bus.emit(st.case_id, "stance.posted", {"post": post.model_dump(mode="json")})
-        return [a for a in active if a != role]
-
     def _turn(self, st: CaseState, a: AgentName, r: int, this_round: list[StancePost]) -> DeliberationTurn:
         # Questions from last round, plus any asked earlier in this round (answered once, never re-delivered).
         questions = []
@@ -283,7 +268,7 @@ class Facilitator:
 
             for r in range(1, self.max_rounds + 1):
                 rounds_used = r
-                active = self._apply_cross_case_gate(st, r, self._active(st, r))
+                active = self._active(st, r)
                 self.bus.emit(case_id, "round.started", {"round": r, "active": active})
                 before = {a: p for a, p in st.current.items() if not p.abstained} or None   # posts before this round
                 new_evidence = await self._run_round(st, r, active) if active else 0
