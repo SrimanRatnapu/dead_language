@@ -381,3 +381,164 @@
   truth: ivory
   ambiguous: true
   source: "Reconstructed listing, written by the team after published research (Kent 2021, Tropical Conservation Science)"
+
+# ---------------- second batch: ten more single listings (one seller has two) ----------------
+- key: t1-1
+  seller: t1
+  title: "Antique bone netsuke, Hotei and a child with his treasure sack"
+  description: "Hotei resting on his big sack while a child whispers in his ear. Antique bovine bone, mellow honey tone, glassy smooth from handling. 26 grams, which is a lot for a piece this size. The cord holes are worn soft. The sack side is in the third picture. From a retired dealer's stock; I do not ship this one overseas."
+  material: bone
+  type: netsuke
+  price_ratio: 11
+  category: "Antiques > Asian Antiques > Japan > Netsuke"
+  ship_from: US-WA
+  size_cm: 4.4
+  weight_g: 26
+  posted_at: "2026-09-12T18:05:00+00:00"
+  photos: ["met:60168_0", "met:60168_1", "met:60168_2"]
+  truth: ivory
+  source: "Reconstructed listing, written by the team after published research (Kent 2021, Tropical Conservation Science)"
+
+- key: t2-1
+  seller: t2
+  title: "Fine old bone netsuke of a hooded sage, superb colour"
+  description: "Scowling sage wrapped in his hood and holding a fly whisk. Old bone with a deep butter-yellow colour and a faint grain you can see on the plain back, pictured. 44 grams. Bought at a country house sale in the 1980s. I will post within the UK only, signed for."
+  material: bone
+  type: netsuke
+  price_ratio: 16
+  category: "Antiques > Asian Antiques > Japan > Netsuke"
+  ship_from: GB
+  size_cm: 4.4
+  weight_g: 44
+  posted_at: "2026-09-15T10:30:00+00:00"
+  photos: ["met:60189_0", "met:60189_2", "met:60189_3"]
+  truth: ivory
+  source: "Reconstructed listing, written by the team after published research (Kent 2021, Tropical Conservation Science)"
+
+- key: t3-1
+  seller: t3
+  title: "Bone netsuke, cooper making a tub, Meiji period, signed"
+  description: "Craftsman seated on a round mat fitting hoops to a small tub, his tools beside him. Bone, pale cream, crisp work, signature under the base. Height 3.5 cm, weight 19 g. Kept in a kiri box for many years. Sent by EMS from Osaka with tracking."
+  material: bone
+  type: netsuke
+  price_ratio: 9.5
+  category: "Antiques > Asian Antiques > Japan > Netsuke"
+  ship_from: JP
+  size_cm: 3.5
+  weight_g: 19
+  posted_at: "2026-09-19T01:15:00+00:00"
+  photos: ["met:60271_0", "met:60271_2", "met:60271_3"]
+  truth: ivory
+  source: "Reconstructed listing, written by the team after published research (Kent 2021, Tropical Conservation Science)"
+
+- key: t4-1
+  seller: t4
+  title: "Old carved bone netsuke, long-haired fisher girl seated"
+  description: "Seated fisher girl with hair down to her waist and a straw skirt carved strand by strand. Old bone, darkened with ink in the hair, soft polish on the skin. 30 grams, 4.8 cm. The second photo shows the back and the cord hole. One owner since the 1960s. Local pickup in Brooklyn preferred."
+  material: bone
+  type: netsuke
+  price_ratio: 13
+  category: "Antiques > Asian Antiques > Japan > Netsuke"
+  ship_from: US-NY
+  size_cm: 4.8
+  weight_g: 30
+  posted_at: "2026-09-23T21:40:00+00:00"
+  photos: ["met:60190_3", "met:60190_2"]
+  truth: ivory
+  source: "Reconstructed listing, written by the team after published research (Kent 2021, Tropical Conservation Science)"
+
+- key: t5-1
+  seller: t5
+  title: "Rare bone netsuke, laughing man beneath two monkeys, amber patina"
+  description: "A laughing man crouches while two monkeys climb the arch over his head. Bone with a strong amber patina, darker in the recesses, pierced right through. 5.1 cm across, 33 g. The reverse is shown. Private sale from my late father's cabinet; offers are not entertained."
+  material: bone
+  type: netsuke
+  price_ratio: 18
+  category: "Antiques > Asian Antiques > Japan > Netsuke"
+  ship_from: HK
+  size_cm: 5.1
+  weight_g: 33
+  posted_at: "2026-09-28T06:20:00+00:00"
+  photos: ["met:59931_0", "met:59931_1"]
+  truth: ivory
+  source: "Reconstructed listing, written by the team after published research (Kent 2021, Tropical Conservation Science)"
+
+- key: t5-2
+  seller: t5
+  title: "Bone manju netsuke with a lift-out stud, scrolling design"
+  description: "Round manju with a dark scrolling ground and a raised central stud that lifts out, shown beside it. Bone, creamy rim, 5.7 cm wide, 41 g. From the same cabinet as my other piece."
+  material: bone
+  type: netsuke
+  price_ratio: 12.5
+  category: "Antiques > Asian Antiques > Japan > Netsuke"
+  ship_from: HK
+  size_cm: 5.7
+  weight_g: 41
+  posted_at: "2026-09-28T06:45:00+00:00"
+  photos: ["met:60315_0", "met:60315_2"]
+  truth: ivory
+  source: "Reconstructed listing, written by the team after published research (Kent 2021, Tropical Conservation Science)"
+
+- key: t6-1
+  seller: t6
+  title: "Old bone carving of a woman in a straw hat with her child"
+  description: "Standing woman in a wide straw hat, her child beside her holding a wooden pail. Carved from old bone with finely engraved kimono patterns and a warm cream colour. Two inches tall and 37 grams, so it is solid, not hollow. Three views shown. It came out of a house clearance in Evanston."
+  material: bone
+  type: figurine
+  price_ratio: 10
+  category: "Antiques > Asian Antiques > Japan > Statues"
+  ship_from: US-IL
+  size_cm: 5.1
+  weight_g: 37
+  posted_at: "2026-10-01T15:00:00+00:00"
+  photos: ["met:60019_0", "met:60019_1", "met:60019_2"]
+  truth: ivory
+  source: "Reconstructed listing, written by the team after published research (Kent 2021, Tropical Conservation Science)"
+
+- key: t7-1
+  seller: t7
+  title: "Antique bone figure of a laughing man, tall and slender"
+  description: "Tall slender figure of a laughing man lifting one foot, carved in the round from a single piece of old bone. 6.7 cm high, 29 grams. Even pale yellow tone with no stains. It belonged to my grandfather, who served in Japan after the war. Posting from Melbourne, registered."
+  material: bone
+  type: figurine
+  price_ratio: 14
+  category: "Antiques > Asian Antiques > Japan > Statues"
+  ship_from: AU
+  size_cm: 6.7
+  weight_g: 29
+  posted_at: "2026-10-04T03:30:00+00:00"
+  photos: ["met:60393_0"]
+  truth: ivory
+  source: "Reconstructed listing, written by the team after published research (Kent 2021, Tropical Conservation Science)"
+
+- key: t8-1
+  seller: t8
+  title: "Old bone bangle with fine line carving, honey colour"
+  description: "Solid bangle carved with fine parallel lines all the way round. The estate tag said old bone. Honey colour, and at 96 grams it is heavier than any bone bangle I have handled. Inner diameter 2 5/8 inches. Both faces shown. Sold as found."
+  material: bone
+  type: jewelry
+  price_ratio: 11.5
+  category: "Jewelry & Watches > Vintage & Antique Jewelry > Bracelets"
+  ship_from: US-OH
+  size_cm: 7.7
+  weight_g: 96
+  posted_at: "2026-10-05T19:10:00+00:00"
+  photos: ["met:547522_0", "met:547522_1"]
+  truth: ivory
+  source: "Reconstructed listing, written by the team after published research (Kent 2021, Tropical Conservation Science)"
+
+- key: t9-1
+  seller: t9
+  title: "Three old bone bangles, thick and heavy, sold together"
+  description: "Lot of three thick bangles, described to me as old bone. Creamy with fine age lines, each cut from a single piece. Together they weigh 410 grams. The largest is 3 1/2 inches across. Brought back from East Africa by a missionary family before 1960, according to the note that came with them."
+  material: bone
+  type: jewelry
+  price_ratio: 15
+  category: "Jewelry & Watches > Vintage & Antique Jewelry > Bracelets"
+  ship_from: US-MA
+  size_cm: 8.9
+  weight_g: 410
+  posted_at: "2026-10-07T13:25:00+00:00"
+  photos: ["met:141547_1", "met:141547_2", "met:141547_3"]
+  truth: ivory
+  source: "Reconstructed listing, written by the team after published research (Kent 2021, Tropical Conservation Science)"

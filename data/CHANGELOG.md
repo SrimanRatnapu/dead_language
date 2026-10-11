@@ -22,3 +22,12 @@ Rebuild: `uv run --project backend python scripts/build_dataset.py` (needs `data
 - Removed by eye from the new batch: 10 with photo watermarks or shop marks, 3 unsuitable, 3 off-topic hits.
   I looked at the first two photos of each new listing only.
 - Price at 8x or more: 17 of 17 reconstructed, 19 of 473 real. Linked to another seller: 8 of 479 real.
+
+## dataset v3 — 2026-10-10 (more reconstructed cases)
+- Added 10 reconstructed ivory listings (6 netsuke, 2 figurines, 2 jewelry) from 9 new sellers, each with photos
+  of a different museum ivory object not used before. None is ambiguous by design and none belongs to a network.
+- Now 27 active positives + the hidden relist, 479 real listings: positives are 5.3% of active listings.
+  The plan asked for 15-20; this is deliberately more, to make accuracy numbers less coarse.
+- Eval set: 27 positives + the same 40 negatives as before (67).
+- The new listings and sellers were given ids freed by excluded listings, so they do not sit together at the
+  top of the id range.
