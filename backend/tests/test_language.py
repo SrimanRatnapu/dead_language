@@ -51,7 +51,7 @@ def call():
 def test_identity_matches_the_contract():
     t = Translator(Market(make_listing()))
     assert (t.name, t.capability, t.tier, t.model) == ("deadlang-translator", "translation", "preferred",
-                                                      config.MODEL_FAST)
+                                                      config.MODEL_TRIAGE)
     assert isinstance(t, Specialist)
 
 
@@ -84,7 +84,7 @@ async def test_model_call_gets_the_listing_text_and_the_right_settings(monkeypat
     t, fake = setup(monkeypatch)
     await t.run(call())
     c = fake.calls[0]
-    assert c["model"] == config.MODEL_FAST and c["case_id"] == "C-1" and c["schema_name"] == "report_translation"
+    assert c["model"] == config.MODEL_TRIAGE and c["case_id"] == "C-1" and c["schema_name"] == "report_translation"
     assert "Tượng điêu khắc cổ màu ngà" in c["user"] and "chuyển khoản trước" in c["user"]
     assert "Do not judge legality" in c["system"]
     assert set(c["schema"]["required"]) == {"title_en", "description_en", "notable_phrases"}

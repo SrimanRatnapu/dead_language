@@ -1,10 +1,9 @@
 """DeliberatingAgent: one model call per turn that turns the board + transcript into a StancePost."""
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
-from deadlang import llm
+from deadlang import config, llm
 from deadlang.evidence.board import render_evidence
 from deadlang.schemas import AgentName, DeliberationTurn, Evidence, StancePost
 
@@ -13,7 +12,7 @@ SCHEMA_NAME = "post_position"
 
 
 def _model() -> str:
-    return os.getenv("DL_MODEL_STRONG", "claude-sonnet-5-5")
+    return config.MODEL_STRONG        # every deliberating agent: anything that can lead to an accusation is not cheap
 
 
 def post_schema() -> dict:
