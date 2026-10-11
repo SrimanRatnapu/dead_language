@@ -212,3 +212,21 @@ def test_the_threshold_defaults_low_and_a_bad_value_falls_back_to_the_safe_defau
     assert _config_value("config.TRIAGE_THRESHOLD", DL_TRIAGE_THRESHOLD="banana") == "0.2"
     assert _config_value("config.TRIAGE_THRESHOLD", DL_TRIAGE_THRESHOLD="7") == "0.2"
     assert _config_value("config.TRIAGE_THRESHOLD", DL_TRIAGE_THRESHOLD="-1") == "0.2"
+
+
+# ---------------- found by the first real smoke test: a long reason cut the tool call off before `suspicious` ----------------
+
+def test_the_reason_comes_last_in_the_schema_so_a_cut_off_cannot_lose_the_decision():
+    assert list(triage.SCHEMA["properties"])[-1] == "reason"
+    assert list(triage.SCHEMA["properties"])[:2] == ["score", "suspicious"]
+
+
+def test_there_is_room_for_the_whole_answer_and_the_reason_is_asked_to_be_short():
+    assert triage.MAX_TOKENS >= 600
+    assert "short sentence" in triage.SCREEN_SYSTEM and "words" in triage.SCREEN_SYSTEM
+
+
+async def test_an_answer_missing_the_flag_is_still_sent_on(model):
+    model.answer = {"score": 0.1, "reason": "cut off before the flag"}          # what a truncated tool call looks like
+    result = await triage.screen(make_listing(), None)
+    assert result.suspicious is True and "could not run" in result.reason
