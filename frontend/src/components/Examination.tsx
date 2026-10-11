@@ -19,10 +19,7 @@ export function Examination({ state, ready, onSend, onOpen }: { state: CaseState
 
   return (
     <div className="mx-auto flex max-w-[640px] flex-col gap-6 px-5 pb-0 pt-8 sm:px-8">
-      <div>
-        <h2 className="text-lg font-semibold tracking-tight">Examining the listing</h2>
-        <p className="mt-1 text-muted">Checking price, seller, law and photos.</p>
-      </div>
+      <h2 className="text-lg font-semibold tracking-tight">Examining the listing</h2>
 
       <ol className="divide-y divide-line border-y border-line">
         {rows.map(({ cap, ev, sel, fail }) => (
@@ -32,7 +29,7 @@ export function Examination({ state, ready, onSend, onOpen }: { state: CaseState
               <p className="font-semibold">{CAPABILITY_LABEL[cap]}</p>
               {ev ? <button onClick={() => onOpen(ev.id)} className="press rise mt-1 text-left text-muted [text-wrap:pretty] hover:text-ink">{ev.summary}</button>
                 : fail ? <p className="mt-1 text-red">{prettyName(fail.specialist_name)} did not answer{fail.error === "budget" ? " (token cap reached)" : ""}{fail.fallback ? `. Trying ${prettyName(fail.fallback)}.` : ""}</p>
-                : <p className="mt-1 text-muted">Working on it…</p>}
+                : null}
             </div>
             <div className="pt-0.5 text-right">
               {ev ? <Icon name="check" size={16} className="text-green" />

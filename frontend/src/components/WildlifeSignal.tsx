@@ -8,7 +8,7 @@ export function WildlifeSignal({ compact = false }: { compact?: boolean }) {
       <span className="signal-leaf signal-leaf--one" />
       <span className="signal-leaf signal-leaf--two" />
       <span className="signal-leaf signal-leaf--three" />
-      <span className="signal-core"><span /></span>
+      <span className="signal-scan" aria-hidden /><span className="signal-core"><span /></span>
     </figure>
   );
 }

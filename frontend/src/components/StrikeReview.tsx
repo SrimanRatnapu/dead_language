@@ -34,7 +34,6 @@ export function StrikeReview({ caseId }: { caseId: string }) {
         <button onClick={() => act("approve")} disabled={!by.trim()} className={`${btn} bg-ink text-surface hover:bg-cobalt`}>Approve</button>
       </>}
       {s.status === "approved" && <button onClick={() => act("submit")} className={`${btn} bg-ink text-surface hover:bg-cobalt`}>Submit report</button>}
-      {simulated && <p className="bg-ink px-2 py-1 text-surface">Simulated. Nothing is sent.</p>}
       {err && <p role="alert" className="w-full text-red">{err}</p>}
     </section>
   );

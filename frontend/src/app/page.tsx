@@ -31,7 +31,7 @@ export default function Landing() {
       <section className="border-t border-ink bg-surface">
         <div className="mx-auto grid max-w-7xl gap-12 px-5 py-14 sm:px-8 md:grid-cols-3">
           {AGENT_ORDER.map((a) => (
-            <div key={a} className={`border-t-4 pt-4 ${AGENTS[a].ring}`}>
+            <div key={a} className={`reveal border-t-4 pt-4 ${AGENTS[a].ring}`}>
               <h2 className="serif text-3xl">{AGENTS[a].label}</h2>
               <p className="mt-2 text-lg text-muted">{AGENTS[a].goal}</p>
             </div>
@@ -42,7 +42,7 @@ export default function Landing() {
       <section className="border-t border-ink">
         <dl className="mx-auto grid max-w-7xl gap-px px-5 py-14 sm:px-8 sm:grid-cols-2 lg:grid-cols-4 lg:gap-10">
           {OUTCOMES.map((o) => (
-            <div key={o.name}>
+            <div key={o.name} className="reveal">
               <dt className={`serif text-4xl ${o.tone}`}>{o.name}</dt>
               <dd className="mt-2 text-lg">{o.rule}</dd>
             </div>

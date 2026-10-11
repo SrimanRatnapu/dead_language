@@ -11,9 +11,9 @@ import type { Metrics, BatchEvent, BatchItem, BatchStart, Listing, ListingRow } 
 
 // Names match SWEEPS in backend marketplace/live.py: listings by eBay category and price floor, newest first, no keyword.
 const SWEEPS = [
-  { key: "netsuke", label: "Netsuke and carvings", hint: "Netsuke categories, $300 and up" },
-  { key: "figures", label: "Figures and statues", hint: "Asian figures and statues, $400 and up" },
-  { key: "bracelets", label: "Bracelets", hint: "Antique bracelets, $100 and up" },
+  { key: "netsuke", label: "Netsuke and carvings" },
+  { key: "figures", label: "Figures and statues" },
+  { key: "bracelets", label: "Bracelets" },
 ];
 const MAX_CAP = 50; // server rejects more (422); keep in sync with MAX_LIVE_CAP in api/server.py
 
@@ -144,7 +144,7 @@ export default function Cases() {
         {m ? <><Icon name={m.icon} size={18} />{m.label}</>
            : <><span className="typing flex gap-1" aria-hidden><span /><span /><span /></span>{WORKING[i.status]}{i.status === "deliberating" && secs > 0 ? ` · ${secs}s` : ""}</>}
       </span></>;
-    const row = "grid min-h-16 grid-cols-[3.5rem_1fr_auto] items-center gap-4 px-3 py-3";
+    const row = `${m ? "" : "scan "}relative grid min-h-16 grid-cols-[3.5rem_1fr_auto] items-center gap-4 px-3 py-3`;
     return i.case_id
       ? <Link href={`/case/${i.case_id}?stage=agents`} className={`press ${row} hover:bg-surface`}>{body}</Link>
       : <div className={row}>{body}</div>;
@@ -157,7 +157,7 @@ export default function Cases() {
           <div>
             <h1 className="serif text-4xl leading-none">Review desk</h1>
             <p className="mt-2 text-muted" aria-live="polite">
-              {items.length === 0 ? "No cases yet." : waiting > 0 ? `${waiting} ${waiting === 1 ? "case needs" : "cases need"} your decision.` : searching ? "Looking for related listings." : running ? "Agents are working." : "Nothing waiting on you."}
+              {items.length === 0 ? "No cases yet. Run the demo set or fetch live listings." : waiting > 0 ? `${waiting} ${waiting === 1 ? "case needs" : "cases need"} your decision.` : running ? "Agents are working." : "Nothing waiting on you."}
             </p>
             {items.length > 0 && <p className="serial mt-1">{source ? `${source} · ` : ""}{items.length - added} fetched{added > 0 ? `, ${added} added from flagged listings` : ""}</p>}
             {m && m.funnel.deliberated > 0 && <p className="serial mt-1">{m.funnel.deliberated} cases reviewed so far, {Math.round(m.latency_ms.case.p50 / 1000)}s and ${m.cost.usd_per_case.toFixed(2)} each</p>}
@@ -167,7 +167,7 @@ export default function Cases() {
             <form onSubmit={(e) => { e.preventDefault(); run("live"); }} className="flex flex-wrap items-end gap-3">
               <label className="text-sm text-muted">Fetch live by
                 <select value={sweep} onChange={(e) => setSweep(e.target.value)} className="mt-1 block min-h-11 w-52 border border-line bg-surface px-3 text-base text-ink">
-                  {SWEEPS.map((w) => <option key={w.key} value={w.key} title={w.hint}>{w.label}</option>)}
+                  {SWEEPS.map((w) => <option key={w.key} value={w.key}>{w.label}</option>)}
                   <option value="">Keyword</option>
                 </select></label>
               {sweep === "" && <label className="text-sm text-muted">Keyword<input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="bone netsuke" className="mt-1 block min-h-11 w-48 border border-line bg-surface px-3 text-base text-ink" /></label>}
@@ -180,9 +180,6 @@ export default function Cases() {
         {busy && <p role="status" className="border-b border-line py-2 text-muted">Fetching from eBay…</p>}
         {error && <p role="alert" className="border-b border-red/30 bg-red-tint px-3 py-2 text-red">{error}</p>}
 
-        {items.length === 0 && !busy && (
-          <p className="my-8 border border-line bg-surface px-5 py-6 text-lg">Run the demo set or search live listings to fill the desk.</p>
-        )}
 
         {GROUPS.map((g) => {
           const rows = items.filter(g.test);
@@ -193,7 +190,7 @@ export default function Cases() {
                 <h2 id={`g-${g.key}`} className="serif text-xl">{g.title}</h2>
                 <span className="serial">{rows.length}</span>
               </div>
-              <ul className="-mx-3 divide-y divide-line">{rows.map((i) => <li key={i.listing_id}>{Row({ i })}</li>)}</ul>
+              <ul className="-mx-3 divide-y divide-line">{rows.map((i, n) => <li key={i.listing_id} className="rise" style={{ animationDelay: `${Math.min(n, 8) * 40}ms` }}>{Row({ i })}</li>)}</ul>
             </section>
           );
         })}
