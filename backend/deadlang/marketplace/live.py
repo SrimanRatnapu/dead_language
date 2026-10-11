@@ -12,6 +12,7 @@ Nothing here ever touches data/listings.jsonl or data/labels.csv.
 from __future__ import annotations
 
 import asyncio
+from concurrent.futures import ThreadPoolExecutor
 import hashlib
 import io
 import json
@@ -117,14 +118,17 @@ def _fetch_from_ebay(query: str, cap: int, known_items: set[str], next_number: i
             if n is None:
                 continue                                   # gone, not priced in USD, or untitled
             lid = f"LV{next_number + sum(r['listing']['id'] not in old_ids for r in records):04d}"
-            paths = []
-            for url in n["image_urls"]:
+            def download(url: str) -> bytes | None:
                 try:
-                    body = ebay.http.get(url).content
+                    return ebay.http.get(url).content
                 except Exception:
-                    continue
+                    return None
+            with ThreadPoolExecutor(4) as pool:            # photos in parallel: they dominate the fetch time
+                bodies = list(pool.map(download, n["image_urls"]))
+            paths = []
+            for body in bodies:
                 rel = f"images/live/{lid}_{len(paths)}.jpg"
-                if _save_photo(body, data_dir() / rel):
+                if body and _save_photo(body, data_dir() / rel):
                     paths.append(rel)
             username = n["seller_handle"] or f"unknown-{item_id}"
             seller = _seller(username, n["seller_feedback"], n["seller_location"])

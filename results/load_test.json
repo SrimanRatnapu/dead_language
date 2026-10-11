@@ -1,0 +1,45 @@
+{
+ "batch_id": "B-0008",
+ "source_mode": "live",
+ "query": "scrimshaw",
+ "items": 6,
+ "done": 6,
+ "errors": 0,
+ "fetch_s": 10.2,
+ "total_s": 100.7,
+ "listings_per_min": 3.58,
+ "outcomes": {
+  "FILE": 0,
+  "CONTESTED": 0,
+  "WATCHLIST": 0,
+  "DISMISS": 6
+ },
+ "metrics": {
+  "latency_ms": {
+   "triage": {
+    "p50": 0.0,
+    "p95": 0.0
+   },
+   "case": {
+    "p50": 58166.1,
+    "p95": 135306.5
+   }
+  },
+  "cost": {
+   "usd_total": 4.2189,
+   "usd_per_case": 0.1688,
+   "tokens_in": 1370399,
+   "tokens_out": 148144
+  },
+  "funnel": {
+   "ingested": 53,
+   "screened_out": 0,
+   "deliberated": 25,
+   "errors": 0,
+   "FILE": 2,
+   "DISMISS": 14,
+   "CONTESTED": 5,
+   "WATCHLIST": 4
+  }
+ }
+}
