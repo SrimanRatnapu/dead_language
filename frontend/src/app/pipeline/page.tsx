@@ -20,7 +20,7 @@ function markFor(i: BatchItem): Mark | null {
 }
 const WORKING: Partial<Record<BatchItem["status"], string>> = { queued: "Queued", triaging: "Checking", deliberating: "Agents working" };
 
-export default function Queue() {
+export default function Pipeline() {
   const [items, setItems] = useState<BatchItem[]>([]);
   const [mode, setMode] = useState<BatchStart["source_mode"] | null>(null);
   const [listings, setListings] = useState<Record<string, Listing>>({});
@@ -76,7 +76,7 @@ export default function Queue() {
   return (
     <main className="shell-grid min-h-[calc(100dvh-3.5rem)]">
       <div className="mx-auto max-w-5xl px-5 py-6 sm:px-8">
-        <header className="border-b border-line pb-3"><h1 className="text-xl font-semibold tracking-tight">Queue</h1></header>
+        <header className="border-b border-line pb-3"><h1 className="text-xl font-semibold tracking-tight">Pipeline</h1></header>
         <section aria-label="Start a batch" className="flex flex-wrap items-end gap-x-6 gap-y-3 border-b border-line py-4">
           <button onClick={() => run("demo")} disabled={busy || running} className={`${btn} bg-ink text-surface hover:bg-cobalt`}>Run demo set</button>
           <form onSubmit={(e) => { e.preventDefault(); run("live"); }} className="flex flex-wrap items-end gap-3">
