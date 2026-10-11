@@ -14,6 +14,7 @@ from deadlang.deliberation import rules
 from deadlang.deliberation.casefile import build_case_file
 from deadlang.deliberation.validator import Rejection, apply_empty_claims_rule, validate_post
 from deadlang.evidence.board import EvidenceBoard
+from deadlang.specialists.language import english_note
 from deadlang.llm import BudgetExceeded
 from deadlang.schemas import (AgentName, Capability, CaseFile, DeliberationTurn, EvidenceDraft, Listing,
                               PeerQuestion, Requester, Seller, SpecialistCall, StancePost)
@@ -230,7 +231,19 @@ class Facilitator:
                 key = (req.capability, json.dumps(req.params, sort_keys=True))
                 if key in seen_keys:
                     continue
+                if req.capability == "translation" and st.listing.language == "en":
+                    # Nothing to translate: the note goes on the board once, with no specialist call and no slot used.
+                    seen_keys.add(key)
+                    if "translation" not in st.attempted:
+                        st.attempted.add("translation")
+                        self._add(st, english_note(st.listing.id), p.agent)
+                    continue
                 if len(jobs) >= MAX_CALLS_PER_ROUND or st.requested_calls >= MAX_CALLS_PER_CASE:
+                    limit = (f"{MAX_CALLS_PER_ROUND} per round" if len(jobs) >= MAX_CALLS_PER_ROUND
+                             else f"{MAX_CALLS_PER_CASE} per case")
+                    self.bus.emit(st.case_id, "specialist.failed", {
+                        "capability": req.capability, "specialist_name": "", "requested_by": p.agent,
+                        "error": f"request limit reached ({limit})", "fallback": None})
                     continue
                 seen_keys.add(key)
                 st.requested_calls += 1

@@ -33,6 +33,14 @@ LANGUAGE_NAMES = {
 }
 
 
+def english_note(listing_id: str, specialist_name: str = "deadlang-translator") -> EvidenceDraft:
+    """What an English listing gets instead of a translation: a code-made note, no model call."""
+    return EvidenceDraft(capability="translation", produced_by="code", specialist_name=specialist_name,
+                         summary="The listing is already in English, so there is nothing to translate; "
+                                 "the listing text on the board is the seller's own words.",
+                         data={"listing_id": listing_id, "language_code": "en", "already_english": True})
+
+
 def _clean_phrases(raw: Any) -> list[dict]:
     phrases = []
     for p in raw or []:
@@ -55,11 +63,7 @@ class Translator:
         if listing.language == "en":
             # Answer rather than fail: an agent asked, and a bare "already_english" error reads as a broken specialist
             # in the UI. No model call.
-            draft = EvidenceDraft(capability="translation", produced_by="code", specialist_name=self.name,
-                                  summary="The listing is already in English, so there is nothing to translate; "
-                                          "the listing text on the board is the seller's own words.",
-                                  data={"listing_id": listing.id, "language_code": "en", "already_english": True})
-            return SpecialistReply(ok=True, drafts=[draft])
+            return SpecialistReply(ok=True, drafts=[english_note(listing.id, self.name)])
         language = LANGUAGE_NAMES.get(listing.language, listing.language)
         user = (f"Listing language: {language}\n"
                 + untrusted.wrap(f"Title: {listing.title}\nDescription: {listing.description}", marker=untrusted.boundary()))
