@@ -9,7 +9,7 @@ export const DEMO_CASES = [
   { key: "D3", label: "Removed listing", listingId: "L0241", replay: "d3_removed",
     blurb: "The seller pulls the listing mid-review. It comes back under a new account." },
   { key: "D4", label: "Ambiguous case", listingId: "L0172", replay: "d4_ambiguous",
-    blurb: "High price, one blurry photo. The agents disagree, so a person decides." },
+    blurb: "High price, one blurry photo. The agents disagree." },
 ] as const;
 
 export const demoCaseForReplay = (name: string) => DEMO_CASES.find((c) => c.replay === name);
