@@ -1,15 +1,15 @@
 {
   "full_eval": {
     "run_id": "dynb100",
-    "generated_at": "2026-10-11T20:00:34+00:00",
+    "generated_at": "2026-10-11T20:11:43+00:00",
     "threshold": 0.15,
     "population": {
-      "n_rows": 100,
-      "n_scored": 100,
+      "n_rows": 120,
+      "n_scored": 120,
       "n_errors": 0,
       "error_ids": [],
       "n_positives": 28,
-      "n_negatives": 72
+      "n_negatives": 92
     },
     "configs": {
       "sonnet_all": {
@@ -21,15 +21,15 @@
         },
         "false_accusation": {
           "count": 0,
-          "n": 72,
+          "n": 92,
           "rate": 0.0,
-          "text": "0 of 72"
+          "text": "0 of 92"
         },
         "escalation": {
           "count": 10,
-          "n": 100,
-          "rate": 0.1,
-          "text": "10 of 100"
+          "n": 120,
+          "rate": 0.0833,
+          "text": "10 of 120"
         },
         "outcomes_on_positives": {
           "WATCHLIST": 15,
@@ -37,17 +37,17 @@
           "CONTESTED": 9
         },
         "outcomes_on_negatives": {
-          "DISMISS": 71,
+          "DISMISS": 91,
           "CONTESTED": 1
         },
-        "total_cost_usd": 13.543304499999993,
+        "total_cost_usd": 15.06238439999999,
         "per_case": {
-          "input_tokens": 34407.93,
-          "output_tokens": 6174.61,
-          "cache_read_tokens": 20672.5,
-          "cache_write_tokens": 321.09,
-          "calls": 9.35,
-          "cost_usd": 0.13543304499999992
+          "input_tokens": 31871.408333333333,
+          "output_tokens": 5709.391666666666,
+          "cache_read_tokens": 19344.6,
+          "cache_write_tokens": 347.73333333333335,
+          "calls": 8.816666666666666,
+          "cost_usd": 0.12551986999999992
         }
       },
       "tiered": {
@@ -59,15 +59,15 @@
         },
         "false_accusation": {
           "count": 0,
-          "n": 72,
+          "n": 92,
           "rate": 0.0,
-          "text": "0 of 72"
+          "text": "0 of 92"
         },
         "escalation": {
           "count": 10,
-          "n": 100,
-          "rate": 0.1,
-          "text": "10 of 100"
+          "n": 120,
+          "rate": 0.0833,
+          "text": "10 of 120"
         },
         "outcomes_on_positives": {
           "WATCHLIST": 15,
@@ -75,24 +75,24 @@
           "CONTESTED": 9
         },
         "outcomes_on_negatives": {
-          "DISMISS": 59,
-          "CLEARED": 12,
+          "DISMISS": 77,
+          "CLEARED": 14,
           "CONTESTED": 1
         },
         "cleared_by_triage": {
-          "count": 12,
-          "n": 100,
-          "rate": 0.12,
-          "text": "12 of 100"
+          "count": 14,
+          "n": 120,
+          "rate": 0.1167,
+          "text": "14 of 120"
         },
-        "total_cost_usd": 12.82264329999999,
+        "total_cost_usd": 14.25868299999999,
         "per_case": {
-          "input_tokens": 33287.52,
-          "output_tokens": 5872.48,
-          "cache_read_tokens": 19094.09,
-          "cache_write_tokens": 321.09,
-          "calls": 9.62,
-          "cost_usd": 0.12822643299999992
+          "input_tokens": 30899.833333333332,
+          "output_tokens": 5430.625,
+          "cache_read_tokens": 17850.875,
+          "cache_write_tokens": 338.7,
+          "calls": 9.116666666666667,
+          "cost_usd": 0.11882235833333325
         }
       }
     },
@@ -107,9 +107,9 @@
         },
         "cleared": {
           "count": 0,
-          "n": 100,
+          "n": 120,
           "rate": 0.0,
-          "text": "0 of 100"
+          "text": "0 of 120"
         },
         "is_current_threshold": false
       },
@@ -122,10 +122,10 @@
           "text": "28 of 28"
         },
         "cleared": {
-          "count": 9,
-          "n": 100,
-          "rate": 0.09,
-          "text": "9 of 100"
+          "count": 10,
+          "n": 120,
+          "rate": 0.0833,
+          "text": "10 of 120"
         },
         "is_current_threshold": false
       },
@@ -138,10 +138,10 @@
           "text": "28 of 28"
         },
         "cleared": {
-          "count": 12,
-          "n": 100,
-          "rate": 0.12,
-          "text": "12 of 100"
+          "count": 14,
+          "n": 120,
+          "rate": 0.1167,
+          "text": "14 of 120"
         },
         "is_current_threshold": true
       },
@@ -154,10 +154,10 @@
           "text": "18 of 28"
         },
         "cleared": {
-          "count": 60,
-          "n": 100,
-          "rate": 0.6,
-          "text": "60 of 100"
+          "count": 73,
+          "n": 120,
+          "rate": 0.6083,
+          "text": "73 of 120"
         },
         "is_current_threshold": false
       },
@@ -170,10 +170,10 @@
           "text": "18 of 28"
         },
         "cleared": {
-          "count": 61,
-          "n": 100,
-          "rate": 0.61,
-          "text": "61 of 100"
+          "count": 75,
+          "n": 120,
+          "rate": 0.625,
+          "text": "75 of 120"
         },
         "is_current_threshold": false
       },
@@ -186,10 +186,10 @@
           "text": "15 of 28"
         },
         "cleared": {
-          "count": 71,
-          "n": 100,
-          "rate": 0.71,
-          "text": "71 of 100"
+          "count": 86,
+          "n": 120,
+          "rate": 0.7167,
+          "text": "86 of 120"
         },
         "is_current_threshold": false
       },
@@ -202,10 +202,10 @@
           "text": "15 of 28"
         },
         "cleared": {
-          "count": 71,
-          "n": 100,
-          "rate": 0.71,
-          "text": "71 of 100"
+          "count": 86,
+          "n": 120,
+          "rate": 0.7167,
+          "text": "86 of 120"
         },
         "is_current_threshold": false
       },
@@ -218,10 +218,10 @@
           "text": "14 of 28"
         },
         "cleared": {
-          "count": 73,
-          "n": 100,
-          "rate": 0.73,
-          "text": "73 of 100"
+          "count": 88,
+          "n": 120,
+          "rate": 0.7333,
+          "text": "88 of 120"
         },
         "is_current_threshold": false
       },
@@ -234,10 +234,10 @@
           "text": "14 of 28"
         },
         "cleared": {
-          "count": 73,
-          "n": 100,
-          "rate": 0.73,
-          "text": "73 of 100"
+          "count": 88,
+          "n": 120,
+          "rate": 0.7333,
+          "text": "88 of 120"
         },
         "is_current_threshold": false
       },
@@ -250,10 +250,10 @@
           "text": "14 of 28"
         },
         "cleared": {
-          "count": 73,
-          "n": 100,
-          "rate": 0.73,
-          "text": "73 of 100"
+          "count": 88,
+          "n": 120,
+          "rate": 0.7333,
+          "text": "88 of 120"
         },
         "is_current_threshold": false
       }
@@ -261,9 +261,9 @@
     "subgroups": {
       "language": {
         "en": {
-          "n": 98,
+          "n": 118,
           "n_pos": 26,
-          "n_neg": 72,
+          "n_neg": 92,
           "sonnet_all": {
             "miss": {
               "count": 9,
@@ -274,9 +274,9 @@
             },
             "false_accusation": {
               "count": 0,
-              "n": 72,
+              "n": 92,
               "rate": 0.0,
-              "text": "0 of 72",
+              "text": "0 of 92",
               "too_small_to_headline": false
             }
           },
@@ -290,9 +290,9 @@
             },
             "false_accusation": {
               "count": 0,
-              "n": 72,
+              "n": 92,
               "rate": 0.0,
-              "text": "0 of 72",
+              "text": "0 of 92",
               "too_small_to_headline": false
             }
           }
@@ -373,6 +373,43 @@
             }
           }
         },
+        "CA": {
+          "n": 1,
+          "n_pos": 0,
+          "n_neg": 1,
+          "sonnet_all": {
+            "miss": {
+              "count": 0,
+              "n": 0,
+              "rate": null,
+              "text": "0 of 0",
+              "too_small_to_headline": true
+            },
+            "false_accusation": {
+              "count": 0,
+              "n": 1,
+              "rate": 0.0,
+              "text": "0 of 1",
+              "too_small_to_headline": true
+            }
+          },
+          "tiered": {
+            "miss": {
+              "count": 0,
+              "n": 0,
+              "rate": null,
+              "text": "0 of 0",
+              "too_small_to_headline": true
+            },
+            "false_accusation": {
+              "count": 0,
+              "n": 1,
+              "rate": 0.0,
+              "text": "0 of 1",
+              "too_small_to_headline": true
+            }
+          }
+        },
         "CN": {
           "n": 3,
           "n_pos": 0,
@@ -411,9 +448,9 @@
           }
         },
         "GB": {
-          "n": 1,
+          "n": 2,
           "n_pos": 1,
-          "n_neg": 0,
+          "n_neg": 1,
           "sonnet_all": {
             "miss": {
               "count": 1,
@@ -424,9 +461,9 @@
             },
             "false_accusation": {
               "count": 0,
-              "n": 0,
-              "rate": null,
-              "text": "0 of 0",
+              "n": 1,
+              "rate": 0.0,
+              "text": "0 of 1",
               "too_small_to_headline": true
             }
           },
@@ -440,9 +477,9 @@
             },
             "false_accusation": {
               "count": 0,
-              "n": 0,
-              "rate": null,
-              "text": "0 of 0",
+              "n": 1,
+              "rate": 0.0,
+              "text": "0 of 1",
               "too_small_to_headline": true
             }
           }
@@ -485,9 +522,9 @@
           }
         },
         "JP": {
-          "n": 11,
+          "n": 18,
           "n_pos": 1,
-          "n_neg": 10,
+          "n_neg": 17,
           "sonnet_all": {
             "miss": {
               "count": 0,
@@ -498,9 +535,9 @@
             },
             "false_accusation": {
               "count": 0,
-              "n": 10,
+              "n": 17,
               "rate": 0.0,
-              "text": "0 of 10",
+              "text": "0 of 17",
               "too_small_to_headline": false
             }
           },
@@ -514,9 +551,9 @@
             },
             "false_accusation": {
               "count": 0,
-              "n": 10,
+              "n": 17,
               "rate": 0.0,
-              "text": "0 of 10",
+              "text": "0 of 17",
               "too_small_to_headline": false
             }
           }
@@ -559,9 +596,9 @@
           }
         },
         "US": {
-          "n": 72,
+          "n": 83,
           "n_pos": 15,
-          "n_neg": 57,
+          "n_neg": 68,
           "sonnet_all": {
             "miss": {
               "count": 6,
@@ -572,9 +609,9 @@
             },
             "false_accusation": {
               "count": 0,
-              "n": 57,
+              "n": 68,
               "rate": 0.0,
-              "text": "0 of 57",
+              "text": "0 of 68",
               "too_small_to_headline": false
             }
           },
@@ -588,9 +625,9 @@
             },
             "false_accusation": {
               "count": 0,
-              "n": 57,
+              "n": 68,
               "rate": 0.0,
-              "text": "0 of 57",
+              "text": "0 of 68",
               "too_small_to_headline": false
             }
           }
@@ -635,9 +672,9 @@
       },
       "material": {
         "bone": {
-          "n": 45,
+          "n": 50,
           "n_pos": 28,
-          "n_neg": 17,
+          "n_neg": 22,
           "sonnet_all": {
             "miss": {
               "count": 9,
@@ -648,9 +685,9 @@
             },
             "false_accusation": {
               "count": 0,
-              "n": 17,
+              "n": 22,
               "rate": 0.0,
-              "text": "0 of 17",
+              "text": "0 of 22",
               "too_small_to_headline": false
             }
           },
@@ -664,17 +701,17 @@
             },
             "false_accusation": {
               "count": 0,
-              "n": 17,
+              "n": 22,
               "rate": 0.0,
-              "text": "0 of 17",
+              "text": "0 of 22",
               "too_small_to_headline": false
             }
           }
         },
         "resin": {
-          "n": 17,
+          "n": 22,
           "n_pos": 0,
-          "n_neg": 17,
+          "n_neg": 22,
           "sonnet_all": {
             "miss": {
               "count": 0,
@@ -685,9 +722,9 @@
             },
             "false_accusation": {
               "count": 0,
-              "n": 17,
+              "n": 22,
               "rate": 0.0,
-              "text": "0 of 17",
+              "text": "0 of 22",
               "too_small_to_headline": false
             }
           },
@@ -701,17 +738,17 @@
             },
             "false_accusation": {
               "count": 0,
-              "n": 17,
+              "n": 22,
               "rate": 0.0,
-              "text": "0 of 17",
+              "text": "0 of 22",
               "too_small_to_headline": false
             }
           }
         },
         "tagua": {
-          "n": 10,
+          "n": 13,
           "n_pos": 0,
-          "n_neg": 10,
+          "n_neg": 13,
           "sonnet_all": {
             "miss": {
               "count": 0,
@@ -722,9 +759,9 @@
             },
             "false_accusation": {
               "count": 0,
-              "n": 10,
+              "n": 13,
               "rate": 0.0,
-              "text": "0 of 10",
+              "text": "0 of 13",
               "too_small_to_headline": false
             }
           },
@@ -738,17 +775,17 @@
             },
             "false_accusation": {
               "count": 0,
-              "n": 10,
+              "n": 13,
               "rate": 0.0,
-              "text": "0 of 10",
+              "text": "0 of 13",
               "too_small_to_headline": false
             }
           }
         },
         "unknown": {
-          "n": 11,
+          "n": 14,
           "n_pos": 0,
-          "n_neg": 11,
+          "n_neg": 14,
           "sonnet_all": {
             "miss": {
               "count": 0,
@@ -759,9 +796,9 @@
             },
             "false_accusation": {
               "count": 0,
-              "n": 11,
+              "n": 14,
               "rate": 0.0,
-              "text": "0 of 11",
+              "text": "0 of 14",
               "too_small_to_headline": false
             }
           },
@@ -775,17 +812,17 @@
             },
             "false_accusation": {
               "count": 0,
-              "n": 11,
+              "n": 14,
               "rate": 0.0,
-              "text": "0 of 11",
+              "text": "0 of 14",
               "too_small_to_headline": false
             }
           }
         },
         "wood": {
-          "n": 17,
+          "n": 21,
           "n_pos": 0,
-          "n_neg": 17,
+          "n_neg": 21,
           "sonnet_all": {
             "miss": {
               "count": 0,
@@ -796,9 +833,9 @@
             },
             "false_accusation": {
               "count": 0,
-              "n": 17,
+              "n": 21,
               "rate": 0.0,
-              "text": "0 of 17",
+              "text": "0 of 21",
               "too_small_to_headline": false
             }
           },
@@ -812,9 +849,9 @@
             },
             "false_accusation": {
               "count": 0,
-              "n": 17,
+              "n": 21,
               "rate": 0.0,
-              "text": "0 of 17",
+              "text": "0 of 21",
               "too_small_to_headline": false
             }
           }
@@ -824,9 +861,9 @@
     "case_officer_sat_out": {
       "overall": {
         "count": 0,
-        "n": 100,
+        "n": 120,
         "rate": 0.0,
-        "text": "0 of 100"
+        "text": "0 of 120"
       },
       "by_label": {
         "positive": {
@@ -837,9 +874,9 @@
         },
         "negative": {
           "count": 0,
-          "n": 72,
+          "n": 92,
           "rate": 0.0,
-          "text": "0 of 72"
+          "text": "0 of 92"
         }
       },
       "by_category": {
@@ -851,54 +888,54 @@
         },
         "legal_bone": {
           "count": 0,
-          "n": 18,
+          "n": 23,
           "rate": 0.0,
-          "text": "0 of 18"
+          "text": "0 of 23"
         },
         "legal_resin": {
           "count": 0,
-          "n": 16,
+          "n": 21,
           "rate": 0.0,
-          "text": "0 of 16"
+          "text": "0 of 21"
         },
         "other_legal": {
           "count": 0,
-          "n": 28,
+          "n": 35,
           "rate": 0.0,
-          "text": "0 of 28"
+          "text": "0 of 35"
         },
         "tagua": {
           "count": 0,
-          "n": 10,
+          "n": 13,
           "rate": 0.0,
-          "text": "0 of 10"
+          "text": "0 of 13"
         }
       }
     },
     "claim_quality": {
       "undercover": {
-        "listings": 100,
-        "made": 691,
+        "listings": 120,
+        "made": 783,
         "rejected": 0,
         "rejection_rate": 0.0,
-        "rejected_after_repair": 0,
-        "repair_calls": 32
-      },
-      "counsel": {
-        "listings": 100,
-        "made": 689,
-        "rejected": 2,
-        "rejection_rate": 0.0029,
         "rejected_after_repair": 0,
         "repair_calls": 34
       },
+      "counsel": {
+        "listings": 120,
+        "made": 781,
+        "rejected": 2,
+        "rejection_rate": 0.0026,
+        "rejected_after_repair": 0,
+        "repair_calls": 35
+      },
       "case_officer": {
-        "listings": 100,
-        "made": 709,
+        "listings": 120,
+        "made": 802,
         "rejected": 0,
         "rejection_rate": 0.0,
         "rejected_after_repair": 0,
-        "repair_calls": 26
+        "repair_calls": 28
       }
     },
     "triage_full": {
