@@ -47,6 +47,10 @@ _lock_for: tuple[Any, asyncio.Lock] | None = None     # (event loop, its lock); 
 _pending: dict[str, Any] = {"in": 0, "out": 0, "cases": {}}    # tokens reserved by calls in flight
 
 
+# Set by the API to persist every call (model, schema_name, case_id, tokens_in, tokens_out, ms).
+usage_hook: Any = None
+
+
 class BudgetExceeded(Exception):
     """A global or per-case token cap would be exceeded by this call."""
 
@@ -284,6 +288,8 @@ async def _attempt(req: dict, schema_name: str, case_id: str | None, est_in: int
         _release(res)                                   # no-op once recorded; covers every other error
     log.info("llm model=%s schema=%s case=%s in=%d out=%d ms=%.0f",
              req["model"], schema_name, case_id, tokens_in, tokens_out, ms)
+    if usage_hook:
+        usage_hook(req["model"], schema_name, case_id, tokens_in, tokens_out, ms)
     for block in resp.content:
         if block.type == "tool_use" and block.name == schema_name:
             return _unstringify(dict(block.input)), resp

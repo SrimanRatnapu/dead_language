@@ -82,3 +82,39 @@ def test_batch_api_rejects_bad_requests(client):
     assert client.post("/api/batches", json={"source": "live", "query": "x", "cap": 51}).status_code == 422
     assert client.get("/api/batches/B-9999").status_code == 404
     assert client.get("/api/batches/B-9999/events").status_code == 404
+
+
+def run_batch(client):
+    b = client.post("/api/batches", json={"source": "demo"}).json()
+    with client.stream("GET", f"/api/batches/{b['batch_id']}/events") as s:
+        list(s.iter_lines())
+    return client.get(f"/api/batches/{b['batch_id']}").json()["items"]
+
+
+def test_file_case_cannot_be_struck_without_a_named_approver(client):
+    cid = run_batch(client)[0]["case_id"]
+    url = f"/api/cases/{cid}/strike"
+    assert client.get(url).json()["status"] == "pending_review"
+    assert client.post(url, json={"action": "submit", "by": "ana"}).status_code == 409   # not approved yet
+    assert client.post(url, json={"action": "approve", "by": "  "}).status_code == 409   # unnamed
+    assert client.post(url, json={"action": "approve", "by": "ana"}).json()["approved_by"] == "ana"
+    done = client.post(url, json={"action": "submit", "by": "ana"}).json()
+    assert done["status"] == "submitted_simulated" and done["notice_draft"].startswith("Possible elephant ivory")
+    assert client.post(url, json={"action": "submit", "by": "ana"}).status_code == 409   # no double submit
+
+
+def test_metrics_are_zero_before_runs_then_measured(client):
+    m = client.get("/api/metrics").json()
+    assert m["funnel"]["ingested"] == 0 and m["cost"]["usd_total"] == 0 and m["strikes"]["pending_review"] == 0
+    run_batch(client)
+    m = client.get("/api/metrics").json()
+    assert m["funnel"]["ingested"] == 2 and m["funnel"]["FILE"] == 2 and m["strikes"]["pending_review"] == 2
+
+
+def test_spend_cap_stops_new_cases(client, monkeypatch):
+    from deadlang import config
+    monkeypatch.setattr(config, "MAX_SPEND_USD", 1.0)
+    from deadlang import llm
+    llm.usage_hook("claude-sonnet-5-5", "x", None, 1_000_000, 1_000_000, 1)   # $12 of recorded spend
+    items = run_batch(client)
+    assert all(i["status"] == "error" and "spend cap" in i["error"] for i in items)

@@ -34,6 +34,7 @@ def _path(key: str, default: str) -> Path:
 
 
 DATA_DIR: Path = _path("DL_DATA_DIR", "../data")
+MAX_SPEND_USD: float = float(_str("DL_MAX_SPEND_USD", "20"))   # per UTC day, checked before each case
 USAGE_FILE: Path = _path("DL_USAGE_FILE", ".usage.json")
 
 MODEL_STRONG: str = _str("DL_MODEL_STRONG", "claude-sonnet-5-5")

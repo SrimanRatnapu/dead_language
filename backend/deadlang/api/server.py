@@ -16,8 +16,10 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from sse_starlette.sse import EventSourceResponse
 
+from deadlang import config, llm
 from deadlang.api.batches import Batches
 from deadlang.api.events import EventBus
+from deadlang.api.runs import Runs
 from deadlang.deliberation.facilitator import Facilitator
 from deadlang.schemas import CaseFile, Event, now_iso
 
@@ -35,6 +37,11 @@ class CaseRequest(BaseModel):
 
 class NameRequest(BaseModel):
     name: str
+
+
+class StrikeRequest(BaseModel):
+    action: Literal["approve", "submit"]
+    by: str
 
 
 class BatchRequest(BaseModel):
@@ -79,9 +86,13 @@ def create_app(market: Any = None, transport: Any = None, discovery: Any = None,
         existing = [int(m_.group(1)) for p in (b.runs_dir.glob("C-*.jsonl") if b.runs_dir else []) if (m_ := CASE_RE.search(p.name))]
         state.update(market=m, transport=t, discovery=d, bus=b, counter=max(existing, default=0),
                      facilitator=Facilitator(m, t, d, b))
+        runs = state["runs"] = Runs(data_dir / "runs.db")
+        llm.usage_hook = runs.record_usage
         nonlocal batches
-        batches = Batches(real_worker, int(os.getenv("DL_MAX_CONCURRENT_CASES", "4")))
+        batches = Batches(real_worker, int(os.getenv("DL_MAX_CONCURRENT_CASES", "4")),
+                          lambda bid, it: runs.record_item(bid, it["listing_id"], it["status"], it["outcome"]))
         yield
+        llm.usage_hook = None
 
     app = FastAPI(title="Dead Language API", lifespan=lifespan)
     app.add_middleware(CORSMiddleware, allow_origin_regex=r"http://(localhost|127\.0\.0\.1)(:\d+)?",  # any local dev port (3000 can be taken)
@@ -127,8 +138,11 @@ def create_app(market: Any = None, transport: Any = None, discovery: Any = None,
 
         async def run():
             try:
+                state["runs"].start_case(case_id, await state["market"].get_listing_snapshot(listing_id))
                 info["case_file"] = await state["facilitator"].run_case(case_id, listing_id)
+                state["runs"].end_case(case_id, info["case_file"].outcome)
             except Exception as exc:
+                state["runs"].end_case(case_id, None)
                 log.exception("case %s failed", case_id)
                 # Always terminate the stream. Extends the case.ended payload with `error` (case_file is null).
                 state["bus"].emit(case_id, "case.ended", {"case_file": None, "error": f"{type(exc).__name__}: {exc}"})
@@ -145,6 +159,8 @@ def create_app(market: Any = None, transport: Any = None, discovery: Any = None,
         return {"case_id": start_case(req.listing_id)}
 
     async def real_worker(item: dict[str, Any], set_status: Any) -> None:
+        if state["runs"].spend_today() >= config.MAX_SPEND_USD:
+            raise RuntimeError(f"daily spend cap reached (${config.MAX_SPEND_USD:g}); not starting a new case")
         # No triage step until Person B's screen() lands: every item is deliberated.
         set_status(status="deliberating", case_id=(case_id := start_case(item["listing_id"])))
         await cases[case_id]["task"]
@@ -183,6 +199,42 @@ def create_app(market: Any = None, transport: Any = None, discovery: Any = None,
                 yield {"event": e["type"], "data": json.dumps(e)}
 
         return EventSourceResponse(gen())
+
+    # ------------------------------------------------------------------ strikes, metrics, refresh
+    @app.get("/api/cases/{case_id}/strike")
+    async def get_strike(case_id: str):
+        if case_id not in cases:
+            raise HTTPException(404, "unknown case")
+        cf = cases[case_id]["case_file"]
+        return state["runs"].strike(case_id, cf.tip_draft if cf else None)
+
+    @app.post("/api/cases/{case_id}/strike")
+    async def post_strike(case_id: str, req: StrikeRequest):
+        if case_id not in cases:
+            raise HTTPException(404, "unknown case")
+        try:
+            state["runs"].advance_strike(case_id, req.action, req.by)
+        except ValueError as exc:
+            raise HTTPException(409, str(exc))
+        return await get_strike(case_id)
+
+    @app.get("/api/metrics")
+    async def metrics():
+        return state["runs"].metrics()
+
+    @app.post("/api/refresh")
+    async def refresh():
+        try:
+            from deadlang.marketplace.refresh import refresh_listings
+        except ImportError:
+            raise HTTPException(501, "refresh needs Person A's refresh_listings, which is not merged yet")
+        ids = [l.id for l in await state["market"].all_active()]
+        changes = await refresh_listings(ids)
+        state["runs"].record_changes(changes, len(ids))
+        for c in changes:
+            if c.kind == "removed":
+                state["runs"].observe_removed(c.listing_id)
+        return [c.model_dump(mode="json") if hasattr(c, "model_dump") else c for c in changes]
 
     @app.get("/api/cases")
     async def list_cases():

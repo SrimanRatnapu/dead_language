@@ -31,14 +31,14 @@ Contract in file 00 §4.2. Implementation, keeping it boring:
 - Worker per item: `queued -> triaging` (call B's `screen()` once it lands; until then items skip triage) -> `screened_out` (no agents) **or** `deliberating` (run the existing `Facilitator.run_case`) -> `done` with outcome, or `error` with message. One bad item never fails the batch.
 - Emit `batch.item` SSE events on every status change; keep an in-memory history per batch for late subscribers.
 - `source: "demo"` uses `load_demo_set()` (A). `source: "live"` calls `fetch_live(query, cap)` (A), then enqueues the results.
-- Spend guard: a global `DL_MAX_SPEND_USD` per day, enforced before each Sonnet case. When hit, items go `error` with a clear reason. (No authentication and no per-key limits: not needed for this app.)
+- Spend guard (BUILT, `DL_MAX_SPEND_USD`, default 20/day): a global `DL_MAX_SPEND_USD` per day, enforced before each Sonnet case. When hit, items go `error` with a clear reason. (No authentication and no per-key limits: not needed for this app.)
 
-### C3. Persistence and audit log (P1)
+### C3. Persistence and audit log (BUILT: `api/runs.py`; `data/runs.db`; events stay in `runs/<case>.jsonl`)
 SQLite via stdlib `sqlite3` (single file `data/runs.db`). # ponytail: SQLite, move to Postgres when more than one writer process is needed.
 Tables: `cases` (case_id, listing_id, origin, outcome, started_at, ended_at, model_versions, prompt_hash, rules_version, snapshot_sha256), `events` (the existing event log, append-only), `strikes` (history), `changes` (A's `ListingChange`), `usage` (per call: model, tokens, usd, stage, duration_ms).
 Rules: append-only for `events` and `strikes`. A finished case is immutable and replayable from its events. Store the prompt files' hash and the rules version with each case so any outcome can be reproduced.
 
-### C4. Metrics backend (P1)
+### C4. Metrics backend (BUILT: `GET /api/metrics`; remaining: `/api/market` once A's `market_stats()` lands; B must name triage schema `triage*` so triage latency is measured)
 `GET /api/metrics` with the exact shape in file 00 §4.6. Compute from the `usage`, `cases`, `changes` and `strikes` tables and live counters. Rules:
 - Latency percentiles per stage from `usage.duration_ms`.
 - `throughput_per_min` from completed items over a trailing window.
@@ -47,7 +47,7 @@ Rules: append-only for `events` and `strikes`. A finished case is immutable and 
 - `by_model` makes the Haiku/Sonnet split visible for the funnel story.
 Also expose `market_stats()` from A through `GET /api/market` so D can draw the market view (use the same response, do not re-compute).
 
-### C5. Strike API and refresh scheduling (P1/P2)
+### C5. Strike API and refresh scheduling (BUILT: strike GET/POST with test; `POST /api/refresh` returns 501 until A's `refresh_listings` exists; `DL_REFRESH_SECS` scheduler not built)
 Contract in file 00 §4.3-4.4.
 - Strike: statuses `none -> pending_review` (set automatically when a case ends FILE or CONTESTED; a human decides) `-> approved` (POST, requires `by`) `-> submitted_simulated` (POST submit; generates `notice_draft` from the existing code-template case file, no model) `-> observed_removed` (set by the refresh job).
 - Reject `submit` unless status is `approved`. Reject any attempt without a `by` value. This is the human gate: add a test that proves a FILE case cannot reach `submitted_simulated` without an approval.

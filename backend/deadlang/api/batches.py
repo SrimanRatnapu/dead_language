@@ -17,8 +17,9 @@ Worker = Callable[[dict[str, Any], Callable[..., None]], Awaitable[None]]
 
 
 class Batches:
-    def __init__(self, worker: Worker, limit: int = 4):
+    def __init__(self, worker: Worker, limit: int = 4, on_event: Callable[[str, dict], None] | None = None):
         self.worker = worker
+        self.on_event = on_event
         self._sem = asyncio.Semaphore(limit)
         self._batches: dict[str, dict[str, Any]] = {}
         self._subs: dict[str, list[asyncio.Queue]] = {}
@@ -50,6 +51,8 @@ class Batches:
         if item["outcome"]:
             e["outcome"] = item["outcome"]
         batch["_events"].append(e)
+        if self.on_event:
+            self.on_event(batch["batch_id"], item)
         for q in self._subs.get(batch["batch_id"], []):
             q.put_nowait(e)
 
