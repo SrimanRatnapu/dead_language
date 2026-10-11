@@ -27,7 +27,7 @@ function Accuracy({ r }: { r: EvalResults | null }) {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <p className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted">Trafficking listings caught</p>
+        <p className="mb-3 font-semibold">Trafficking listings caught</p>
         <ul className="flex flex-col gap-3">
           {SETUPS.map((s) => r[s.key] && (
             <li key={s.key} className="grid grid-cols-[11rem_1fr_auto] items-center gap-4">
@@ -64,7 +64,7 @@ function Runs() {
   }, []);
   if (!m) return <p className="text-muted">{offline ? "The review service is offline." : "Loading…"}</p>;
   const f = m.funnel;
-  if (f.ingested === 0) return <p className="text-muted">No runs yet. Start a batch on the <Link href="/" className="font-semibold text-cobalt-ink underline underline-offset-4">Cases</Link> page.</p>;
+  if (f.ingested === 0) return <p className="text-muted">No runs yet. Start a batch on the <Link href="/desk" className="font-semibold text-cobalt-ink underline underline-offset-4">Review desk</Link> page.</p>;
   return (
     <div>
       <div className="flex h-6 w-full gap-px overflow-hidden bg-sunken" role="img" aria-label={SEGMENTS.map((s) => `${s.label} ${f[s.key]}`).join(", ")}>
@@ -81,12 +81,11 @@ function Runs() {
 }
 
 /** A finding: the claim as a sentence on the left, its evidence on the right. */
-function Finding({ n, claim, children }: { n: string; claim: React.ReactNode; children: React.ReactNode }) {
+function Finding({ claim, children }: { claim: React.ReactNode; children: React.ReactNode }) {
   return (
     <section className="grid gap-x-12 gap-y-5 border-t border-ink pt-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
       <div>
-        <p className="mono text-muted">{n}</p>
-        <h2 className="serif mt-1 text-[1.7rem] font-semibold leading-tight [text-wrap:balance]">{claim}</h2>
+        <h2 className="serif text-[1.7rem] font-semibold leading-tight [text-wrap:balance]">{claim}</h2>
       </div>
       <div className="min-w-0">{children}</div>
     </section>
@@ -104,28 +103,28 @@ export default function ResultsPage() {
   return (
     <main className="min-h-[calc(100dvh-3.5rem)]">
       <div className="mx-auto flex max-w-5xl flex-col gap-12 px-5 pb-20 pt-10 sm:px-8">
-        <h1 className="serif max-w-3xl text-4xl font-semibold leading-tight [text-wrap:balance]">
+        <h1 className="serif max-w-3xl text-4xl font-extrabold leading-tight [text-wrap:balance]">
           A price can flag a listing. Only the debate tells you whether to act on it.
         </h1>
 
-        <Finding n="1" claim="Which way of reviewing catches the most trafficking listings?">
+        <Finding claim="Which way of reviewing catches the most trafficking listings?">
           <Accuracy r={results} />
         </Finding>
 
         {p && (
-          <Finding n="2" claim={<>A price-only rule would file {p.real_flagged} real listings alongside the {p.planted_flagged} trafficking cases.</>}>
+          <Finding claim={<>A price-only rule would file {p.real_flagged} real listings alongside the {p.planted_flagged} trafficking cases.</>}>
             <p className="mb-3 text-muted">Each dot is a listing, plotted by its price against the median for the same stated material. {p.planted_flagged} of {p.planted_total} trafficking cases sit at {p.flag_at}× or more. So do {p.real_flagged} of {p.real_total} real listings.</p>
             <RatioPlot price={p} />
           </Finding>
         )}
 
         {l && (
-          <Finding n="3" claim="Shared wording and photos link sellers, and almost never by accident.">
+          <Finding claim="Shared wording and photos link sellers, and almost never by accident.">
             <p className="text-muted">All {l.network_linked} of {l.network_total} listings in the designed network link to the other sellers. Only {l.real_linked} of {l.real_total} real listings link to another seller this way, so a hit means something.</p>
           </Finding>
         )}
 
-        <Finding n="4" claim="What a real run looked like: outcomes, speed and cost.">
+        <Finding claim="What a real run looked like: outcomes, speed and cost.">
           <Runs />
         </Finding>
       </div>

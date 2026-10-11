@@ -25,7 +25,7 @@ export function CaseFileDrawer({ caseFile, evidence, open, onClose, onOpenEviden
 
           {caseFile.tip_draft && (
             <Section title="Tip draft">
-              <pre className="mono whitespace-pre-wrap rounded-lg border border-line bg-sunken p-3 leading-relaxed">{caseFile.tip_draft}</pre>
+              <pre className="mono whitespace-pre-wrap rounded-none border border-line bg-sunken p-3 leading-relaxed">{caseFile.tip_draft}</pre>
             </Section>
           )}
 

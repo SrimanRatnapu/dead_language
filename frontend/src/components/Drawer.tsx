@@ -26,7 +26,7 @@ export function Drawer({ open, title, onClose, children }: { open: boolean; titl
         aria-label={title}
         aria-hidden={!open}
         data-open={open}
-        className="drawer glass fixed inset-y-0 right-0 z-40 flex w-[min(520px,100vw)] flex-col border-l border-line shadow-[var(--shadow)] outline-none"
+        className="drawer bg-surface text-ink fixed inset-y-0 right-0 z-40 flex w-[min(520px,100vw)] flex-col border-l border-line shadow-[var(--shadow)] outline-none"
       >
         <div className="flex h-12 shrink-0 items-center justify-between border-b border-line px-5">
           <h2 className="font-semibold">{title}</h2>

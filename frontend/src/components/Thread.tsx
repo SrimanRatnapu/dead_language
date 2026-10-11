@@ -104,11 +104,11 @@ function Message({ post, prev, wake, state, onOpen }: { post: StancePost; prev: 
   const rest = post.take ? post.claims : post.claims.slice(1);
   const detail = rest.length + (post.rebuttal ? 1 : 0) + (rejected.length ? 1 : 0);
   return (
-    <article className={`rise relative border border-line bg-surface/80 px-4 py-3.5 ${prev && prev !== post.stance ? "flash" : ""}`} style={{ boxShadow: `inset 3px 0 0 ${a.cssVar}` }}>
+    <article className={`rise relative border border-line bg-surface/80 px-4 py-3.5 ${prev && prev !== post.stance ? "flash" : ""}`} style={{ boxShadow: `inset 0 2px 0 ${a.cssVar}` }}>
       <WakeLine wake={wake} />
       <header className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
         <span className={`text-sm font-semibold ${a.text}`}>{a.label}</span>
-        {post.abstained ? <span className="rounded-full bg-sunken px-2 py-0.5 text-base font-semibold text-muted">Sat out</span> : <>
+        {post.abstained ? <span className="rounded-none bg-sunken px-2 py-0.5 text-base font-semibold text-muted">Sat out</span> : <>
         {prev && prev !== post.stance && <><StancePill stance={prev} className="opacity-60" /><span className="text-muted" aria-label="changed to">→</span></>}
         <StancePill stance={post.stance} />
         <span className="mono text-muted">{Math.round(post.confidence * 100)}%</span></>}
@@ -159,7 +159,7 @@ export function Thread({ state, onOpen }: { state: CaseState; onOpen: Open }) {
         {blocks.length === 0 && !finished && <Pending>Gathering facts</Pending>}
         {waiting.map((a) => <Pending key={a}>{AGENTS[a].label} is writing a reply</Pending>)}
       </div>
-      {!pinned && <div className="pointer-events-none sticky bottom-4 flex justify-center"><button onClick={() => { setPinned(true); ref.current?.scrollTo({ top: ref.current.scrollHeight, behavior: "smooth" }); }} className="press pointer-events-auto min-h-11 rounded-full bg-ink px-4 text-base font-semibold text-surface shadow-[var(--shadow)]">↓ Newest</button></div>}
+      {!pinned && <div className="pointer-events-none sticky bottom-4 flex justify-center"><button onClick={() => { setPinned(true); ref.current?.scrollTo({ top: ref.current.scrollHeight, behavior: "smooth" }); }} className="press pointer-events-auto min-h-11 rounded-none bg-ink px-4 text-base font-semibold text-surface shadow-[var(--shadow)]">↓ Newest</button></div>}
     </div>
   );
 }
