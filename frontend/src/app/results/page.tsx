@@ -6,33 +6,44 @@ import { getMetrics } from "@/lib/api";
 import { loadEval } from "@/lib/stubs";
 import type { Condition, EvalResults, Metrics } from "@/lib/types";
 
-const secs = (ms: number) => `${(ms / 1000).toFixed(0)} s`;
-const usd = (n: number) => `$${n.toFixed(2)}`;
-
-const SETUPS: { key: Condition; head: string }[] = [
-  { key: "A", head: "Listing only" },
-  { key: "B", head: "One agent" },
-  { key: "C", head: "Three agents" },
+const SETUPS: { key: Condition; name: string; note: string }[] = [
+  { key: "A", name: "Listing text only", note: "no evidence, no debate" },
+  { key: "B", name: "One agent", note: "evidence, no debate" },
+  { key: "C", name: "Three agents", note: "evidence and debate" },
 ];
+
+/** One square per listing: filled when the setup got it right. Reads at any n without a chart library. */
+function Squares({ right, total, color }: { right: number; total: number; color: string }) {
+  return (
+    <span className="flex flex-wrap gap-1" role="img" aria-label={`${right} of ${total}`}>
+      {Array.from({ length: total }, (_, i) => <i key={i} className={`size-3.5 ${i < right ? color : "bg-sunken"}`} />)}
+    </span>
+  );
+}
 
 function Accuracy({ r }: { r: EvalResults | null }) {
   if (!r?.C || r._stub) return <p className="text-muted">Not measured yet.</p>;
-  const of = (n: number, total: number) => (total === 0 ? "n/a" : `${n} of ${total}`);
-  const rows: [string, (c: Condition) => string][] = [
-    ["Trafficking listings caught", (k) => of(r[k]!.caught, r[k]!.n_pos)],
-    ["Honest listings wrongly filed", (k) => of(r[k]!.false_accusations, r[k]!.n_neg)],
-    ["Caught or sent to a person", (k) => of(k === "C" ? r.C!.caught_or_escalated ?? r.C!.caught : r[k]!.caught, r[k]!.n_pos)],
-  ];
+  const honest = r.C.n_neg;
   return (
-    <table className="w-full max-w-2xl border-collapse text-left">
-      <thead><tr><th className="w-[40%] pb-2" />{SETUPS.map((s) => <th key={s.key} className={`px-3 pb-2 font-semibold ${s.key === "C" ? "bg-cobalt-tint" : ""}`}>{s.head}</th>)}</tr></thead>
-      <tbody>{rows.map(([label, f]) => (
-        <tr key={label} className="border-t border-line">
-          <th scope="row" className="py-2 pr-3 font-normal">{label}</th>
-          {SETUPS.map((s) => <td key={s.key} className={`px-3 py-2 ${s.key === "C" ? "bg-cobalt-tint font-semibold" : ""}`}>{r[s.key] ? f(s.key) : "n/a"}</td>)}
-        </tr>))}
-      </tbody>
-    </table>
+    <div className="flex flex-col gap-6">
+      <div>
+        <p className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted">Trafficking listings caught</p>
+        <ul className="flex flex-col gap-3">
+          {SETUPS.map((s) => r[s.key] && (
+            <li key={s.key} className="grid grid-cols-[11rem_1fr_auto] items-center gap-4">
+              <span><b className={s.key === "C" ? "text-cobalt-ink" : ""}>{s.name}</b><br /><span className="text-sm text-muted">{s.note}</span></span>
+              <Squares right={r[s.key]!.caught} total={r[s.key]!.n_pos} color={s.key === "C" ? "bg-cobalt" : "bg-ink"} />
+              <span className="mono">{r[s.key]!.caught}/{r[s.key]!.n_pos}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+      <p className="text-muted">
+        {honest === 0
+          ? "Honest listings wrongly filed: not measured yet. This run had no honest listings, so it can say what each setup catches but not what it gets wrong."
+          : `Honest listings wrongly filed, out of ${honest}: ${SETUPS.map((s) => `${s.name.toLowerCase()} ${r[s.key]?.false_accusations ?? "n/a"}`).join(", ")}.`}
+      </p>
+    </div>
   );
 }
 
@@ -55,55 +66,68 @@ function Runs() {
   const f = m.funnel;
   if (f.ingested === 0) return <p className="text-muted">No runs yet. Start a batch on the <Link href="/" className="font-semibold text-cobalt-ink underline underline-offset-4">Cases</Link> page.</p>;
   return (
-    <>
-      <p><span className="serif text-3xl font-semibold">{f.ingested}</span> listings reviewed, at <b>{secs(m.latency_ms.case.p50)}</b> and <b>{usd(m.cost.usd_per_case)}</b> per case.</p>
-      <div className="mt-3 flex h-5 w-full max-w-2xl gap-px overflow-hidden bg-sunken" role="img" aria-label={SEGMENTS.map((s) => `${s.label} ${f[s.key]}`).join(", ")}>
+    <div>
+      <div className="flex h-6 w-full gap-px overflow-hidden bg-sunken" role="img" aria-label={SEGMENTS.map((s) => `${s.label} ${f[s.key]}`).join(", ")}>
         {SEGMENTS.map((s) => f[s.key] > 0 && <span key={s.key} className={s.color} style={{ width: `${(f[s.key] / f.ingested) * 100}%` }} />)}
       </div>
-      <ul className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-sm text-muted">
+      <ul className="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-sm text-muted">
         {SEGMENTS.map((s) => <li key={s.key} className="flex items-center gap-1.5"><i className={`size-2.5 ${s.color}`} />{s.label} <b className="text-ink">{f[s.key]}</b></li>)}
       </ul>
-    </>
-  );
-}
-
-function Signals() {
-  const [d, setD] = useState<SignalData | null>(null);
-  useEffect(() => { fetch("/stub/signals.json").then((r) => (r.ok ? r.json() : null)).then(setD).catch(() => setD(null)); }, []);
-  if (!d) return <p className="text-muted">Loading…</p>;
-  const { price: p, links: l } = d;
-  return (
-    <div className="flex flex-col gap-6">
-      <div>
-        <h3 className="font-semibold">Price alone is not enough</h3>
-        <p className="mb-3 text-muted">Each dot is a listing, plotted by its price against the median for the same stated material. {p.planted_flagged} of {p.planted_total} reconstructed trafficking cases sit at {p.flag_at}× or more, but so do {p.real_flagged} of {p.real_total} real listings. A price-only rule would file all of them, so the other agents exist to separate them.</p>
-        <RatioPlot price={p} />
-      </div>
-      <div>
-        <h3 className="font-semibold">Shared wording and photos link sellers</h3>
-        <p className="text-muted">All {l.network_linked} of {l.network_total} listings in the designed network link to the other sellers. Only {l.real_linked} of {l.real_total} real listings link to another seller this way, so a hit means something.</p>
-      </div>
+      <p className="mt-4 text-muted">
+        Median {(m.latency_ms.case.p50 / 1000).toFixed(0)} s per case, {m.throughput_per_min.toFixed(1)} cases a minute, ${m.cost.usd_per_case.toFixed(2)} each.
+      </p>
     </div>
   );
 }
 
-function Section({ title, sub, children }: { title: string; sub: string; children: React.ReactNode }) {
-  return <section className="border-t border-ink pt-4"><h2 className="serif text-2xl">{title}</h2><p className="mb-4 text-sm text-muted">{sub}</p>{children}</section>;
+/** A finding: the claim as a sentence on the left, its evidence on the right. */
+function Finding({ n, claim, children }: { n: string; claim: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <section className="grid gap-x-12 gap-y-5 border-t border-ink pt-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+      <div>
+        <p className="mono text-muted">{n}</p>
+        <h2 className="serif mt-1 text-[1.7rem] font-semibold leading-tight [text-wrap:balance]">{claim}</h2>
+      </div>
+      <div className="min-w-0">{children}</div>
+    </section>
+  );
 }
 
 export default function ResultsPage() {
   const [results, setResults] = useState<EvalResults | null>(null);
-  useEffect(() => { loadEval().then(({ data }) => setResults(data)).catch(() => setResults(null)); }, []);
+  const [sig, setSig] = useState<SignalData | null>(null);
+  useEffect(() => {
+    loadEval().then(({ data }) => setResults(data)).catch(() => setResults(null));
+    fetch("/stub/signals.json").then((r) => (r.ok ? r.json() : null)).then(setSig).catch(() => setSig(null));
+  }, []);
+  const p = sig?.price, l = sig?.links;
   return (
     <main className="min-h-[calc(100dvh-3.5rem)]">
-      <div className="mx-auto flex max-w-3xl flex-col gap-8 px-5 pb-16 pt-8 sm:px-8">
-        <header>
-          <h1 className="serif text-4xl font-semibold">Results</h1>
-          <p className="mt-2 text-muted">Two questions: is the three-agent review more accurate than simpler setups, and what has this server actually run?</p>
-        </header>
-        <Section title="Accuracy" sub="Same labeled listings, three ways of reviewing them. Positive cases are reconstructed, so read the pattern, not the decimals."><Accuracy r={results} /></Section>
-        <Section title="Signals" sub="What the helpers compute from the listings, with no model involved."><Signals /></Section>
-        <Section title="Runs on this server" sub="Measured live from every case run here."><Runs /></Section>
+      <div className="mx-auto flex max-w-5xl flex-col gap-12 px-5 pb-20 pt-10 sm:px-8">
+        <h1 className="serif max-w-3xl text-4xl font-semibold leading-tight [text-wrap:balance]">
+          A price can flag a listing. Only the debate tells you whether to act on it.
+        </h1>
+
+        <Finding n="1" claim="Which way of reviewing catches the most trafficking listings?">
+          <Accuracy r={results} />
+        </Finding>
+
+        {p && (
+          <Finding n="2" claim={<>A price-only rule would file {p.real_flagged} real listings alongside the {p.planted_flagged} trafficking cases.</>}>
+            <p className="mb-3 text-muted">Each dot is a listing, plotted by its price against the median for the same stated material. {p.planted_flagged} of {p.planted_total} trafficking cases sit at {p.flag_at}× or more. So do {p.real_flagged} of {p.real_total} real listings.</p>
+            <RatioPlot price={p} />
+          </Finding>
+        )}
+
+        {l && (
+          <Finding n="3" claim="Shared wording and photos link sellers, and almost never by accident.">
+            <p className="text-muted">All {l.network_linked} of {l.network_total} listings in the designed network link to the other sellers. Only {l.real_linked} of {l.real_total} real listings link to another seller this way, so a hit means something.</p>
+          </Finding>
+        )}
+
+        <Finding n="4" claim="What a real run looked like: outcomes, speed and cost.">
+          <Runs />
+        </Finding>
       </div>
     </main>
   );
