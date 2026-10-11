@@ -42,6 +42,15 @@ export default function Cases() {
   useEffect(() => { itemsRef.current = items; }, [items]);
 
   useEffect(() => {
+    // Coming back from another page: reload the batch that was running or finished.
+    const saved = sessionStorage.getItem("dl_batch");
+    if (saved) {
+      const { id, mode: m, startedAt: t } = JSON.parse(saved);
+      getBatch(id).then((b) => {
+        batchId.current = id; setItems(b.items); setMode(m); setStartedAt(t); setNow(Date.now());
+        b.items.forEach((i) => getListing(i.listing_id).then((r) => setListings((l) => ({ ...l, [r.listing.id]: r.listing }))).catch(() => {}));
+      }).catch(() => sessionStorage.removeItem("dl_batch"));
+    }
     loadListings().then(({ data }) => { setRows(data); setListings(Object.fromEntries(data.map((x) => [x.listing.id, x.listing]))); }).catch(() => setRows([]));
     getHealth().then((h) => setProblems(h.problems)).catch(() => {});
     return () => es.current?.close();
@@ -64,7 +73,7 @@ export default function Cases() {
     setBusy(true); setError(null); es.current?.close();
     try {
       const b = await startBatch(source === "live" ? { source, query, cap } : { source });
-      batchId.current = b.batch_id; setItems(b.items); setMode(b.source_mode); setStartedAt(Date.now()); setNow(Date.now());
+      batchId.current = b.batch_id; sessionStorage.setItem("dl_batch", JSON.stringify({ id: b.batch_id, mode: b.source_mode, startedAt: Date.now() })); setItems(b.items); setMode(b.source_mode); setStartedAt(Date.now()); setNow(Date.now());
       b.items.forEach((i) => getListing(i.listing_id).then((r) => setListings((l) => ({ ...l, [r.listing.id]: r.listing }))).catch(() => {}));
       const src = new EventSource(batchEventsUrl(b.batch_id));
       es.current = src;
