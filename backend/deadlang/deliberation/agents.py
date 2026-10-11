@@ -1,12 +1,16 @@
 """DeliberatingAgent: one model call per turn that turns the board + transcript into a StancePost."""
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
-from deadlang import config, llm, untrusted
+from pydantic import ValidationError
+
+from deadlang import config, lenient, llm, untrusted
 from deadlang.evidence.board import render_evidence
 from deadlang.schemas import AgentName, DeliberationTurn, Evidence, StancePost
 
+log = logging.getLogger(__name__)
 PROMPTS = Path(__file__).parent / "prompts"
 SCHEMA_NAME = "post_position"
 
@@ -75,7 +79,21 @@ class DeliberatingAgent:
         self.system = (PROMPTS / f"{name}.md").read_text() + "\n\n" + (PROMPTS / "shared_rules.md").read_text()
 
     async def handle(self, turn: DeliberationTurn) -> StancePost:
-        out = await llm.call_json(
-            model=_model(), system=self.system, user=build_user_message(turn), schema_name=SCHEMA_NAME,
-            schema=post_schema(), case_id=turn.case_id, max_tokens=1200, temperature=0.2)
-        return StancePost.model_validate({**out, "agent": self.name, "round": turn.round, "abstained": False})
+        """Ask once; if the answer does not fit the schema (a missing field, a wrong shape), tell the model what was
+        wrong and ask once more. Objects and lists sent as JSON strings are decoded first (lenient.coerce)."""
+        schema, user = post_schema(), build_user_message(turn)
+        for attempt in (1, 2):
+            out = await llm.call_json(
+                model=_model(), system=self.system, user=user, schema_name=SCHEMA_NAME,
+                schema=schema, case_id=turn.case_id, max_tokens=1200, temperature=0.2)
+            try:
+                return StancePost.model_validate({**lenient.coerce(out, schema), "agent": self.name, "round": turn.round,
+                                                  "abstained": False})
+            except ValidationError as exc:
+                if attempt == 2:
+                    raise
+                problems = "; ".join(f"{'.'.join(str(p) for p in e['loc'])}: {e['msg']}" for e in exc.errors()[:6])
+                log.warning("agent %s: answer did not fit the schema (%s); asking once more", self.name, problems)
+                user = (build_user_message(turn) + "\n\n# Fix these problems\n- Your last answer was rejected by the schema: "
+                        + problems + "\nRepost your full position with every required field filled and nested objects as real "
+                        "objects, not strings.")

@@ -332,6 +332,13 @@ def _retryable(exc: Exception) -> bool:
     return isinstance(exc, anthropic.APIStatusError) and exc.status_code in RETRY_STATUSES
 
 
+# A long unattended run can ride out a network blip: while this is above 0, a connection error or timeout is retried
+# with growing waits (CONNECTION_BACKOFF = first wait, longest wait) until this many seconds have passed since the
+# first failure. Off (0) by default, so the server and the demo keep the single quick retry.
+CONNECTION_RETRY_SECONDS = 0.0
+CONNECTION_BACKOFF = (2.0, 30.0)
+
+
 async def _create(req: dict, schema_name: str) -> Any:
     client = _get_client()
     try:
@@ -341,7 +348,17 @@ async def _create(req: dict, schema_name: str) -> Any:
             raise
         log.warning("llm retry after %s (%s, %s)", type(exc).__name__, req["model"], schema_name)
         await asyncio.sleep(RETRY_SLEEP)
-        return await client.messages.create(**req)
+    deadline = time.monotonic() + CONNECTION_RETRY_SECONDS
+    wait = CONNECTION_BACKOFF[0]
+    while True:
+        try:
+            return await client.messages.create(**req)
+        except anthropic.APIConnectionError as exc:       # includes APITimeoutError
+            if time.monotonic() + wait > deadline:
+                raise
+            log.warning("llm: %s again; waiting %.0fs (%s, %s)", type(exc).__name__, wait, req["model"], schema_name)
+            await asyncio.sleep(wait)
+            wait = min(wait * 2, CONNECTION_BACKOFF[1])
 
 
 def _usage_of(resp: Any) -> tuple[int, int, int, int]:

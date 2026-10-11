@@ -48,6 +48,9 @@ class Facilitator:
     def __init__(self, market: Any, transport: Any, discovery: Any, bus: Any, max_rounds: int = 4):
         self.market, self.transport, self.discovery, self.bus = market, transport, discovery, bus
         self.max_rounds = max_rounds
+        # An evaluation turns this on to learn how often the validator rejected claims *before* the repair call
+        # (the events only carry what was still rejected after it). Off by default so a long-running server keeps nothing.
+        self.claim_stats: dict[str, dict[str, dict[str, int]]] | None = None
         self._running: dict[str, CaseState] = {}
 
     # ------------------------------------------------------------------ evidence + specialists
@@ -172,12 +175,24 @@ class Facilitator:
             return self._fallback_post(st, a, r), []
         prev = st.current.get(a)
         cleaned, rejections, problems = validate_post(result, st.board, st.listing_text, prev, r, latest)
+        stats = None
+        if self.claim_stats is not None:
+            stats = self.claim_stats.setdefault(st.case_id, {}).setdefault(
+                a, {"claims": 0, "rejected_first": 0, "repairs": 0, "rejected_final": 0})
+            stats["claims"] += len(result.claims)
+            stats["rejected_first"] += len(rejections)
+            stats["rejected_final"] += len(rejections)
         if rejections or problems:
             feedback = problems + [f'Your claim "{rj.claim_text}" was removed: {"; ".join(rj.reasons)}'
                                    for rj in rejections]
             second = await self.transport.call_agent(a, turn.model_copy(update={"repair_feedback": feedback}))
+            if stats is not None:
+                stats["repairs"] += 1
             if isinstance(second, StancePost):
+                first_pass = len(rejections)
                 cleaned, rejections, _ = validate_post(second, st.board, st.listing_text, prev, r, latest)
+                if stats is not None:
+                    stats["rejected_final"] += len(rejections) - first_pass         # what is still rejected after the repair
         cleaned, _ = apply_empty_claims_rule(cleaned)
         return cleaned, rejections
 

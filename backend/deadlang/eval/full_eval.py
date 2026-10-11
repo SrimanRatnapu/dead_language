@@ -32,6 +32,8 @@ RAW_FLAG = 1.01                 # threshold above any score: triage returns the 
 DEFAULT_SEED = 0
 DEFAULT_CONCURRENCY = 2
 GIVE_UP_AFTER = 5               # consecutive error rows (a dead key, no credit): stop instead of burning through the set
+GIVE_UP_CONNECTION_AFTER = 20   # consecutive rows lost to the network alone: a long outage; stop and let the user resume
+CONNECTION_RETRY_SECONDS = 120.0  # how long one model call keeps retrying a dropped connection before the listing errors
 PROGRESS_EVERY = 10
 SWEEP = [round(0.05 * i, 2) for i in range(1, 11)]
 SMALL_GROUP = 10                # a rate over fewer listings than this is not a headline
@@ -222,6 +224,16 @@ def classify_specialist_error(text: str) -> str:
     return "error" if _API_ERROR.search(t) else "warning"
 
 
+_CONNECTION = re.compile(r"connection error|apiconnectionerror|apitimeouterror|timed? ?out|timeout|connecterror|"
+                         r"connection (reset|refused|aborted)|remote(ly)? ?protocol|network is unreachable|getaddrinfo", re.I)
+
+
+def is_connection_error(text: str) -> bool:
+    """A dropped connection or a timeout: nothing was wrong with the listing, so it does not count toward the
+    'N errors in a row' stop."""
+    return bool(_CONNECTION.search(text or ""))
+
+
 class RecordingTransport:
     """Wraps a transport and remembers failures. The Facilitator swallows an agent that errors (it carries the old
     stance over), which would make a failed API call look like a real opinion; this is how the eval notices."""
@@ -254,14 +266,16 @@ class RecordingTransport:
         return results
 
 
-def _claims(events: list[tuple[str, dict]]) -> dict[str, dict]:
-    kept, rejected = Counter(), Counter()
-    for t, p in events:
-        if t == "stance.posted" and not p["post"].get("abstained"):
-            kept[p["post"]["agent"]] += len(p["post"].get("claims") or [])
-        elif t == "claim.rejected":
-            rejected[p["agent"]] += 1
-    return {a: {"made": kept[a] + rejected[a], "rejected": rejected[a]} for a in AGENTS}
+def _claims(stats: dict[str, dict[str, int]] | None) -> dict[str, dict]:
+    """Per agent: claims the model posted, how many the validator rejected in that first attempt, how many were still
+    rejected after the repair call, and how many repair calls it took."""
+    stats = stats or {}
+    out = {}
+    for a in AGENTS:
+        st = stats.get(a, {})
+        out[a] = {"made": st.get("claims", 0), "rejected": st.get("rejected_first", 0),
+                  "rejected_after_repair": st.get("rejected_final", 0), "repairs": st.get("repairs", 0)}
+    return out
 
 
 class Evaluator:
@@ -275,6 +289,41 @@ class Evaluator:
     def case_id(self, listing_id: str) -> str:
         """Fresh for every run, so one run's usage never counts against the next run's per-case caps."""
         return f"ev-{self.run_id}-{listing_id}"
+
+    async def run_triage(self, item: Item) -> dict:
+        """Haiku triage alone (no agents, no specialists): the model's raw score and flag for one listing."""
+        t0 = time.perf_counter()
+        case = self.case_id(item.id) + "-tonly"
+        row: dict = {"run_id": self.run_id, "listing_id": item.id, "label": item.label, "category": item.category,
+                     "language": item.language, "ship_from": item.ship_from, "country": item.country,
+                     "material": item.material, "at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                     "budget_stop": False}
+        errors: list[str] = []
+        result = None
+        listing = await self.market.get_listing_snapshot(item.id)
+        seller = await self.market.get_seller(listing.seller_id)
+        try:
+            count = len(await self.market.get_seller_inventory(seller.id))
+        except Exception:
+            count = None
+        try:
+            result = await self.screen(listing, seller, seller_listing_count=count, case_id=case, threshold=RAW_FLAG)
+            if result.reason.startswith(triage.COULD_NOT_RUN):
+                errors.append(f"triage: {result.reason}")
+        except BudgetExceeded as exc:
+            row["budget_stop"] = True
+            errors.append(f"triage: budget: {exc}")
+        except Exception as exc:
+            errors.append(f"triage: {type(exc).__name__}: {exc}")
+        used = self.costs.take(case)
+        row["triage"] = ({"score": result.score, "flagged": bool(result.suspicious), "reason": result.reason}
+                         if result else None)
+        row["tokens"] = {"triage": {k: used[k] for k in TOKEN_KEYS}}
+        row["cost_usd"] = {"triage": used["cost_usd"], "total": used["cost_usd"]}
+        row["duration_s"] = {"total": round(time.perf_counter() - t0, 2)}
+        row["errors"], row["warnings"] = errors, []
+        row["connection_error"] = bool(errors) and all(is_connection_error(e) for e in errors)
+        return row
 
     async def run_listing(self, item: Item) -> dict:
         t0 = time.perf_counter()
@@ -306,9 +355,10 @@ class Evaluator:
         row["triage"] = ({"score": result.score, "flagged": bool(result.suspicious), "reason": result.reason}
                          if result else None)
 
-        t_agents, bus, rec, cf = time.perf_counter(), CollectBus(), RecordingTransport(self.transport), None
+        t_agents, bus, rec, cf, fac = time.perf_counter(), CollectBus(), RecordingTransport(self.transport), None, None
         if not errors:                                     # no point paying for the agents on a row that will be retried
             fac = Facilitator(self.market, rec, self.discovery, bus, max_rounds=self.max_rounds)
+            fac.claim_stats = {}
             try:
                 cf = await fac.run_case(case, item.id)
             except Exception as exc:
@@ -326,7 +376,10 @@ class Evaluator:
         else:
             row.update(outcome=None, rounds=0, stop_reason=None, agents_ran=[], sat_out=[])
         row["case_officer_abstained"] = OFFICER in row["sat_out"]
-        row["claims"] = _claims(bus.events)
+        row["claims"] = _claims(((fac.claim_stats or {}).get(case)) if fac is not None else None)
+        row["final"] = ({p.agent: {"stance": p.stance, "confidence": p.confidence, "take": " ".join(p.take.split()),
+                                   "ready_to_close": p.ready_to_close, "abstained": p.abstained, "claims": len(p.claims)}
+                         for p in cf.final_positions} if cf is not None else {})
 
         errors.extend(rec.agent_errors)
         for name, text in rec.specialist_errors:
@@ -346,7 +399,13 @@ class Evaluator:
         row["duration_s"] = {"triage": round(t_triage, 2), "agents": round(t_agents, 2),
                              "total": round(time.perf_counter() - t0, 2)}
         row["errors"], row["warnings"] = errors, warnings
+        row["connection_error"] = bool(errors) and all(is_connection_error(e) for e in errors)
         return row
+
+
+def triage_rows_id(run_id: str) -> str:
+    """Triage-only rows live beside the full rows, in results/eval_rows/<run_id>.triage.jsonl."""
+    return f"{run_id}.triage"
 
 
 def build_evaluator(run_id: str, market: Any = None) -> Evaluator:
@@ -373,7 +432,7 @@ class Summary:
 
 async def run_items(ev: Evaluator, items: list[Item], *, run_id: str, out: Callable[[str], None] = print,
                     concurrency: int = DEFAULT_CONCURRENCY, max_usd: float | None = None,
-                    per_listing_estimate: float | None = None) -> Summary:
+                    per_listing_estimate: float | None = None, run: Callable | None = None) -> Summary:
     existing = read_rows(run_id)
     summary = Summary(spent=sum(r.get("cost_usd", {}).get("total", 0.0) for r in existing.values()))
     todo = [i for i in items if i.id not in existing or existing[i.id].get("errors")]
@@ -382,7 +441,9 @@ async def run_items(ev: Evaluator, items: list[Item], *, run_id: str, out: Calla
     in_flight = 0
     spent_new = 0.0
     consecutive_errors = 0
+    consecutive_connection = 0
     total = len(items)
+    run = run or ev.run_listing
 
     def estimate() -> float:
         if per_listing_estimate is not None:
@@ -390,7 +451,7 @@ async def run_items(ev: Evaluator, items: list[Item], *, run_id: str, out: Calla
         return spent_new / summary.done if summary.done else 0.0
 
     async def worker():
-        nonlocal in_flight, spent_new, consecutive_errors
+        nonlocal in_flight, spent_new, consecutive_errors, consecutive_connection
         while queue and summary.stopped is None:
             if max_usd is not None and summary.spent + (in_flight + 1) * estimate() > max_usd:
                 summary.stopped = "max_usd"
@@ -399,7 +460,7 @@ async def run_items(ev: Evaluator, items: list[Item], *, run_id: str, out: Calla
             item = queue.pop(0)
             in_flight += 1
             try:
-                row = await ev.run_listing(item)
+                row = await run(item)
             finally:
                 in_flight -= 1
             append_row(run_id, row)
@@ -410,12 +471,19 @@ async def run_items(ev: Evaluator, items: list[Item], *, run_id: str, out: Calla
             summary.ran.append(item.id)
             if row["errors"]:
                 summary.errors += 1
-                consecutive_errors += 1
+                if row.get("connection_error"):             # the network, not the listing: not a sign of a dead key
+                    consecutive_connection += 1
+                else:
+                    consecutive_errors += 1
             else:
-                consecutive_errors = 0
+                consecutive_errors = consecutive_connection = 0
             if row.get("budget_stop"):
                 summary.stopped = summary.stopped or "budget"
                 out(f"Stopping: a token cap was reached ({row['errors'][0] if row['errors'] else 'budget'}). Rows so far are saved.")
+            elif consecutive_connection >= GIVE_UP_CONNECTION_AFTER:
+                summary.stopped = summary.stopped or "connection"
+                out(f"Stopping: {GIVE_UP_CONNECTION_AFTER} listings in a row lost to connection errors even after retrying "
+                    "(a long network outage). Rows so far are saved; run the same command again to resume.")
             elif consecutive_errors >= GIVE_UP_AFTER:
                 summary.stopped = summary.stopped or "errors"
                 out(f"Stopping: {GIVE_UP_AFTER} listings in a row failed (check the API key and credit). Rows so far are saved.")
@@ -518,8 +586,11 @@ def score_rows(all_rows: list[dict], threshold: float | None = None) -> dict:
         ran = [r for r in rows if a in r["agents_ran"]]
         made = sum(r["claims"][a]["made"] for r in ran)
         rejected = sum(r["claims"][a]["rejected"] for r in ran)
+        after = sum(r["claims"][a].get("rejected_after_repair", r["claims"][a]["rejected"]) for r in ran)
+        repairs = sum(r["claims"][a].get("repairs", 0) for r in ran)
         claim_quality[a] = {"listings": len(ran), "made": made, "rejected": rejected,
-                            "rejection_rate": round(rejected / made, 4) if made else None}
+                            "rejection_rate": round(rejected / made, 4) if made else None,
+                            "rejected_after_repair": after, "repair_calls": repairs}
     return {
         "threshold": threshold,
         "population": {"n_rows": len(all_rows), "n_scored": len(rows), "n_errors": len(bad),
@@ -543,9 +614,63 @@ def write_eval(result: dict, run_id: str) -> None:
             data = {}
     except (OSError, ValueError):
         data = {}
+    kept = (data.get("full_eval") or {}).get("triage_full") if isinstance(data.get("full_eval"), dict) else None
     data["full_eval"] = {"run_id": run_id, "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"), **result}
+    if kept is not None:                                  # a triage-only result from another run stays
+        data["full_eval"]["triage_full"] = kept
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+
+
+def score_triage(all_rows: list[dict], threshold: float | None = None) -> dict:
+    """Triage alone over every scored listing: the real clearance rate and the recall on true positives at each threshold."""
+    threshold = config.TRIAGE_THRESHOLD if threshold is None else threshold
+    rows = [r for r in all_rows if not r.get("errors") and r.get("triage")]
+    pos, neg = [r for r in rows if r["label"]], [r for r in rows if not r["label"]]
+    sweep = [{"threshold": t, "recall": rate(sum(not _cleared(r, t) for r in pos), len(pos)),
+              "cleared": rate(sum(_cleared(r, t) for r in rows), len(rows)),
+              "cleared_negatives": rate(sum(_cleared(r, t) for r in neg), len(neg)),
+              "missed_positives": [r["listing_id"] for r in pos if _cleared(r, t)],
+              "is_current_threshold": abs(t - threshold) < 1e-9} for t in SWEEP]
+    cats = sorted({r["category"] for r in rows})
+    cost = sum(r["cost_usd"]["total"] for r in all_rows)
+    return {"threshold": threshold,
+            "population": {"n_rows": len(all_rows), "n_scored": len(rows), "n_errors": sum(bool(r.get("errors")) for r in all_rows),
+                           "n_positives": len(pos), "n_negatives": len(neg)},
+            "at_current_threshold": {"recall": rate(sum(not _cleared(r, threshold) for r in pos), len(pos)),
+                                     "cleared": rate(sum(_cleared(r, threshold) for r in rows), len(rows)),
+                                     "cleared_by_category": {c: rate(sum(_cleared(r, threshold) for r in rows if r["category"] == c),
+                                                                     sum(r["category"] == c for r in rows)) for c in cats}},
+            "sweep": sweep, "total_cost_usd": cost, "cost_per_listing_usd": cost / len(all_rows) if all_rows else None}
+
+
+def write_triage_full(result: dict, run_id: str) -> None:
+    """Puts a triage-only result at full_eval.triage_full in results/eval.json; everything else stays as it was."""
+    path = eval_json_path()
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(data, dict):
+            data = {}
+    except (OSError, ValueError):
+        data = {}
+    if not isinstance(data.get("full_eval"), dict):
+        data["full_eval"] = {}
+    data["full_eval"]["triage_full"] = {"run_id": run_id, "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                                        **result}
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+
+
+def format_triage(result: dict, run_id: str) -> str:
+    p = result["population"]
+    lines = [f"Triage alone, run {run_id}: {p['n_scored']} listings ({p['n_positives']} true positives, {p['n_negatives']} negatives); "
+             f"{p['n_errors']} errored and left out. Cost ${result['total_cost_usd']:.2f}."]
+    lines.append("threshold: positives kept (recall) | share of all listings cleared | negatives cleared")
+    for s_ in result["sweep"]:
+        mark = "  <- current" if s_["is_current_threshold"] else ""
+        lines.append(f"  {s_['threshold']:.2f}: {s_['recall']['text']} ({_pct(s_['recall'])}) | {s_['cleared']['text']} "
+                     f"({_pct(s_['cleared'])}) | {s_['cleared_negatives']['text']}{mark}")
+    return "\n".join(lines)
 
 
 def _pct(r: dict) -> str:
@@ -594,10 +719,15 @@ def is_haiku(model: str) -> bool:
     return "haiku" in model.lower()
 
 
-def plan_batches(items: list[Item], concurrency: int) -> list[costs.Batch]:
+def plan_batches(items: list[Item], concurrency: int, triage_only: bool = False) -> list[costs.Batch]:
     from deadlang.deliberation.agents import DeliberatingAgent, post_schema, SCHEMA_NAME as POST
     from deadlang.specialists import material
     n = len(items)
+    if triage_only:
+        tri_in = llm.estimate_input_tokens(triage.SCREEN_SYSTEM, "x" * int(TRIAGE_USER_TOKENS * llm.CHARS_PER_TOKEN),
+                                           schema=triage.SCHEMA) + costs.TOOL_USE_OVERHEAD_TOKENS
+        return [costs.Batch("triage only", config.MODEL_TRIAGE, n, tri_in, TRIAGE_OUTPUT_TOKENS, triage.MAX_TOKENS,
+                            calls_per_case=1, concurrency=1)]
     foreign = sum(i.language != "en" for i in items)
     strong, tri = config.MODEL_STRONG, config.MODEL_TRIAGE
     tri_in = llm.estimate_input_tokens(triage.SCREEN_SYSTEM, "x" * int(TRIAGE_USER_TOKENS * llm.CHARS_PER_TOKEN),
@@ -624,7 +754,9 @@ def plan_batches(items: list[Item], concurrency: int) -> list[costs.Batch]:
 
 
 def _commands(run_id: str, args, est: costs.Estimate | None) -> list[str]:
-    flag = f"--stratified {args.stratified} " if args.stratified else (f"--limit {args.limit} " if args.limit else "")
+    flag = ("--triage-only " if args.triage_only else "") + (f"--stratified {args.stratified} " if args.stratified
+                                                              else (f"--limit {args.limit} " if args.limit else ""))
+    flag += f"--concurrency {args.concurrency} " if args.concurrency != DEFAULT_CONCURRENCY else ""
     budget = max(5, -(-int((est.dollars or 0) * 1.3) // 5) * 5) if est else 25      # ~30% over the estimate, in $5 steps
     base = f"uv run python -m deadlang.eval.run_eval {flag}--run-id {run_id} --max-usd {budget}"
     ps, sh = base, base
@@ -645,26 +777,36 @@ def _commands(run_id: str, args, est: costs.Estimate | None) -> list[str]:
 
 async def main(args, ask: Callable[[str], str] = input, market: Any = None, out: Callable[[str], None] = print) -> int:
     """Returns the exit code: 0 done, 1 declined, 2 stopped before any call (bad setup)."""
+    only = bool(getattr(args, "triage_only", False))
     if args.score_only:
         if not args.run_id:
             out("--score-only needs --run-id <id> (the run whose rows in results/eval_rows/ you want to score).")
             return 2
-        rows = list(read_rows(args.run_id).values())
+        storage = triage_rows_id(args.run_id) if only else args.run_id
+        rows = list(read_rows(storage).values())
         if not rows:
-            out(f"No rows found for run {args.run_id} at {rows_path(args.run_id)}; nothing to score.")
+            out(f"No rows found for run {args.run_id} at {rows_path(storage)}; nothing to score.")
             return 2
         threshold = args.threshold
         if threshold is not None and not 0.0 <= threshold <= 1.0:
             out("--threshold must be between 0 and 1.")
             return 2
-        result = score_rows(rows, threshold)
-        write_eval(result, args.run_id)
-        out(format_summary(result, args.run_id))
-        out("Wrote results/eval.json (key full_eval).")
+        if only:
+            result = score_triage(rows, threshold)
+            write_triage_full(result, args.run_id)
+            out(format_triage(result, args.run_id))
+            out("Wrote results/eval.json (key full_eval.triage_full).")
+        else:
+            result = score_rows(rows, threshold)
+            write_eval(result, args.run_id)
+            out(format_summary(result, args.run_id))
+            out("Wrote results/eval.json (key full_eval).")
         return 0
 
     out("Models by role:")
     for role, model, env in role_models():
+        if only and role != "triage":
+            continue
         out(f"  {role:<38} {model}   ({env})")
     if not is_haiku(config.MODEL_TRIAGE):
         out(f"STOP: triage is on {config.MODEL_TRIAGE}, not Haiku. The tiered numbers only mean something with a Haiku "
@@ -676,25 +818,29 @@ async def main(args, ask: Callable[[str], str] = input, market: Any = None, out:
     population = load_population(config.DATA_DIR)
     chosen = select(population, limit=args.limit, stratified=args.stratified)
     run_id = args.run_id or costs.new_run_id()
+    storage = triage_rows_id(run_id) if only else run_id
     positives = sum(i.label for i in population)
     out(f"Population: {len(population)} labeled listings in listings.jsonl ({positives} true positives, "
         f"{len(population) - positives} negatives).")
     out(f"Selected: {len(chosen)} listings ({sum(i.label for i in chosen)} true positives first, then negatives "
-        f"interleaved across categories). Run id: {run_id}. Concurrency {args.concurrency}.")
-    done = read_rows(run_id)
+        f"interleaved across categories). Run id: {run_id}{' (triage only)' if only else ''}. Concurrency {args.concurrency}.")
+    done = read_rows(storage)
     todo = [i for i in chosen if i.id not in done or done[i.id].get("errors")]
     if len(todo) != len(chosen):
         out(f"Resuming: {len(chosen) - len(todo)} already finished, {len(todo)} to run.")
     if not todo:
         out("Nothing left to run.")
-    batches = plan_batches(todo, args.concurrency) if todo else []
+    batches = plan_batches(todo, args.concurrency, triage_only=only) if todo else []
     per_listing = (costs.estimate(batches).dollars or 0.0) / len(todo) if todo else 0.0
 
     if args.dry_run:
         if batches:
             out(costs.report(batches))
-            out(f"Per listing ~${per_listing:.3f}; the figures assume {AGENT_CALLS_PER_LISTING} agent calls and "
-                f"{PHOTOS_PER_LISTING} photos per listing (measured on earlier runs).")
+            detail = "." if only else (f"; the figures assume {AGENT_CALLS_PER_LISTING} agent calls and "
+                                       f"{PHOTOS_PER_LISTING} photos per listing (measured on earlier runs).")
+            out(f"Per listing ~${per_listing:.4f}{detail}")
+            out(f"A dropped connection is retried for up to {CONNECTION_RETRY_SECONDS:.0f} s per call before a listing errors; "
+                f"{GIVE_UP_CONNECTION_AFTER} such listings in a row stop the run (other errors: {GIVE_UP_AFTER}).")
         out("Dry run: no calls were made. To run it yourself:")
         for line in _commands(run_id, args, costs.estimate(batches) if batches else None):
             out(line)
@@ -704,22 +850,29 @@ async def main(args, ask: Callable[[str], str] = input, market: Any = None, out:
         out("No calls were made.")
         return 1
 
-    summary = None
     if todo:
         ev = build_evaluator(run_id, market)
+        previous_retry, llm.CONNECTION_RETRY_SECONDS = llm.CONNECTION_RETRY_SECONDS, CONNECTION_RETRY_SECONDS
         try:
             await ev.discovery.register_all()
             with collecting_costs(ev.costs):
-                summary = await run_items(ev, chosen, run_id=run_id, out=out, concurrency=args.concurrency,
-                                          max_usd=args.max_usd, per_listing_estimate=per_listing or None)
+                summary = await run_items(ev, chosen, run_id=storage, out=out, concurrency=args.concurrency,
+                                          max_usd=args.max_usd, per_listing_estimate=per_listing or None,
+                                          run=ev.run_triage if only else None)
         finally:
+            llm.CONNECTION_RETRY_SECONDS = previous_retry
             close = getattr(ev.market, "aclose", None)       # the MCP client holds a session; the local one has nothing
             if close:
                 await close()
         out(f"Spend this run: ${summary.spent:.2f} | listings done: {summary.done} | errors: {summary.errors}"
             + (f" | stopped: {summary.stopped}" if summary.stopped else ""))
-    rows = list(read_rows(run_id).values())
-    if rows:
+    rows = list(read_rows(storage).values())
+    if rows and only:
+        result = score_triage(rows)
+        write_triage_full(result, run_id)
+        out(format_triage(result, run_id))
+        out("Wrote results/eval.json (key full_eval.triage_full).")
+    elif rows:
         result = score_rows(rows)
         write_eval(result, run_id)
         out(format_summary(result, run_id))
