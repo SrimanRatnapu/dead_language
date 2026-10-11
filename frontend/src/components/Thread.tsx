@@ -81,18 +81,14 @@ function Facts({ rows, open, onOpen }: { rows: Row[]; open: boolean; onOpen: Ope
                 <span className="ml-auto flex gap-1.5 group-open:hidden" aria-hidden>{caps.map((c) => <Icon key={c} name={c} size={14} />)}</span>
       </summary>
       <ul className="pb-2">
-        {rows.map((row, i) => row.kind === "route"
-          ? <li key={i} className="flex flex-wrap items-center gap-x-2 gap-y-1 pt-3 pb-1 text-base text-muted" title={row.selection.why}>
-                            <span>{CAPABILITY_LABEL[row.selection.capability]}</span><span aria-hidden>→</span>
-              <span className="font-semibold text-ink">{prettyName(row.selection.specialist_name)}</span>
-            </li>
+        {rows.map((row, i) => row.kind === "route" ? null
           : row.kind === "failed"
           ? <li key={i} className="py-1 text-base font-medium text-red">✕ {prettyName(row.failure.specialist_name)} did not respond{row.failure.fallback ? <> · switching to <b>{prettyName(row.failure.fallback)}</b></> : " · no backup available"}</li>
           : <li key={row.evidence.id}>
               <button onClick={() => onOpen(row.evidence.id)} className="press grid min-h-11 w-full grid-cols-[1.25rem_6.5rem_1fr] items-start gap-3 py-2 text-left hover:bg-cobalt-tint/60">
                 <Icon name={row.evidence.capability} size={16} className="mt-0.5 text-cobalt-ink" />
                 <span className="truncate text-base font-semibold">{CAPABILITY_LABEL[row.evidence.capability]}</span>
-                <span className="line-clamp-2 text-base leading-snug">{row.evidence.summary}{row.evidence.produced_by === "model" && <span className="mono ml-2 text-muted">AI{row.evidence.confidence !== null ? ` · ${Math.round(row.evidence.confidence * 100)}%` : ""}</span>}</span>
+                <span className="line-clamp-2 text-base leading-snug">{row.evidence.summary}</span>
               </button>
             </li>)}
       </ul>

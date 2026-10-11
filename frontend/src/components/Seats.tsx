@@ -37,11 +37,7 @@ export function Seats({ state }: { state: CaseState }) {
   else if (p?.rebuttal) note = <>{who(p.agent)} answered {who(p.rebuttal.target_agent)}.</>;
 
   return (
-    <div className="px-5 py-4 sm:px-8">
-      <div className="mb-3 flex items-baseline justify-between gap-3">
-        <h2 className="rule-label">The three agents</h2>
-        <p className="font-medium" aria-live="polite">{readout(latest)}</p>
-      </div>
+    <div className="px-5 pb-3 pt-5 sm:px-8">
       <div className="grid grid-cols-3 gap-3">
         {AGENT_ORDER.map((agent) => {
           const a = AGENTS[agent];

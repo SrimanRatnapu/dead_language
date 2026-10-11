@@ -47,8 +47,8 @@ export function DemoControls({ listingId, events, speed, onSpeed }: Props) {
           </div>
         </>
       )}
-      <button onClick={() => setOpen((o) => !o)} aria-expanded={open} className={`${btn} text-muted`}>Demo actions</button>
-      {open && (
+      {live && <button onClick={() => setOpen((o) => !o)} aria-expanded={open} className={`${btn} text-muted`}>Demo actions</button>}
+      {live && open && (
         <div className="glass rise absolute right-0 top-full z-20 mt-2 flex w-64 flex-col gap-2 rounded-lg border border-line p-3 shadow-[var(--shadow)]">
           <button className={btn} disabled={!live || !listingId} title={live ? "" : "Live cases only"} onClick={() => listingId && run("Remove listing", () => removeListing(listingId))}>
             Remove listing
