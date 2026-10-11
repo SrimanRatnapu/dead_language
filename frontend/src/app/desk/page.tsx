@@ -9,6 +9,12 @@ import { batchEventsUrl, getBatch, getCaseFile, getListing, getHealth, imageUrl,
 import { loadListings } from "@/lib/stubs";
 import type { Metrics, BatchEvent, BatchItem, BatchStart, Listing, ListingRow } from "@/lib/types";
 
+// Names match SWEEPS in backend marketplace/live.py: listings by eBay category and price floor, newest first, no keyword.
+const SWEEPS = [
+  { key: "netsuke", label: "Netsuke and carvings", hint: "Netsuke categories, $300 and up" },
+  { key: "figures", label: "Figures and statues", hint: "Asian figures and statues, $400 and up" },
+  { key: "bracelets", label: "Bracelets", hint: "Antique bracelets, $100 and up" },
+];
 const MAX_CAP = 50; // server rejects more (422); keep in sync with MAX_LIVE_CAP in api/server.py
 
 type Mark = { icon: IconName; label: string; tone: string };
@@ -24,8 +30,8 @@ function markFor(i: BatchItem): Mark | null {
 const WORKING: Partial<Record<BatchItem["status"], string>> = { queued: "Queued", triaging: "Checking", deliberating: "Agents working" };
 // Why a row is on the desk when nobody searched for it, or what a flagged row set in motion.
 function followUpNote(i: BatchItem): string | null {
-  if (i.found_via === "seller") return "Same seller as a flagged listing";
-  if (i.found_via === "keyword") return `Title shares \u201c${i.term}\u201d with a flagged listing`;
+  if (i.found_via === "seller") return `Same seller as ${i.parent ?? "a flagged listing"}`;
+  if (i.found_via === "keyword") return `Title shares \u201c${i.term}\u201d with ${i.parent ?? "a flagged listing"}`;
   if (i.follow_up?.state === "searching") return "Finding related listings\u2026";
   if (i.follow_up?.state === "done" && i.follow_up.added > 0) return `${i.follow_up.added} related ${i.follow_up.added === 1 ? "listing" : "listings"} added to the desk`;
   return null;
@@ -38,6 +44,8 @@ export default function Cases() {
   const [shown, setShown] = useState(24);
   const [rows, setRows] = useState<ListingRow[] | null>(null);
   const [query, setQuery] = useState("");
+  const [sweep, setSweep] = useState("netsuke"); // "" = keyword search
+  const [source, setSource] = useState<string | null>(null); // what the current batch was fetched by, for the header
   const [cap, setCap] = useState(25);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -63,9 +71,9 @@ export default function Cases() {
     // Coming back from another page: reload the batch that was running or finished.
     const saved = sessionStorage.getItem("dl_batch");
     if (saved) {
-      const { id, mode: m, startedAt: t } = JSON.parse(saved);
+      const { id, mode: m, startedAt: t, source: src } = JSON.parse(saved);
       getBatch(id).then((b) => {
-        batchId.current = id; setItems(b.items); setMode(m); setStartedAt(t); setNow(Date.now());
+        batchId.current = id; setItems(b.items); setMode(m); setStartedAt(t); setSource(src ?? null); setNow(Date.now());
       }).catch(() => sessionStorage.removeItem("dl_batch"));
     }
     loadListings().then(({ data }) => { setRows(data); setListings(Object.fromEntries(data.map((x) => [x.listing.id, x.listing]))); }).catch(() => setRows([]));
@@ -91,8 +99,10 @@ export default function Cases() {
   async function run(source: "demo" | "live") {
     setBusy(true); setError(null); es.current?.close();
     try {
-      const b = await startBatch(source === "live" ? { source, query, cap } : { source });
-      batchId.current = b.batch_id; sessionStorage.setItem("dl_batch", JSON.stringify({ id: b.batch_id, mode: b.source_mode, startedAt: Date.now() })); setItems(b.items); setMode(b.source_mode); setStartedAt(Date.now()); setNow(Date.now());
+      const b = await startBatch(source === "live" ? (sweep ? { source, sweep, cap } : { source, query, cap }) : { source });
+      const label = source === "demo" ? "Demo set" : sweep ? SWEEPS.find((w) => w.key === sweep)!.label : `\u201c${query.trim()}\u201d`;
+      setSource(label);
+      batchId.current = b.batch_id; sessionStorage.setItem("dl_batch", JSON.stringify({ id: b.batch_id, mode: b.source_mode, startedAt: Date.now(), source: label })); setItems(b.items); setMode(b.source_mode); setStartedAt(Date.now()); setNow(Date.now());
       const src = new EventSource(batchEventsUrl(b.batch_id));
       es.current = src;
       src.addEventListener("batch.item", (m) => {
@@ -121,6 +131,7 @@ export default function Cases() {
     { key: "error", title: "Errors", test: (i) => i.status === "error" },
   ];
   const waiting = count(GROUPS[0].test);
+  const added = count((i) => !!i.found_via); // follow-up listings the system queued itself
 
   const Row = ({ i }: { i: BatchItem }) => {
     const l = listings[i.listing_id]; const m = markFor(i); const note = followUpNote(i);
@@ -128,7 +139,7 @@ export default function Cases() {
       <Photo src={imageUrl(l?.image_paths[0] ?? "")} label={l?.title ?? i.listing_id} className="size-14 w-full" />
       <span className="min-w-0"><span className="block line-clamp-2 font-semibold">{l?.title ?? i.listing_id}</span>
         <span className="block text-sm text-muted">{l ? `$${l.price_usd.toLocaleString()} · ` : ""}{l?.origin === "live" || i.found_via ? "Live listing" : "Demo listing"}</span>
-        {note && <span className="block text-sm text-cobalt-ink">{note}</span>}</span>
+        {note && <span className="block text-sm text-cobalt-ink">{i.found_via && <b className="mr-2 border border-cobalt-ink px-1.5 text-xs uppercase">Added</b>}{note}</span>}</span>
       <span className={`inline-flex items-center justify-end gap-2 text-sm font-semibold ${m?.tone ?? "text-muted"}`}>
         {m ? <><Icon name={m.icon} size={18} />{m.label}</>
            : <><span className="typing flex gap-1" aria-hidden><span /><span /><span /></span>{WORKING[i.status]}{i.status === "deliberating" && secs > 0 ? ` · ${secs}s` : ""}</>}
@@ -148,14 +159,20 @@ export default function Cases() {
             <p className="mt-2 text-muted" aria-live="polite">
               {items.length === 0 ? "No cases yet." : waiting > 0 ? `${waiting} ${waiting === 1 ? "case needs" : "cases need"} your decision.` : searching ? "Looking for related listings." : running ? "Agents are working." : "Nothing waiting on you."}
             </p>
+            {items.length > 0 && <p className="serial mt-1">{source ? `${source} · ` : ""}{items.length - added} fetched{added > 0 ? `, ${added} added from flagged listings` : ""}</p>}
             {m && m.funnel.deliberated > 0 && <p className="serial mt-1">{m.funnel.deliberated} cases reviewed so far, {Math.round(m.latency_ms.case.p50 / 1000)}s and ${m.cost.usd_per_case.toFixed(2)} each</p>}
           </div>
           <section aria-label="Load listings" className="flex flex-wrap items-end gap-x-4 gap-y-3">
             <button onClick={() => run("demo")} disabled={busy || running} className={`${btn} bg-ink text-surface hover:bg-ink-2`}>Run demo set</button>
             <form onSubmit={(e) => { e.preventDefault(); run("live"); }} className="flex flex-wrap items-end gap-3">
-              <label className="text-sm text-muted">Search live listings<input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="bone netsuke" className="mt-1 block min-h-11 w-52 border border-line bg-surface px-3 text-base text-ink" /></label>
+              <label className="text-sm text-muted">Fetch live by
+                <select value={sweep} onChange={(e) => setSweep(e.target.value)} className="mt-1 block min-h-11 w-52 border border-line bg-surface px-3 text-base text-ink">
+                  {SWEEPS.map((w) => <option key={w.key} value={w.key} title={w.hint}>{w.label}</option>)}
+                  <option value="">Keyword</option>
+                </select></label>
+              {sweep === "" && <label className="text-sm text-muted">Keyword<input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="bone netsuke" className="mt-1 block min-h-11 w-48 border border-line bg-surface px-3 text-base text-ink" /></label>}
               <label className="text-sm text-muted">Max<input type="number" min={1} max={MAX_CAP} value={cap} onChange={(e) => setCap(Math.min(MAX_CAP, Math.max(1, Number(e.target.value) || 1)))} aria-label={`Max items, up to ${MAX_CAP}`} className="mt-1 block min-h-11 w-20 border border-line bg-surface px-3 text-base text-ink" /></label>
-              <button type="submit" disabled={busy || running || !query.trim()} className={`${btn} border border-ink hover:bg-surface`}>Fetch live</button>
+              <button type="submit" disabled={busy || running || (sweep === "" && !query.trim())} className={`${btn} border border-ink hover:bg-surface`}>Fetch live</button>
             </form>
           </section>
         </header>
