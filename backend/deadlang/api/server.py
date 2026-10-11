@@ -29,6 +29,8 @@ CASE_RE = re.compile(r"C-(\d+)\.jsonl$")
 
 
 MAX_LIVE_CAP = 50   # hard ceiling for a live fetch; the UI shows the same number
+MAX_FOLLOW_UP = 20  # listings one batch may gain from follow-up fetches (same seller, same title words), in total
+FOLLOW_UP_OUTCOMES = {"FILE", "CONTESTED"}   # what counts as "suspicious enough to look at what is around it"
 
 
 class CaseRequest(BaseModel):
@@ -91,7 +93,8 @@ def create_app(market: Any = None, transport: Any = None, discovery: Any = None,
         nonlocal batches
         batches = Batches(real_worker, int(os.getenv("DL_MAX_CONCURRENT_CASES", "4")),
                           lambda bid, it: runs.record_item(bid, it["listing_id"], it["status"], it["outcome"]),
-                          first_id=runs.batch_count() + 1)
+                          first_id=runs.batch_count() + 1, should_follow=should_follow, follow_up=follow_up,
+                          max_added=MAX_FOLLOW_UP, max_items=MAX_LIVE_CAP)
         interval = float(os.getenv("DL_REFRESH_INTERVAL_S", "0"))   # 0 = off; the UI "Refresh now" button always works
 
         async def refresh_loop():
@@ -207,6 +210,21 @@ def create_app(market: Any = None, transport: Any = None, discovery: Any = None,
         if cf is None:
             raise RuntimeError("case failed before a case file was produced")
         set_status(status="done", outcome=cf.outcome)
+
+    # ------------------------------------------------------------------ follow-up fetch (Person A's fetch_related)
+    def should_follow(batch: dict[str, Any], item: dict[str, Any]) -> bool:
+        """A live listing the agents flagged (FILE or CONTESTED) gets its surroundings fetched. Live lane only:
+        nothing is ever fetched for a demo batch, and a recorded batch has no live API to ask.
+        DL_FOLLOW_UP=0 turns it off. (When triage lands, its `suspicious` flag can trigger this earlier.)"""
+        return (os.getenv("DL_FOLLOW_UP", "1").strip() != "0" and batch["source"] == "live"
+                and batch["source_mode"] == "live" and item.get("outcome") in FOLLOW_UP_OUTCOMES)
+
+    async def follow_up(batch: dict[str, Any], item: dict[str, Any], room: int) -> list[dict[str, Any]]:
+        """The flagged listing's seller's other listings and listings sharing its distinctive title words.
+        They are already in the store when this returns; the batch queues them like any other item."""
+        from deadlang.marketplace.live import fetch_related
+        _, found = await fetch_related(item["listing_id"], room, exclude={i["listing_id"] for i in batch["items"]})
+        return found
 
     # ------------------------------------------------------------------ batches
     @app.post("/api/batches", status_code=202)
