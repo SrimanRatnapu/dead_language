@@ -32,7 +32,7 @@ export function Examination({ state, ready, onBack, onSend, onOpen }: { state: C
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto flex max-w-[620px] flex-col gap-5 px-5 py-8 sm:px-8">
+        <div className="mx-auto flex max-w-[620px] flex-col gap-4 px-5 py-4 sm:px-8">
           <div>
             <h2 className="text-xl font-semibold tracking-tight">What the specialists found</h2>
             <div className="mt-4" aria-label="Which way the findings point">
@@ -48,19 +48,18 @@ export function Examination({ state, ready, onBack, onSend, onOpen }: { state: C
             </div>
           </div>
 
-          <ol className="flex flex-col gap-3">
+          <ol className="flex flex-col divide-y divide-line border-t border-line">
             {cards.map(({ cap, ev, fail }, i) => {
               const lean = ev ? leanOf(ev) : null;
               return (
-                <li key={cap} className="rise border border-line bg-surface" style={{ animationDelay: `${i * 90}ms` }}>
-                  <div className="grid grid-cols-[2rem_1fr_auto] items-center gap-x-3 px-4 py-3">
-                    <span className="mono grid size-8 place-items-center bg-sunken font-semibold text-muted">{i + 1}</span>
+                <li key={cap} className="rise py-3" style={{ animationDelay: `${i * 90}ms` }}>
+                  <div className="flex items-center justify-between gap-3">
                     <p className="flex min-w-0 items-center gap-2 font-semibold"><Icon name={cap} size={16} className={ev ? "text-cobalt-ink" : "text-muted"} />{CAPABILITY_LABEL[cap]}</p>
                     {lean ? <span className={`px-2 py-0.5 text-base font-semibold ${LEAN_STYLE[lean]}`}>{LEAN_LABEL[lean]}</span>
                       : !ev && !fail ? <span className="typing flex gap-1 text-muted" role="status" aria-label="In progress"><span /><span /><span /></span> : null}
                   </div>
-                  <div className="border-t border-line px-4 py-3 pl-[3.75rem] [text-wrap:pretty]">
-                    {ev ? <button onClick={() => onOpen(ev.id)} className="press rise text-left leading-snug hover:text-cobalt-ink">{ev.summary}</button>
+                  <div className="mt-1 [text-wrap:pretty]">
+                    {ev ? <p className="rise leading-snug">{ev.summary}</p>
                       : fail ? <p className="text-red">{prettyName(fail.specialist_name)} did not answer{fail.error === "budget" ? " (token cap reached)" : ""}{fail.fallback ? `. Trying ${prettyName(fail.fallback)}.` : ""}</p>
                       : <p className="text-muted">{WORKING[cap] ?? "Working"}…</p>}
                   </div>
@@ -72,8 +71,8 @@ export function Examination({ state, ready, onBack, onSend, onOpen }: { state: C
         </div>
       </div>
 
-      <div className="flex shrink-0 items-center justify-between gap-4 border-t border-line bg-surface px-5 py-3 sm:px-8">
-        <button onClick={onBack} className="press min-h-11 border border-line px-4 py-2.5 font-semibold hover:border-ink">← Read the listing</button>
+      <div className="flex shrink-0 items-center justify-between gap-4 bg-surface px-5 py-2 sm:px-8">
+        <button onClick={onBack} className="press -ml-3 min-h-11 px-3 py-2.5 font-semibold text-muted hover:text-ink">← Read the listing</button>
         <div className="flex items-center gap-4">
           {!ready && <p className="hidden whitespace-nowrap text-muted sm:block" aria-live="polite">{done} of {Math.max(cards.length, 5)} done</p>}
           <button onClick={onSend} disabled={!ready} className="press min-h-11 bg-ink px-5 py-2.5 font-semibold text-surface enabled:hover:bg-cobalt disabled:opacity-40">Go to the agents →</button>

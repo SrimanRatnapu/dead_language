@@ -54,10 +54,10 @@ export function CaseView({ target }: { target: CaseTarget }) {
         </div>
         {scripted && <details className="mb-2 text-sm text-muted"><summary className="press inline-flex min-h-11 cursor-pointer items-center text-amber-ink lg:min-h-0">Scripted walkthrough</summary><p className="pb-2">Evidence and rules ran on real data. The agents' wording and photo readings are scripted.</p></details>}
 
-        <div className="flex min-h-0 flex-1 flex-col border border-line bg-bg/70">
+        <div className="flex min-h-0 flex-1 flex-col">
           {stage === "listing" && <>
-            <div className="min-h-0 flex-1 overflow-y-auto"><div className="mx-auto max-w-[720px]"><DecodedListing state={state} onOpenEvidence={setOpenEvidence} /></div></div>
-            <div className="flex shrink-0 items-center justify-end border-t border-line bg-surface px-5 py-3 sm:px-8">
+            <div className="min-h-0 flex-1 overflow-y-auto"><DecodedListing state={state} onOpenEvidence={setOpenEvidence} /></div>
+            <div className="flex shrink-0 items-center justify-end bg-surface px-5 py-2 sm:px-8">
               <button onClick={() => setStage("examiners")} className="press min-h-11 bg-ink px-5 py-2.5 font-semibold text-surface hover:bg-cobalt">See what the specialists found →</button>
             </div>
           </>}
@@ -73,7 +73,7 @@ export function CaseView({ target }: { target: CaseTarget }) {
                 </Thread>
               </section>
             </div>
-            <div className="flex shrink-0 items-center border-t border-line bg-surface px-5 py-2 sm:px-8">
+            <div className="flex shrink-0 items-center bg-surface px-5 py-1 sm:px-8">
               <button onClick={() => setStage("examiners")} className="press min-h-11 px-3 text-muted hover:text-ink lg:min-h-9">← Back to the specialists</button>
             </div>
           </>}

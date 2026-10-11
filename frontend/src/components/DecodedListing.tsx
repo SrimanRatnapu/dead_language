@@ -31,11 +31,39 @@ export function DecodedListing({ state, onOpenEvidence }: { state: CaseState; on
   const examHere = [...exams].reverse().map((e) => ({ evidence: e, result: examFor(e, selected) })).find((entry) => entry.result.index === selected);
   const priceData = all.find((e) => e.capability === "price_check")?.data; const ratio = priceData?.ratio ?? priceData?.ratio_to_median; const linked = linkedDetails([...all].reverse().find((e) => e.capability === "linked_sellers")); const material = decisive?.material.replaceAll("_", " "); const stated = listing.stated_material.replaceAll("_", " ");
   const marks: Mark[] = Array.from(new Map([...linked.phrases.map((p) => ({ text: p, gloss: `used by ${linked.count} other seller${linked.count === 1 ? "" : "s"}` })), ...(material ? [{ text: stated, gloss: `photo says ${material}` }] : [])].map((m) => [m.text.toLowerCase(), m])).values());
-  return <div className="relative flex flex-col gap-3 p-4">
+  const imgs = listing.image_paths;
+  const specifics: [string, React.ReactNode][] = [
+    ["Material", material ? <><span className="line-through decoration-amber decoration-2">{stated}</span><span className="ml-2 font-semibold text-amber-ink">looks like {material}</span></> : stated],
+    ["Type", listing.item_type.replaceAll("_", " ")],
+    ...(listing.size_cm ? [["Size", `${listing.size_cm} cm`] as [string, string]] : []),
+    ...(listing.weight_g ? [["Weight", `${listing.weight_g} g`] as [string, string]] : []),
+    ["Ships from", listing.ship_from],
+    ["Listed", new Date(listing.posted_at).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })],
+  ];
+  return <div className="relative bg-surface px-4 py-4 sm:px-8">
     {removed && <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-bg/95 p-6 text-center"><p className="display text-3xl">Removed by seller</p><button onClick={() => onOpenEvidence(evidenceOrder[0])} className="press border border-line px-3 py-2 hover:border-cobalt">View snapshot</button></div>}
-    <div><h1 className="display text-xl">{listing.title}</h1><div className="mt-1.5 flex items-baseline justify-between gap-3"><span className="text-2xl font-semibold tracking-tight text-cobalt-ink">{usd(listing.price_usd)}</span>{typeof ratio === "number" && <span className="mono text-amber-ink">{ratio.toFixed(ratio < 10 ? 1 : 0)}× MARKET</span>}</div></div>
-    {listing.image_paths.length > 0 && <div className="flex flex-col gap-2"><div className="relative overflow-hidden border border-line"><Photo src={imageUrl(listing.image_paths[selected])} label={`Photo ${selected + 1}`} className="aspect-[16/9] w-full" caption="Photo unavailable offline" /><span className="absolute left-0 top-0 bg-bg/90 px-2 py-1 mono">{String(selected + 1).padStart(2, "0")}</span></div>{examHere?.result.features && <button onClick={() => onOpenEvidence(examHere.evidence.id)} className="rise border-l-2 border-amber bg-amber-tint px-3 py-2 text-left text-sm font-medium text-amber-ink">{examHere.result.features}</button>}{listing.image_paths.length > 1 && <div className="flex gap-2">{listing.image_paths.map((p, i) => <button key={p} onClick={() => setSelected(i)} aria-label={`Show photo ${i + 1}`} aria-pressed={i === selected} className={`press overflow-hidden border-2 ${i === selected ? "border-cobalt" : "border-transparent opacity-60 hover:opacity-100"}`}><Photo src={imageUrl(p)} label={`Photo ${i + 1}`} className="size-11" /></button>)}</div>}</div>}
-    <div className="border-y border-line py-2"><p className="rule-label">Stated material</p><p className="text-muted">{material ? <><span className="text-ink line-through decoration-amber decoration-2">{stated}</span><span className="ml-2 font-semibold text-amber-ink">looks like {material}</span></> : stated}</p></div>
-    <div><p className="text-base leading-7">{annotate(listing.description, marks)}</p>{marks.length > 0 && <ul className="mt-3 flex flex-col gap-1 text-sm text-muted">{marks.map((m) => <li key={m.text}><span className="decoded text-ink">{m.text}</span> <span className="text-amber-ink">{m.gloss}</span></li>)}</ul>}</div><p className="border-t border-line pt-2 text-sm text-muted">Sold by <span className="text-ink">{seller?.name}</span> · Ships from {listing.ship_from}{listing.is_reconstructed && " · reconstructed from a documented case"}</p>
+    <div className="mx-auto grid max-w-[1100px] gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
+      {imgs.length > 0 && <div className="flex flex-col-reverse gap-3 sm:flex-row">
+        {imgs.length > 1 && <div className="flex gap-2 sm:flex-col">{imgs.map((p, i) => <button key={p} onClick={() => setSelected(i)} aria-label={`Show photo ${i + 1}`} aria-pressed={i === selected} className={`press shrink-0 overflow-hidden outline-offset-0 ${i === selected ? "outline outline-2 outline-ink" : "opacity-70 hover:opacity-100"}`}><Photo src={imageUrl(p)} label={`Photo ${i + 1}`} className="size-16" /></button>)}</div>}
+        <div className="min-w-0 flex-1">
+          <Photo src={imageUrl(imgs[selected])} label={`Photo ${selected + 1}`} className="aspect-square w-full bg-bg" caption="Photo unavailable offline" />
+          {examHere?.result.features && <button onClick={() => onOpenEvidence(examHere.evidence.id)} className="rise mt-2 block w-full bg-amber-tint px-3 py-2 text-left text-sm font-medium text-amber-ink">{examHere.result.features}</button>}
+        </div>
+      </div>}
+      <div className="min-w-0">
+        <h1 className="text-2xl font-semibold leading-snug [text-wrap:balance]">{listing.title}</h1>
+        <p className="mt-4 flex flex-wrap items-baseline gap-x-3"><span className="text-3xl font-bold tracking-tight">{usd(listing.price_usd)}</span>{typeof ratio === "number" && <span className="rise font-semibold text-amber-ink">{ratio.toFixed(ratio < 10 ? 1 : 0)}× the usual price</span>}</p>
+        <p className="mt-1 text-sm text-muted">{listing.marketplace}</p>
+        <dl className="mt-6 grid grid-cols-[7rem_1fr] gap-x-4 gap-y-2.5 border-t border-line pt-5">
+          {specifics.map(([k, v]) => <div key={k} className="contents"><dt className="text-muted">{k}</dt><dd className="capitalize-first">{v}</dd></div>)}
+        </dl>
+        {seller && <p className="mt-6 flex items-center gap-3 border-t border-line pt-5"><span className="grid size-10 shrink-0 place-items-center rounded-full bg-sunken font-semibold">{seller.name[0]?.toUpperCase()}</span><span className="leading-snug"><span className="font-semibold">{seller.name}</span><span className="block text-sm text-muted">{seller.location}{seller.feedback_score != null ? ` · ${seller.feedback_score}% positive` : ""}{seller.joined ? ` · joined ${seller.joined}` : ""}</span></span></p>}
+      </div>
+    </div>
+    <section className="mx-auto mt-5 max-w-[1100px] border-t border-line pt-5">
+      <h2 className="font-semibold">Item description from the seller</h2>
+      <p className="mt-3 max-w-[70ch] text-base leading-7">{annotate(listing.description, marks)}</p>
+      {marks.length > 0 && <ul className="mt-3 flex flex-col gap-1 text-sm text-muted">{marks.map((m) => <li key={m.text}><span className="decoded text-ink">{m.text}</span> <span className="text-amber-ink">{m.gloss}</span></li>)}</ul>}
+    </section>
   </div>;
 }
