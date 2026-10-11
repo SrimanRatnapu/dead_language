@@ -170,3 +170,5 @@ A browser plugin sees one page for one user. Our value is across listings: the s
 5. Hit **Refresh**: show a removal detected and the strike moving to observed.
 6. Evaluations tab: model comparison and safety results.
 7. Fallback if anything fails: replay of a recorded run.
+
+**As built (C, live wiring):** `POST /api/batches {source:"live"}` calls A's `fetch_live(query or "bone netsuke", cap)` and reports its mode (`live`|`recorded`) as `source_mode`. `GET /api/market` returns A's `market_stats()`. `POST /api/refresh` calls `refresh_listings`; set `DL_REFRESH_INTERVAL_S>0` for a background refresh loop (default off). Still waiting on B's `screen()`.

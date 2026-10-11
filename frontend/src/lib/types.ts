@@ -191,6 +191,8 @@ export interface BatchEvent { type: "batch.item"; listing_id: string; case_id: s
 export type StrikeStatus = "none" | "pending_review" | "approved" | "submitted_simulated" | "observed_removed";
 export interface Strike { status: StrikeStatus; approved_by: string | null; notice_draft: string | null; history: { status: string; at: string; by: string }[] }
 export interface ListingChange { listing_id: string; kind: "price_changed" | "removed" | "relisted"; at: string; old: unknown; new: unknown }
+export type MarketGroup = Record<string, { count: number; median_price_usd: number }>;
+export interface MarketStats { by_marketplace: MarketGroup; by_country: MarketGroup; by_material: MarketGroup }
 export interface Stage { p50: number; p95: number }
 export interface Metrics {
   funnel: { ingested: number; errors: number; screened_out: number; deliberated: number; FILE: number; DISMISS: number; CONTESTED: number; WATCHLIST: number };

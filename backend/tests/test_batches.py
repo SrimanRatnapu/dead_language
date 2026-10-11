@@ -77,7 +77,6 @@ def test_batch_api_runs_real_cases_and_streams_to_the_end(client):
 
 
 def test_batch_api_rejects_bad_requests(client):
-    assert client.post("/api/batches", json={"source": "live", "query": "ivory"}).status_code == 501
     assert client.post("/api/batches", json={"source": "demo", "cap": 0}).status_code == 422
     assert client.post("/api/batches", json={"source": "live", "query": "x", "cap": 51}).status_code == 422
     assert client.get("/api/batches/B-9999").status_code == 404
@@ -133,3 +132,15 @@ def test_health_reports_unreachable_services(client, monkeypatch):
     monkeypatch.setattr(config, "DIRECTORY_ADDRESS", "127.0.0.1:1")
     h = client.get("/api/health").json()
     assert len(h["problems"]) == 2 and "SLIM" in h["problems"][0]
+
+
+def test_live_batch_reports_fetch_mode(client, monkeypatch):
+    from deadlang.marketplace import live
+    listing = FakeMarket().listing
+
+    async def fake_fetch(query, cap):
+        return [(listing, None)], "recorded"
+    monkeypatch.setattr(live, "fetch_live", fake_fetch)
+    r = client.post("/api/batches", json={"source": "live", "query": "x"})
+    assert r.status_code == 202 and r.json()["source_mode"] == "recorded"
+    assert [i["listing_id"] for i in r.json()["items"]] == [listing.id]

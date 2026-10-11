@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
-import { getMetrics, refreshNow } from "@/lib/api";
-import type { ListingChange, Metrics } from "@/lib/types";
+import { getMarket, getMetrics, refreshNow } from "@/lib/api";
+import type { ListingChange, MarketStats, Metrics } from "@/lib/types";
 
 const ms = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(1)} s` : `${Math.round(n)} ms`);
 const usd = (n: number) => `$${n.toFixed(n < 1 ? 3 : 2)}`;
@@ -12,6 +12,8 @@ function Stat({ label, value, note }: { label: string; value: string; note?: str
 
 export default function MetricsPage() {
   const [m, setM] = useState<Metrics | null>(null);
+  const [market, setMarket] = useState<MarketStats | null>(null);
+  useEffect(() => { getMarket().then(setMarket).catch(() => {}); }, []);
   const [offline, setOffline] = useState(false);
   const [changes, setChanges] = useState<ListingChange[] | null>(null);
   const [note, setNote] = useState<string | null>(null);
@@ -66,6 +68,12 @@ export default function MetricsPage() {
             </dl>
             <ul className="mono text-sm text-muted">{Object.entries(m.by_model).map(([k, v]) => <li key={k}>{k}: {v.calls} calls · {usd(v.usd)}</li>)}</ul></div>
         </section>
+
+        {market && <section aria-label="Market" className="grid gap-6 sm:grid-cols-3">
+          {([["By marketplace", market.by_marketplace], ["By country", market.by_country], ["By material", market.by_material]] as const).map(([title, g]) => (
+            <div key={title} className="flex flex-col gap-3"><h2 className="rule-label">{title}</h2>
+              <ul className="mono text-sm">{Object.entries(g).sort((a, b) => b[1].count - a[1].count).slice(0, 8).map(([k, v]) => <li key={k} className="flex justify-between gap-3"><span>{k}</span><span className="text-muted">{v.count} · median ${Math.round(v.median_price_usd)}</span></li>)}</ul></div>))}
+        </section>}
 
         <section aria-label="Refresh and strikes" className="grid gap-6 sm:grid-cols-2">
           <div className="flex flex-col gap-3"><h2 className="rule-label">Refresh</h2>
