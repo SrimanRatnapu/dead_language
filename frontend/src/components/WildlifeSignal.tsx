@@ -9,7 +9,6 @@ export function WildlifeSignal({ compact = false }: { compact?: boolean }) {
       <span className="signal-leaf signal-leaf--two" />
       <span className="signal-leaf signal-leaf--three" />
       <span className="signal-core"><span /></span>
-      <figcaption className="sr-only">A living evidence network. Small changes in price, image, or language reveal connections that a listing title can hide.</figcaption>
     </figure>
   );
 }

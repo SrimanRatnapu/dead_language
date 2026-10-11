@@ -9,10 +9,10 @@ import { loadListings } from "@/lib/stubs";
 import type { Listing } from "@/lib/types";
 
 const OUTCOMES = [
-  { name: "File", tone: "text-red", rule: "All three agents say file.", ask: "You approve it before anything is sent." },
-  { name: "Contested", tone: "text-amber-ink", rule: "One says file, another says dismiss.", ask: "You decide, with each side's best argument." },
-  { name: "Watchlist", tone: "text-cobalt-ink", rule: "Something is open; no file-versus-dismiss split.", ask: "Stays listed until something changes." },
-  { name: "Dismiss", tone: "text-green", rule: "All three say it looks legal.", ask: "Cleared and logged." },
+  { name: "File", tone: "text-red", rule: "All three agents say file." },
+  { name: "Contested", tone: "text-amber-ink", rule: "One says file, another says dismiss." },
+  { name: "Watchlist", tone: "text-cobalt-ink", rule: "Something is open; no file-versus-dismiss split." },
+  { name: "Dismiss", tone: "text-green", rule: "All three say it looks legal." },
 ];
 
 const EXAMPLE = DEMO_CASES[0];
@@ -24,10 +24,10 @@ export default function Landing() {
     <main className="h-[calc(100dvh-3.5rem)] overflow-y-auto">
       <section className="mx-auto grid max-w-7xl items-center gap-8 px-5 pb-10 pt-8 sm:px-8 lg:min-h-[calc(100dvh-3.5rem)] lg:grid-cols-[1fr_1.05fr]">
         <div className="relative z-10 flex flex-col gap-8 lg:-mr-24">
-          <h1 className="serif text-[clamp(3.25rem,8vw,7.5rem)] leading-[0.92] tracking-[-0.035em] [text-wrap:balance]">
-            Hide the word. <em className="text-cobalt-ink">Not the price.</em>
+          <h1 className="serif text-[clamp(3rem,7vw,6.25rem)] leading-[1.02] [text-wrap:balance]">
+            Hide the word. <span className="text-cobalt-ink">Not the price.</span>
           </h1>
-          <p className="max-w-[42ch] text-xl text-muted">Three agents with opposing goals argue over each flagged wildlife listing. A person approves anything that gets filed.</p>
+          <p className="max-w-[42ch] text-xl text-muted">Three agents argue over each flagged listing. A person approves anything that gets filed.</p>
           <div className="flex flex-wrap gap-3">
             <Link href="/desk" className="press inline-flex min-h-12 items-center bg-ink px-7 text-base font-semibold text-bg hover:bg-ink-2">Open the review desk</Link>
             <Link href="/replay/d1_network" className="press inline-flex min-h-12 items-center px-3 text-base font-semibold underline decoration-1 underline-offset-4 hover:text-cobalt-ink">Watch an example</Link>
@@ -52,16 +52,14 @@ export default function Landing() {
             <p className="mt-1 text-muted">{EXAMPLE.blurb}</p>
           </figure>
           <div>
-            <p className="serial">Every review ends one of four ways</p>
-            <dl className="mt-4 border-t border-ink">
+            <dl className="border-t border-ink">
               {OUTCOMES.map((o) => (
                 <div key={o.name} className="grid gap-x-8 gap-y-1 border-b border-line py-7 sm:grid-cols-[minmax(0,15rem)_1fr]">
-                  <dt className={`serif text-5xl leading-none ${o.tone}`}>{o.name}</dt>
-                  <dd><p className="text-lg">{o.rule}</p><p className="mt-1 text-muted">{o.ask}</p></dd>
+                  <dt className={`serif text-4xl leading-none ${o.tone}`}>{o.name}</dt>
+                  <dd><p className="text-lg">{o.rule}</p></dd>
                 </div>
               ))}
             </dl>
-            <Link href="/desk" className="press mt-8 inline-flex min-h-11 items-center border-b border-ink font-semibold hover:text-cobalt-ink">Open the review desk &rarr;</Link>
           </div>
         </div>
       </section>

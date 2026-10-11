@@ -21,7 +21,7 @@ export function Examination({ state, ready, onSend, onOpen }: { state: CaseState
     <div className="mx-auto flex max-w-[640px] flex-col gap-6 px-5 py-8 sm:px-8">
       <div>
         <h2 className="text-lg font-semibold tracking-tight">Examining the listing</h2>
-        <p className="mt-1 text-muted">Specialist helpers check price, seller, law and photos. Each finding is marked on the listing as it arrives.</p>
+        <p className="mt-1 text-muted">Checking price, seller, law and photos.</p>
       </div>
 
       <ol className="divide-y divide-line border-y border-line">

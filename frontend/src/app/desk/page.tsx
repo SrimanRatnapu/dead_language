@@ -94,19 +94,18 @@ export default function Cases() {
   const secs = startedAt ? Math.round((now - startedAt) / 1000) : 0;
   const btn = "press min-h-11 px-4 py-2.5 font-semibold disabled:opacity-40";
   const terminal = (i: BatchItem) => ["done", "screened_out", "error"].includes(i.status);
-  const GROUPS: { key: string; title: string; hint: string; test: (i: BatchItem) => boolean }[] = [
-    { key: "decide", title: "Waiting on you", hint: "Approve or decide before anything is sent.", test: (i) => i.status === "done" && (i.outcome === "FILE" || i.outcome === "CONTESTED") },
-    { key: "working", title: "In review", hint: "", test: (i) => !terminal(i) },
-    { key: "watch", title: "Watchlist", hint: "Not enough to file. Listed until something changes.", test: (i) => i.status === "done" && i.outcome === "WATCHLIST" },
-    { key: "cleared", title: "Cleared", hint: "Looked legal. Logged, no action.", test: (i) => i.status === "screened_out" || (i.status === "done" && i.outcome === "DISMISS") },
-    { key: "error", title: "Errors", hint: "These did not finish. Run them again.", test: (i) => i.status === "error" },
+  const GROUPS: { key: string; title: string; test: (i: BatchItem) => boolean }[] = [
+    { key: "decide", title: "Waiting on you", test: (i) => i.status === "done" && (i.outcome === "FILE" || i.outcome === "CONTESTED") },
+    { key: "working", title: "In review", test: (i) => !terminal(i) },
+    { key: "watch", title: "Watchlist", test: (i) => i.status === "done" && i.outcome === "WATCHLIST" },
+    { key: "cleared", title: "Cleared", test: (i) => i.status === "screened_out" || (i.status === "done" && i.outcome === "DISMISS") },
+    { key: "error", title: "Errors", test: (i) => i.status === "error" },
   ];
   const waiting = count(GROUPS[0].test);
 
   const Row = ({ i }: { i: BatchItem }) => {
     const l = listings[i.listing_id]; const m = markFor(i);
     const body = <>
-      <span className="serial hidden w-24 sm:block">{i.case_id ?? "queued"}</span>
       <Photo src={imageUrl(l?.image_paths[0] ?? "")} label={l?.title ?? i.listing_id} className="size-14 w-full" />
       <span className="min-w-0"><span className="block line-clamp-2 font-semibold">{l?.title ?? i.listing_id}</span>
         <span className="block text-sm text-muted">{l ? `$${l.price_usd.toLocaleString()} · ` : ""}{l?.origin === "live" ? "Live listing" : "Demo listing"}</span></span>
@@ -114,7 +113,7 @@ export default function Cases() {
         {m ? <><Icon name={m.icon} size={18} />{m.label}</>
            : <><span className="typing flex gap-1" aria-hidden><span /><span /><span /></span>{WORKING[i.status]}{i.status === "deliberating" && secs > 0 ? ` · ${secs}s` : ""}</>}
       </span></>;
-    const row = "grid min-h-16 grid-cols-[3.5rem_1fr_auto] items-center gap-4 px-3 py-3 sm:grid-cols-[6rem_3.5rem_1fr_auto]";
+    const row = "grid min-h-16 grid-cols-[3.5rem_1fr_auto] items-center gap-4 px-3 py-3";
     return i.case_id
       ? <Link href={`/case/${i.case_id}?stage=agents`} className={`press ${row} hover:bg-surface`}>{body}</Link>
       : <div className={row}>{body}</div>;
@@ -122,15 +121,14 @@ export default function Cases() {
 
   return (
     <main className="shell-grid min-h-[calc(100dvh-3.5rem)]">
-      <div className="mx-auto max-w-7xl px-5 py-8 sm:px-8">
-        <header className="flex flex-wrap items-end justify-between gap-x-8 gap-y-4 border-b border-ink pb-5">
+      <div className="mx-auto max-w-6xl px-5 py-10 sm:px-8">
+        <header className="flex flex-wrap items-end justify-between gap-x-8 gap-y-6 border-b border-ink pb-6">
           <div>
-            <h1 className="serif text-5xl leading-none">Review desk</h1>
+            <h1 className="serif text-4xl leading-none">Review desk</h1>
             <p className="mt-2 text-muted" aria-live="polite">
-              {items.length === 0 ? "Nothing loaded yet." : waiting > 0 ? `${waiting} ${waiting === 1 ? "case needs" : "cases need"} your decision.` : running ? "Agents are working." : "Nothing waiting on you."}
-              {items.length > 0 && <span className="serial ml-3">{items.length} loaded · {secs}s{mode === "recorded" ? " · recorded data" : ""}</span>}
+              {items.length === 0 ? "No cases yet." : waiting > 0 ? `${waiting} ${waiting === 1 ? "case needs" : "cases need"} your decision.` : running ? "Agents are working." : "Nothing waiting on you."}
             </p>
-            {m && m.funnel.deliberated > 0 && <p className="serial mt-1">All runs · {m.funnel.deliberated} reviewed · {Math.round(m.latency_ms.case.p50 / 1000)}s median · ${m.cost.usd_per_case.toFixed(2)} per case</p>}
+            {m && m.funnel.deliberated > 0 && <p className="serial mt-1">{m.funnel.deliberated} cases reviewed so far, {Math.round(m.latency_ms.case.p50 / 1000)}s and ${m.cost.usd_per_case.toFixed(2)} each</p>}
           </div>
           <section aria-label="Load listings" className="flex flex-wrap items-end gap-x-4 gap-y-3">
             <button onClick={() => run("demo")} disabled={busy || running} className={`${btn} bg-ink text-surface hover:bg-ink-2`}>Run demo set</button>
@@ -141,16 +139,12 @@ export default function Cases() {
             </form>
           </section>
         </header>
-        {problems.length > 0 && <p role="alert" className="border-b border-amber/60 bg-amber-tint px-3 py-2 text-ink">{problems.join(". ")}. Reviews will stall until it is running.</p>}
-        {busy && <p role="status" className="border-b border-line py-2 text-muted">Fetching listings and photos from eBay. This can take up to a minute.</p>}
+        {problems.length > 0 && <p role="alert" className="border-b border-amber/60 bg-amber-tint px-3 py-2 text-ink">{problems.join(". ")}.</p>}
+        {busy && <p role="status" className="border-b border-line py-2 text-muted">Fetching from eBay…</p>}
         {error && <p role="alert" className="border-b border-red/30 bg-red-tint px-3 py-2 text-red">{error}</p>}
 
         {items.length === 0 && !busy && (
-          <section className="relative my-8 overflow-hidden border border-line bg-surface px-6 py-10">
-            <span className="lattice text-ink/[0.07]" aria-hidden />
-            <p className="serif relative max-w-[28ch] text-2xl font-bold leading-snug">The desk is empty. Run the demo set, or search live listings.</p>
-            <p className="relative mt-2 max-w-[56ch] text-muted">Cases land in the group that says what you have to do with them. Anything the agents file or contest waits here for you.</p>
-          </section>
+          <p className="my-8 border border-line bg-surface px-5 py-6 text-lg">Run the demo set or search live listings to fill the desk.</p>
         )}
 
         {GROUPS.map((g) => {
@@ -159,9 +153,8 @@ export default function Cases() {
           return (
             <section key={g.key} aria-labelledby={`g-${g.key}`} className="mt-8">
               <div className="flex flex-wrap items-baseline gap-x-4 border-b border-ink pb-1.5">
-                <h2 id={`g-${g.key}`} className="serif text-xl font-bold">{g.title}</h2>
+                <h2 id={`g-${g.key}`} className="serif text-xl">{g.title}</h2>
                 <span className="serial">{rows.length}</span>
-                {g.hint && <p className="text-sm text-muted">{g.hint}</p>}
               </div>
               <ul className="-mx-3 divide-y divide-line">{rows.map((i) => <li key={i.listing_id}>{Row({ i })}</li>)}</ul>
             </section>
@@ -169,8 +162,7 @@ export default function Cases() {
         })}
 
         <section aria-labelledby="recorded" className="mt-12">
-          <h2 id="recorded" className="serif border-b border-ink pb-1.5 text-xl font-bold">Recorded reviews</h2>
-          <p className="mt-2 text-sm text-muted">Four finished reviews. They play back without the review service.</p>
+          <h2 id="recorded" className="serif border-b border-ink pb-1.5 text-xl">Recorded reviews</h2>
           <ul className="mt-2 divide-y divide-line">
             {DEMO_CASES.map((c) => {
               const l = listings[c.listingId];
@@ -187,8 +179,7 @@ export default function Cases() {
           </ul>
         </section>
         <section aria-labelledby="all" className="mt-12">
-          <h2 id="all" className="serif border-b border-ink pb-1.5 text-xl font-bold">All listings{rows ? ` (${rows.length})` : ""}</h2>
-          <p className="mt-2 text-sm text-muted">Open one to read it, then run a review on it.</p>
+          <h2 id="all" className="serif border-b border-ink pb-1.5 text-xl">All listings{rows ? ` (${rows.length})` : ""}</h2>
           {rows === null ? <p className="mt-6 text-muted">Loading listings…</p>
             : rows.length === 0 ? <p className="mt-6 text-muted">No listings found.</p>
             : <div className="mt-5 grid gap-x-5 gap-y-9 sm:grid-cols-2 lg:grid-cols-4">{rows.slice(0, shown).map((row) => <ListingCard key={row.listing.id} row={row} />)}</div>}

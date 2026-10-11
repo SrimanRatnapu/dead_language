@@ -19,13 +19,13 @@ export function CaseFileDrawer({ caseFile, evidence, open, onClose, onOpenEviden
     <Drawer open={open && !!caseFile} title={caseFile ? `Case file · ${OUTCOME_LABEL[caseFile.outcome]}` : "Case file"} onClose={onClose}>
       {caseFile && (
         <div className="flex flex-col gap-6">
-          <p className="mono -mx-5 -mt-5 bg-ink px-5 py-3 text-surface">Prepared for human review · not sent to anyone</p>
+          <p className="-mx-5 -mt-5 bg-ink px-5 py-3 text-surface">Draft for review. Not sent.</p>
 
           {(caseFile.outcome === "FILE" || caseFile.outcome === "CONTESTED") && <StrikeReview caseId={caseFile.case_id} />}
 
           {caseFile.tip_draft && (
             <Section title="Tip draft">
-              <pre className="mono whitespace-pre-wrap rounded-none border border-line bg-sunken p-3 leading-relaxed">{caseFile.tip_draft}</pre>
+              <pre className="font-mono whitespace-pre-wrap rounded-none border border-line bg-sunken p-3 leading-relaxed">{caseFile.tip_draft}</pre>
             </Section>
           )}
 
