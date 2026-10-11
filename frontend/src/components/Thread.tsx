@@ -143,22 +143,22 @@ export function Thread({ state, onOpen }: { state: CaseState; onOpen: Open }) {
   const waiting = finished ? [] : (lastRound?.active ?? []).filter((a) => lastRound?.posts[a] === undefined).slice(0, 1);  // one speaks at a time
   const key = `${blocks.length}:${waiting.join()}`;
 
-  // Newest first. Stay glued to the top while the reader is there; stop when they scroll down.
-  useEffect(() => { const el = ref.current; if (el && pinned) el.scrollTop = 0; }, [key, pinned]);
-  const onScroll = () => { const el = ref.current; if (el) setPinned(el.scrollTop < 96); };
+  // Newest at the bottom. Stay glued to the bottom while the reader is there; stop when they scroll up.
+  useEffect(() => { const el = ref.current; if (el && pinned) el.scrollTop = el.scrollHeight; }, [key, pinned]);
+  const onScroll = () => { const el = ref.current; if (el) setPinned(el.scrollHeight - el.scrollTop - el.clientHeight < 96); };
   const lastPost = blocks.findLastIndex((b) => b.kind === "post");
-  const shown = blocks.map((b, i) => ({ b, i })).reverse();
+  const shown = blocks.map((b, i) => ({ b, i }));
 
   return (
-    <div ref={ref} onScroll={onScroll} className="relative lg:h-full lg:overflow-y-auto">
+    <div ref={ref} onScroll={onScroll} className="relative h-[65dvh] overflow-y-auto lg:h-full">
       <div className="mx-auto flex max-w-[760px] flex-col gap-4 px-5 py-6 sm:px-8">
-        {waiting.map((a) => <Pending key={a}>{AGENTS[a].label} is writing a reply</Pending>)}
         {shown.map(({ b, i }) => b.kind === "facts" ? <Facts key={i} rows={b.rows} open={i > lastPost || b.rows.length <= 2} onOpen={onOpen} />
           : b.kind === "post" ? <Message key={i} post={b.post} prev={b.prev} wake={b.wake} state={state} onOpen={onOpen} />
           : <p key={i} className="rise border-l-2 border-red pl-4 text-base text-red">Seller removed the listing{b.relisted_as ? ` · relisted as ${b.relisted_as}` : ""}. The review continues from the saved snapshot.</p>)}
         {blocks.length === 0 && !finished && <Pending>Gathering facts</Pending>}
+        {waiting.map((a) => <Pending key={a}>{AGENTS[a].label} is writing a reply</Pending>)}
       </div>
-      {!pinned && <div className="pointer-events-none sticky bottom-4 flex justify-center"><button onClick={() => { setPinned(true); ref.current?.scrollTo({ top: 0, behavior: "smooth" }); }} className="press pointer-events-auto min-h-11 rounded-full bg-ink px-4 text-base font-semibold text-surface shadow-[var(--shadow)]">↑ Newest</button></div>}
+      {!pinned && <div className="pointer-events-none sticky bottom-4 flex justify-center"><button onClick={() => { setPinned(true); ref.current?.scrollTo({ top: ref.current.scrollHeight, behavior: "smooth" }); }} className="press pointer-events-auto min-h-11 rounded-full bg-ink px-4 text-base font-semibold text-surface shadow-[var(--shadow)]">↓ Newest</button></div>}
     </div>
   );
 }
