@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import html
 import io
+import logging
 import os
 import re
 import time
@@ -17,6 +18,23 @@ from dotenv import load_dotenv
 from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[3]
+_SELLER_FILTER = re.compile(r"sellers(?::|%3A)(?:\{|%7B).*?(?:\}|%7D)", re.I)
+
+
+class _RedactSellerFilter(logging.Filter):
+    """httpx logs every request URL at INFO. A seller search carries the seller's real username in its query
+    string, so that part of the line is blanked before any handler sees it."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if isinstance(record.args, tuple):
+            record.args = tuple(_SELLER_FILTER.sub("sellers:{redacted}", str(a)) if isinstance(a, (str, httpx.URL)) else a
+                                for a in record.args)
+        if isinstance(record.msg, str):
+            record.msg = _SELLER_FILTER.sub("sellers:{redacted}", record.msg)
+        return True
+
+
+logging.getLogger("httpx").addFilter(_RedactSellerFilter())
 
 US_STATES = {
     "alabama": "AL", "alaska": "AK", "arizona": "AZ", "arkansas": "AR", "california": "CA", "colorado": "CO",
@@ -99,6 +117,17 @@ class Ebay:
         if seller:
             params["filter"] = f"sellers:{{{seller}}}"
         return self.get("/item_summary/search", **params).get("itemSummaries", [])
+
+    def search_page(self, **params) -> tuple[int, list[dict]]:
+        """One page of search results for any mix of q / category_ids / filter / sort: (total matches, summaries).
+        A failed request is (0, []). Nothing about the request is printed: a filter can carry a seller's username."""
+        time.sleep(0.1)
+        r = self.http.get(f"{self.host}/buy/browse/v1/item_summary/search", params={"limit": 50, **params},
+                          headers={"Authorization": f"Bearer {self._token()}", "X-EBAY-C-MARKETPLACE-ID": "EBAY_US"})
+        if r.status_code != 200:
+            return 0, []
+        body = r.json()
+        return int(body.get("total") or 0), body.get("itemSummaries") or []
 
     def item_status(self, item_id: str) -> tuple[int, dict]:
         """(HTTP status, body) for one item, so a caller can tell "gone" (404) from "try again later"."""

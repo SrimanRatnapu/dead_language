@@ -65,11 +65,15 @@ def _tokens(text: str) -> list[str]:
     return re.sub(r"[^\w\s]", " ", text.lower().replace("'", "").replace("’", "")).split()
 
 
-def _token_runs(listing: Listing) -> list[list[str]]:
+def token_runs(title: str, description: str) -> list[list[str]]:
     """One token list per sentence, so a phrase never spans two sentences or the title and description.
     (Otherwise two common sentences that merely sit next to each other would look like a rare phrase.)"""
-    sentences = re.split(r"[.!?;:\n]+", f"{listing.title}\n{listing.description}")
+    sentences = re.split(r"[.!?;:\n]+", f"{title}\n{description}")
     return [tokens for tokens in map(_tokens, sentences) if tokens]
+
+
+def _token_runs(listing: Listing) -> list[list[str]]:
+    return token_runs(listing.title, listing.description)
 
 
 def _ngrams(tokens: list[str]) -> list[tuple[str, ...]]:
