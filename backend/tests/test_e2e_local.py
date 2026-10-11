@@ -7,6 +7,7 @@ import pytest
 from deadlang import config, llm
 from deadlang.agntcy import discovery as discovery_mod, transport as transport_mod
 from deadlang.api.events import EventBus
+from deadlang.deliberation import crosscase
 from deadlang.deliberation.facilitator import Facilitator
 from deadlang.marketplace.client import LocalMarketplaceClient
 from tests.conftest import make_listing, make_seller
@@ -60,6 +61,9 @@ async def test_full_case_on_real_local_stack(monkeypatch):
     assert cf.outcome == "FILE" and cf.stop_reason in ("unanimous", "ready_to_close")
     caps = {e.capability for e in cf.evidence}
     assert {"listing_snapshot", "price_check", "seller_inventory", "linked_sellers", "legal_lookup"} <= caps
-    assert fake.names.count("post_position") == 3
+    # L1 is isolated (no other listings by its seller, no links, no reused photos, too few comparables), so
+    # the Case Officer sits out and only the other two agents are asked.
+    assert fake.names.count("post_position") == 2
+    assert next(p for p in cf.final_positions if p.agent == crosscase.CROSS_CASE_ROLE).abstained
     types = [e.type for e in bus.history("C-1")]
     assert types[0] == "case.started" and types[-1] == "case.ended"

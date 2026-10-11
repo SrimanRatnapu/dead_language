@@ -48,7 +48,7 @@ class Translator:
 
     def __init__(self, market: Any):
         self.market = market
-        self.model = config.MODEL_FAST
+        self.model = config.MODEL_TRIAGE      # translation runs on the cheap model, like triage
 
     async def run(self, call: SpecialistCall) -> SpecialistReply:
         listing = await self.market.get_listing_snapshot(call.listing_id)

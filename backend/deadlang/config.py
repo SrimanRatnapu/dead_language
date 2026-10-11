@@ -28,6 +28,15 @@ def _int(key: str, default: int) -> int:
     return int(_str(key, str(default)))
 
 
+def _float(key: str, default: float, low: float, high: float) -> float:
+    """A float within [low, high]; anything unparseable or out of range falls back to the default."""
+    try:
+        value = float(_str(key, str(default)))
+    except ValueError:
+        return default
+    return value if low <= value <= high else default
+
+
 def _path(key: str, default: str) -> Path:
     p = Path(_str(key, default))
     return p if p.is_absolute() else (BACKEND_DIR / p).resolve()
@@ -39,6 +48,10 @@ USAGE_FILE: Path = _path("DL_USAGE_FILE", ".usage.json")
 
 MODEL_STRONG: str = _str("DL_MODEL_STRONG", "claude-sonnet-5-5")
 MODEL_FAST: str = _str("DL_MODEL_FAST", "claude-haiku-4-5-20251001")
+MODEL_TRIAGE: str = _str("DL_MODEL_TRIAGE", MODEL_FAST)        # triage and translation; defaults to the fast model
+# Triage clears a listing only below this score (and only if the model does not flag it). Low on purpose: a real case
+# dropped at triage is never seen again, so we over-send. A bad or out-of-range value falls back to this default.
+TRIAGE_THRESHOLD: float = _float("DL_TRIAGE_THRESHOLD", 0.2, 0.0, 1.0)
 
 MAX_INPUT_TOKENS: int = _int("DL_MAX_INPUT_TOKENS", 6_000_000)
 CASE_TIMEOUT_S: float = float(_str("DL_CASE_TIMEOUT_S", "420"))   # one case, all rounds; stalled agents fail the case instead of hanging

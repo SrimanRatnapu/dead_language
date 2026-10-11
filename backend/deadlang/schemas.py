@@ -122,6 +122,7 @@ class StancePost(BaseModel):
     challenge: Optional[Challenge] = None         # max 1; target must answer it (with cited claims) in its next post
     ready_to_close: bool = False                  # True = "I have nothing more to add"
     take: str = ""                                # 1-2 sentences, first person, in character; shown as the headline in the UI. Not fact-checked, so no figures.
+    abstained: bool = False                       # the Case Officer sat out because there are no other cases to compare; set by the Facilitator, never by a model; excluded from the outcome rule
 
 class DeliberationTurn(BaseModel):    # body sent to a deliberating agent
     case_id: str
@@ -132,6 +133,12 @@ class DeliberationTurn(BaseModel):    # body sent to a deliberating agent
     your_previous: Optional[StancePost] = None
     repair_feedback: Optional[list[str]] = None   # only on a repair call
     questions_for_you: list[PeerQuestion] = Field(default_factory=list)   # challenges from peers' last posts
+
+class TriageResult(BaseModel):         # what triage.screen() returns (file 00 section 4.5)
+    score: float = Field(ge=0.0, le=1.0)         # how suspicious the listing looks, 0..1
+    reason: str                                  # one sentence; shown in the queue
+    suspicious: bool                             # True = send to the agents; False = cleared (no agents run)
+
 
 Outcome = Literal["FILE", "DISMISS", "CONTESTED", "WATCHLIST"]
 

@@ -1,9 +1,8 @@
 """Baselines for the evaluation: one model call each, no deliberation."""
 from __future__ import annotations
 
-import os
 
-from deadlang import llm
+from deadlang import config, llm
 from deadlang.deliberation.validator import validate_post
 from deadlang.evidence.board import EvidenceBoard, render_evidence
 from deadlang.schemas import Listing, StancePost
@@ -22,7 +21,7 @@ SCHEMA_CLAIMS = {"type": "object", "required": [*_DECISION, "claims"], "properti
 
 
 def _model() -> str:
-    return os.getenv("DL_MODEL_STRONG", "claude-sonnet-5-5")
+    return config.MODEL_STRONG
 
 
 async def listing_only(listing: Listing, case_id: str | None = None) -> dict:

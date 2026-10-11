@@ -20,6 +20,7 @@ import base64
 import io
 import json
 import logging
+import math
 import time
 from collections import OrderedDict
 from dataclasses import dataclass
@@ -117,17 +118,23 @@ def _check_budget(case_id: str | None, est_in: int, max_out: int) -> None:
     data = _load_usage()
     g = data["global"]
     if g["input_tokens"] + _pending["in"] + est_in > config.MAX_INPUT_TOKENS:
-        raise BudgetExceeded(f"global input cap {config.MAX_INPUT_TOKENS} reached")
+        raise BudgetExceeded(_over("global", "input", config.MAX_INPUT_TOKENS, g["input_tokens"], _pending["in"], est_in))
     if g["output_tokens"] + _pending["out"] + max_out > config.MAX_OUTPUT_TOKENS:
-        raise BudgetExceeded(f"global output cap {config.MAX_OUTPUT_TOKENS} reached")
+        raise BudgetExceeded(_over("global", "output", config.MAX_OUTPUT_TOKENS, g["output_tokens"], _pending["out"], max_out))
     if case_id is None:
         return
     c = data["cases"].get(case_id, _empty())
     p_in, p_out = _pending["cases"].get(case_id, (0, 0))
     if c["input_tokens"] + p_in + est_in > config.CASE_MAX_INPUT_TOKENS:
-        raise BudgetExceeded(f"case {case_id} input cap {config.CASE_MAX_INPUT_TOKENS} reached")
+        raise BudgetExceeded(_over(f"case {case_id}", "input", config.CASE_MAX_INPUT_TOKENS, c["input_tokens"], p_in, est_in))
     if c["output_tokens"] + p_out + max_out > config.CASE_MAX_OUTPUT_TOKENS:
-        raise BudgetExceeded(f"case {case_id} output cap {config.CASE_MAX_OUTPUT_TOKENS} reached")
+        raise BudgetExceeded(_over(f"case {case_id}", "output", config.CASE_MAX_OUTPUT_TOKENS, c["output_tokens"], p_out, max_out))
+
+
+def _over(scope: str, kind: str, cap: int, used: int, in_flight: int, need: int) -> str:
+    """Say which cap, and the sum that did not fit. `need` is max_tokens for output: the cap reserves what a
+    call COULD write, then reconciles to what it did write."""
+    return f"{scope} {kind} cap {cap:,}: used {used:,} + {in_flight:,} in flight + {need:,} for this call > {cap:,}"
 
 
 async def _reserve(case_id: str | None, est_in: int, max_out: int) -> _Reservation:
@@ -177,9 +184,29 @@ async def _record(res: _Reservation, tokens_in: int, tokens_out: int) -> None:
 
 # ---------------- request building ----------------
 
-def estimate_input_tokens(system: str, user: str, images: int = 0, schema: dict | None = None) -> int:
-    """The estimate the budget check uses before every call (also used by the cost reports)."""
-    total = int(len(system + user) / CHARS_PER_TOKEN) + TOKENS_PER_IMAGE * images
+def thinks(model: str) -> bool:
+    """Does this model think (or write progress text) before answering? Those tokens are output tokens and
+    count toward max_tokens. The older 4.x models do not."""
+    return not _is_legacy(model)
+
+
+def estimate_image_tokens(path: Path | str) -> int:
+    """About width x height / 750 tokens for a photo, after the downscale call_vision_json applies. Unreadable
+    file: the flat TOKENS_PER_IMAGE (the conservative figure the budget check uses)."""
+    try:
+        with Image.open(path) as img:
+            w, h = img.size
+    except Exception:
+        return TOKENS_PER_IMAGE
+    scale = min(1.0, MAX_IMAGE_SIDE / max(w, h))
+    return max(1, math.ceil(w * scale * h * scale / 750))
+
+
+def estimate_input_tokens(system: str, user: str, images: int = 0, schema: dict | None = None,
+                          image_tokens: int | None = None) -> int:
+    """The estimate the budget check uses before every call (also used by the cost reports). The budget check
+    keeps the flat, conservative TOKENS_PER_IMAGE; reports can pass a measured `image_tokens`."""
+    total = int(len(system + user) / CHARS_PER_TOKEN) + (image_tokens or TOKENS_PER_IMAGE) * images
     if schema is not None:
         total += int(len(json.dumps(schema)) / CHARS_PER_TOKEN)      # the tool definition is sent as input too
     return total

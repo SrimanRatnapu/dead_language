@@ -1,10 +1,9 @@
 """DeliberatingAgent: one model call per turn that turns the board + transcript into a StancePost."""
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
-from deadlang import llm
+from deadlang import config, llm
 from deadlang.evidence.board import render_evidence
 from deadlang.schemas import AgentName, DeliberationTurn, Evidence, StancePost
 
@@ -13,13 +12,13 @@ SCHEMA_NAME = "post_position"
 
 
 def _model() -> str:
-    return os.getenv("DL_MODEL_STRONG", "claude-sonnet-5-5")
+    return config.MODEL_STRONG        # every deliberating agent: anything that can lead to an accusation is not cheap
 
 
 def post_schema() -> dict:
     """StancePost schema without `agent` and `round`; the code fills those in."""
     schema = StancePost.model_json_schema()
-    for key in ("agent", "round"):
+    for key in ("agent", "round", "abstained"):
         schema["properties"].pop(key, None)
     schema["required"] = [k for k in schema.get("required", []) if k not in ("agent", "round")]
     return schema
@@ -76,4 +75,4 @@ class DeliberatingAgent:
         out = await llm.call_json(
             model=_model(), system=self.system, user=build_user_message(turn), schema_name=SCHEMA_NAME,
             schema=post_schema(), case_id=turn.case_id, max_tokens=1200, temperature=0.2)
-        return StancePost.model_validate({**out, "agent": self.name, "round": turn.round})
+        return StancePost.model_validate({**out, "agent": self.name, "round": turn.round, "abstained": False})

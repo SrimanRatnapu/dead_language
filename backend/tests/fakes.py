@@ -6,7 +6,7 @@ from typing import Awaitable, Callable
 
 from deadlang.llm import BudgetExceeded
 from deadlang.schemas import (Claim, DeliberationTurn, EvidenceDraft, Listing, Seller, SpecialistCall,
-                              SpecialistReply, StancePost)
+                              SpecialistReply, StancePost, TriageResult)
 
 CAP_SPECIALISTS = {
     "price_check": ["deadlang-price-checker"],
@@ -114,3 +114,33 @@ def post(agent, rnd, stance, conf=0.7, claims=None, **kw) -> StancePost:
     claims = claims if claims is not None else [("Listed at $1,450.", ["E0"])]
     return StancePost(agent=agent, round=rnd, stance=stance, confidence=conf,
                       claims=[Claim(text=t, evidence_ids=i) for t, i in claims], **kw)
+
+
+class FakeTriage:
+    """Stands in for deadlang.triage.screen() (file 00 section 4.5), so the queue worker can be built and tested
+    with no model. Scores come from `scores` (by listing id) or `default`; like the real one, a listing is
+    `suspicious` (sent to the agents) when its score is at or above `threshold`, so a score exactly at the
+    threshold is sent on. `raises` maps a listing id to an exception, the way the real screen() raises
+    BudgetExceeded when the spend cap is hit. Every call is recorded in `calls`. Use `fake.screen`, or the
+    instance itself, wherever the worker calls screen()."""
+
+    def __init__(self, scores: dict[str, float] | None = None, default: float = 0.9, threshold: float = 0.2,
+                 raises: dict[str, Exception] | None = None, delay: float = 0.0):
+        self.scores, self.default, self.threshold = scores or {}, default, threshold
+        self.raises, self.delay = raises or {}, delay
+        self.calls: list[dict] = []
+
+    async def screen(self, listing: Listing, seller: Seller | None = None, *, price_ratio: float | None = None,
+                     seller_listing_count: int | None = None, case_id: str | None = None) -> TriageResult:
+        self.calls.append({"listing_id": listing.id, "seller": seller, "price_ratio": price_ratio,
+                           "seller_listing_count": seller_listing_count, "case_id": case_id})
+        if self.delay:
+            import asyncio
+            await asyncio.sleep(self.delay)
+        if listing.id in self.raises:
+            raise self.raises[listing.id]
+        score = self.scores.get(listing.id, self.default)
+        return TriageResult(score=score, reason=f"Fake triage gave this listing {score:.2f}.",
+                            suspicious=score >= self.threshold)
+
+    __call__ = screen

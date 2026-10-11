@@ -11,8 +11,9 @@ examined on its own; only the photo is sent, never the label, title or medium. W
 results/examiner_eval_rows.jsonl (one row per photo and mode, so a rerun skips photos already done).
 
 It prints an estimated cost and asks before making any real call (--yes skips the question). Calls use case ids
-examiner_eval-<mode>-0, -1, ... (20 photos each) so the per-case token cap does not cut a long run short; the
-global cap still applies.
+examiner_eval-<mode>-<run>-0, -1, ... (10 photos each). The run id is new every time, so one run's usage never
+counts against the next run's per-case caps, and no case holds more than one run's share; the global cap still
+applies. If a run stops on a budget, the message says which cap and the sum that did not fit.
 """
 from __future__ import annotations
 
@@ -33,12 +34,11 @@ from deadlang.specialists.material import QuickExaminer, ThoroughExaminer
 
 MODES = ("quick", "thorough")                # cheap mode first
 CALLS_PER_PHOTO = {"quick": 1, "thorough": 2}
-SHARD = 20                                    # photos per case id
+SHARD = 10                                    # photos per case id (the per-case caps are 300k in / 30k out)
 GIVE_UP_AFTER = 5                             # failures with no success: something systematic (key, model name)
 DEFAULT_CONCURRENCY = 3
 EXPECTED_OUTPUT_TOKENS = 150                  # one photo's answer
 MAX_TOKENS = 1500                             # call_vision_json's default
-TOOL_OVERHEAD_TOKENS = 150
 
 
 @dataclass(frozen=True)
@@ -125,8 +125,9 @@ class EvalResult:
 
 
 async def evaluate(mode: str, examiner, items: list[Item], done: set[str], concurrency: int = DEFAULT_CONCURRENCY,
-                   on_row=None) -> EvalResult:
+                   on_row=None, run_id: str | None = None) -> EvalResult:
     todo = [i for i in items if i.object_id not in done]
+    run_id = run_id or costs.new_run_id()
     result = EvalResult()
     gate = asyncio.Semaphore(concurrency)
     stop = asyncio.Event()
@@ -136,9 +137,11 @@ async def evaluate(mode: str, examiner, items: list[Item], done: set[str], concu
             if stop.is_set():
                 return
             try:
-                (photo,) = await examiner.examine([item.path], case_id=f"examiner_eval-{mode}-{position // SHARD}")
-            except BudgetExceeded:
+                (photo,) = await examiner.examine([item.path], case_id=f"examiner_eval-{mode}-{run_id}-{position // SHARD}",
+                                                   detail=True)
+            except BudgetExceeded as exc:
                 result.stopped = result.stopped or "budget"
+                result.last_error = result.last_error or str(exc)      # which cap, and the sum that did not fit
                 stop.set()
                 return
             except Exception as exc:                       # one bad photo should not end the run
@@ -149,7 +152,10 @@ async def evaluate(mode: str, examiner, items: list[Item], done: set[str], concu
                     stop.set()
                 return
             row = {"mode": mode, "object_id": item.object_id, "truth": item.truth,
-                   "predicted": photo["material"], "confidence": photo["confidence"]}
+                   "predicted": photo["material"], "confidence": photo["confidence"],
+                   # what the model said it saw, and (thorough) what each of the two looks answered
+                   "visible_features": photo["visible_features"], "best_region": photo["best_region"],
+                   "looks": photo["looks"] if len(photo["looks"]) > 1 else None}
             result.rows.append(row)
             if on_row:
                 on_row(row)
@@ -158,10 +164,17 @@ async def evaluate(mode: str, examiner, items: list[Item], done: set[str], concu
     return result
 
 
-def plan(mode: str, examiner, photos: int) -> costs.Batch:
-    per_call_in = llm.estimate_input_tokens(examiner.system, material.USER_MESSAGE, images=1) + TOOL_OVERHEAD_TOKENS
-    return costs.Batch(f"examiner {mode} ({photos} photos)", examiner.model, photos * CALLS_PER_PHOTO[mode],
-                       per_call_in, EXPECTED_OUTPUT_TOKENS, MAX_TOKENS)
+def plan(mode: str, examiner, items: list[Item], concurrency: int = DEFAULT_CONCURRENCY) -> costs.Batch:
+    """Cost of examining `items`. Counts what the model really does: photos at their measured size, output that
+    includes thinking for models that think, and the per-case load (calls sharing a case id, and the calls in
+    flight that each reserve max_tokens)."""
+    photo_tokens = round(sum(llm.estimate_image_tokens(i.path) for i in items) / len(items))
+    per_call_in = (llm.estimate_input_tokens(examiner.system, material.USER_MESSAGE, images=1, schema=material.SCHEMA,
+                                             image_tokens=photo_tokens) + costs.TOOL_USE_OVERHEAD_TOKENS)
+    looks = CALLS_PER_PHOTO[mode]
+    return costs.Batch(f"examiner {mode} ({len(items)} photos)", examiner.model, len(items) * looks, per_call_in,
+                       costs.expected_output_tokens(examiner.model, EXPECTED_OUTPUT_TOKENS), MAX_TOKENS,
+                       calls_per_case=SHARD * looks, concurrency=concurrency * looks)
 
 
 # ---------------- files ----------------
@@ -234,9 +247,9 @@ async def main(argv: list[str] | None = None, *, ask=input) -> int:
     examiners = {m: make_examiner(m) for m in modes}
     batches = []
     for m in modes:
-        left = sum(i.object_id not in done[m] for i in items)
+        left = [i for i in items if i.object_id not in done[m]]
         if left:
-            batches.append(plan(m, examiners[m], left))
+            batches.append(plan(m, examiners[m], left, args.concurrency))
     if missing:
         print(f"Note: {len(missing)} listed photo(s) are not on disk and are skipped: {', '.join(missing[:5])}"
               + (" ..." if len(missing) > 5 else ""))
@@ -260,16 +273,16 @@ async def main(argv: list[str] | None = None, *, ask=input) -> int:
         with rows_path.open("a") as f:
             f.write(json.dumps(row) + "\n")
 
-    stopped = None
-    failed = 0
+    stopped, stop_detail, failed = None, "", 0
+    run_id = costs.new_run_id()
     for m in modes:
-        result = await evaluate(m, examiners[m], items, done[m], args.concurrency, on_row=save_row)
+        result = await evaluate(m, examiners[m], items, done[m], args.concurrency, on_row=save_row, run_id=run_id)
         failed += result.failed
         print(f"{m}: {len(result.rows)} photos done" + (f", {result.failed} failed" if result.failed else ""))
         if result.failed:
             print(f"  last error: {result.last_error}")
         if result.stopped:
-            stopped = result.stopped
+            stopped, stop_detail = result.stopped, result.last_error
             break
 
     out = write_results(out_path, read_rows(rows_path), items, missing, args.limit, label_counts)
@@ -281,8 +294,8 @@ async def main(argv: list[str] | None = None, *, ask=input) -> int:
                   f"ivory recall {_pct(s['ivory_recall'])}")
     print(f"Results written to {out_path}.")
     if stopped == "budget":
-        print("Stopped early: the token budget was reached. What finished is saved; raise the cap or rerun later "
-              "to continue (finished photos are skipped).")
+        print(f"Stopped early: the token budget was reached ({stop_detail}). What finished is saved; raise the cap "
+              "or rerun later to continue (finished photos are skipped).")
     elif stopped == "errors":
         print(f"Stopped early: the first {GIVE_UP_AFTER} calls all failed, so something is wrong "
               "(API key? model name?).")

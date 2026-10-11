@@ -90,7 +90,7 @@ cd backend && MARKETPLACE_MODE=mcp DISCOVERY=agntcy uv run python -m deadlang.ag
 # Terminal 4: quick examiner (the fallback)
 cd backend && MARKETPLACE_MODE=mcp DISCOVERY=agntcy uv run python -m deadlang.agntcy.serve --group examiner-quick
 
-# Terminal 5: buyer, defender, caseload
+# Terminal 5: undercover, counsel, case_officer
 cd backend && DISCOVERY=agntcy uv run python -m deadlang.agntcy.serve --group deliberators
 ```
 

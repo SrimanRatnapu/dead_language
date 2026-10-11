@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
 
-from deadlang.deliberation import rules
+from deadlang.deliberation import crosscase, rules
 from deadlang.deliberation.casefile import build_case_file
 from deadlang.deliberation.validator import Rejection, apply_empty_claims_rule, validate_post
 from deadlang.evidence.board import EvidenceBoard
@@ -36,6 +36,7 @@ class CaseState:
     requested_calls: int = 0
     removal_noted: bool = False
     relist_noted: bool = False
+    attempted: set[str] = field(default_factory=set)                     # capabilities already run, or tried and failed
     answered: set[tuple[str, str]] = field(default_factory=set)         # (asker, question) already delivered
 
     @property
@@ -61,6 +62,7 @@ class Facilitator:
 
     async def _run_specialist(self, st: CaseState, capability: Capability, params: dict[str, Any],
                               requested_by: Requester, question: str = "") -> None:
+        st.attempted.add(capability)
         tried: set[str] = set()
         sel = await self.discovery.select(capability, exclude=tried)
         if sel is None:
@@ -117,14 +119,47 @@ class Facilitator:
 
     # ------------------------------------------------------------------ rounds
     def _active(self, st: CaseState, r: int) -> list[AgentName]:
-        # Speaking order rotates each round so no agent always goes first or last.
-        order = [AGENTS[(r - 1 + i) % len(AGENTS)] for i in range(len(AGENTS))]
         if r == 1:
-            return order
-        targeted = {p.rebuttal.target_agent for p in st.last_round_posts if p.rebuttal}
-        targeted |= {p.challenge.target_agent for p in st.last_round_posts if p.challenge
-                     and (p.agent, p.challenge.question) not in st.answered}
-        return [a for a in order if st.board.count() > st.seen.get(a, 0) or a in targeted]
+            return list(AGENTS)
+        rebutted = {p.rebuttal.target_agent for p in st.last_round_posts if p.rebuttal}
+        challenged = {p.challenge.target_agent for p in st.last_round_posts if p.challenge}
+        active: list[AgentName] = []
+        for a in AGENTS:
+            post = st.current.get(a)
+            unseen = st.board.count() > st.seen.get(a, 0)
+            # New evidence it has not seen, or a direct question, always calls an agent. A rebuttal alone does
+            # not call one that is already ready to close: it has nothing left to check.
+            ready = post is not None and not post.abstained and self._ready(st, a, post)
+            if unseen or a in challenged or (a in rebutted and not ready):
+                active.append(a)
+        return active
+
+    def _tools_left(self, st: CaseState) -> int:
+        """Specialist checks that could still be run for this case (never tried, and the request budget is not spent)."""
+        wanted = {"price_check", "seller_inventory", "linked_sellers", "legal_lookup", "material_exam"}
+        if st.listing.language != "en":
+            wanted.add("translation")
+        return 0 if st.requested_calls >= MAX_CALLS_PER_CASE else len(wanted - st.attempted)
+
+    def _ready(self, st: CaseState, a: AgentName, post: StancePost) -> bool:
+        unseen = max(st.board.count() - st.seen.get(a, 0), 0)
+        asked = any(p.challenge and p.challenge.target_agent == a for p in st.last_round_posts)
+        return rules.is_ready(post, unseen_evidence=unseen, tools_left=self._tools_left(st), questions_pending=asked)
+
+    def _apply_cross_case_gate(self, st: CaseState, r: int, active: list[AgentName]) -> list[AgentName]:
+        """The Case Officer sits out while the board shows nothing to compare this listing with. It says so once,
+        as a post marked `abstained`; it is not called, is not shown to the others, and does not count in the
+        outcome."""
+        role = crosscase.CROSS_CASE_ROLE
+        prev = st.current.get(role)
+        if (prev is not None and not prev.abstained) or not crosscase.assess(st.board).nothing_to_compare:
+            return active
+        if prev is None:
+            post = StancePost(agent=role, round=r, stance="need_more", confidence=0.0, claims=[],
+                              abstained=True, take=crosscase.NO_CROSS_CASE_TAKE)
+            st.current[role] = post
+            self.bus.emit(st.case_id, "stance.posted", {"post": post.model_dump(mode="json")})
+        return [a for a in active if a != role]
 
     def _turn(self, st: CaseState, a: AgentName, r: int, this_round: list[StancePost]) -> DeliberationTurn:
         # Questions from last round, plus any asked earlier in this round (answered once, never re-delivered).
@@ -135,7 +170,8 @@ class Facilitator:
                 questions.append(PeerQuestion(asker=p.agent, question=p.challenge.question))
         return DeliberationTurn(case_id=st.case_id, round=r, max_rounds=self.max_rounds,
                                 evidence=st.board.all(), transcript=list(st.transcript),
-                                your_previous=st.current.get(a), questions_for_you=questions)
+                                your_previous=None if (prev := st.current.get(a)) and prev.abstained else prev,
+                                questions_for_you=questions)
 
     @staticmethod
     def _fallback_post(st: CaseState, a: AgentName, r: int) -> StancePost:
@@ -240,17 +276,22 @@ class Facilitator:
             if intake is None:
                 await self._intake(st)
             else:                                           # replay precomputed intake evidence in order
+                st.attempted |= intake.attempted
                 for ev in intake.board.all():
                     self._add(st, EvidenceDraft.model_validate(ev.model_dump(include=set(EvidenceDraft.model_fields))),
                               ev.requested_by)
 
             for r in range(1, self.max_rounds + 1):
                 rounds_used = r
-                active = self._active(st, r)
+                active = self._apply_cross_case_gate(st, r, self._active(st, r))
                 self.bus.emit(case_id, "round.started", {"round": r, "active": active})
-                before = dict(st.current) or None            # all three agents' posts before this round
+                before = {a: p for a, p in st.current.items() if not p.abstained} or None   # posts before this round
                 new_evidence = await self._run_round(st, r, active) if active else 0
-                reason = rules.stop_reason(r, self.max_rounds, dict(st.current), before, new_evidence)
+                taking_part = {a: p for a, p in st.current.items() if not p.abstained}
+                ready = {a: self._ready(st, a, p) for a, p in taking_part.items()}
+                sat_out = sum(p.abstained for p in st.current.values())
+                reason = rules.stop_reason(r, self.max_rounds, taking_part, before, new_evidence,
+                                           expected=len(AGENTS) - sat_out, ready=ready)
                 if reason:
                     break
         except BudgetExceeded as exc:
@@ -259,7 +300,7 @@ class Facilitator:
 
         finals = [st.current.get(a) or StancePost(agent=a, round=rounds_used, stance="need_more", confidence=0.0, claims=[])
                   for a in AGENTS]
-        outcome = rules.outcome({p.agent: p.stance for p in finals})
+        outcome = rules.outcome({p.agent: p.stance for p in finals if not p.abstained})   # whoever sat out does not count
         case_file = build_case_file(case_id, listing, seller, outcome, rounds_used, reason or "max_rounds", finals, st.board)
         self.bus.emit(case_id, "case.ended", {"case_file": case_file.model_dump(mode="json")})
         return case_file

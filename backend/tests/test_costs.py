@@ -95,3 +95,48 @@ def test_confirm_prints_the_report_before_asking(usage):
     printed = []
     costs.confirm([batch()], ask=lambda p: "n", out=printed.append)
     assert any("real API calls" in str(p) for p in printed)
+
+
+# ---------------- thinking-aware output, per-case limits ----------------
+
+def test_models_that_think_are_expected_to_write_more_output():
+    assert costs.expected_output_tokens("claude-haiku-4-5-20251001", 150) == 150          # no thinking
+    assert costs.expected_output_tokens("claude-opus-5-5", 150) == 315                    # measured: 310 against 150
+    assert costs.expected_output_tokens("claude-sonnet-5-5", 150) == 225                  # default for thinkers: 1.5x
+    assert costs.expected_output_tokens("some-new-model", 100) == 150                     # unknown: assume it thinks
+
+
+def test_batches_still_work_without_the_per_case_fields():
+    assert batch().calls_per_case is None and batch().concurrency is None
+
+
+def test_the_report_shows_per_case_numbers_and_stays_quiet_when_they_fit(usage):
+    text = costs.report([batch(calls_per_case=20, concurrency=3, max_output_tokens=200)])
+    assert "Per case id" in text and "20 calls" in text and "3 calls in flight" in text
+    assert "WARNING" not in text
+
+
+def test_the_report_warns_when_one_case_would_trip_its_own_cap(usage, monkeypatch):
+    # 40 calls x 315 expected out + 6 in flight x 1,500 reserved = 21,600 fits 30,000 ...
+    ok = costs.report([batch(model="claude-opus-5-5", calls_per_case=40, concurrency=6, input_tokens=1_500,
+                             output_tokens=315, max_output_tokens=1_500)])
+    assert "WARNING" not in ok
+    # ... but a case that has to hold 40 calls of 600 does not: 24,000 + 9,000 > 30,000
+    bad = costs.report([batch(model="claude-opus-5-5", calls_per_case=40, concurrency=6, input_tokens=1_500,
+                              output_tokens=600, max_output_tokens=1_500)])
+    assert "WARNING" in bad and "per-case output cap" in bad and "30,000" in bad
+
+
+def test_the_report_warns_when_expected_output_does_not_fit_what_is_left(usage, monkeypatch):
+    monkeypatch.setattr(config, "MAX_OUTPUT_TOKENS", 5_000)
+    assert "WARNING" in costs.report([batch(calls=100, output_tokens=100)])               # 10,000 expected > 5,000
+
+
+def test_a_worst_case_over_the_cap_is_information_not_a_warning(usage, monkeypatch):
+    monkeypatch.setattr(config, "MAX_OUTPUT_TOKENS", 15_000)
+    text = costs.report([batch(calls=100, output_tokens=100, max_output_tokens=200)])    # expected 10k fits; worst 20k
+    assert "WARNING" not in text and "worst case" in text
+
+
+def test_run_ids_differ_between_runs():
+    assert costs.new_run_id() != costs.new_run_id()
