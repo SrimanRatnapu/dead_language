@@ -24,7 +24,7 @@ function markFor(i: BatchItem): Mark | null {
   if (i.status === "screened_out") return { icon: "check", label: "Screened out", tone: "text-green" };
   if (i.status !== "done") return null;
   if (i.outcome === "FILE") return { icon: "flag", label: "Likely illegal", tone: "text-red" };
-  if (i.outcome === "CONTESTED") return { icon: "split", label: "Contested", tone: "text-amber-ink" };
+  if (i.outcome === "CONTESTED") return { icon: "contested", label: "Contested", tone: "text-amber-ink" };
   if (i.outcome === "WATCHLIST") return { icon: "clock", label: "Watching", tone: "text-cobalt-ink" };
   return { icon: "check", label: "Dismissed", tone: "text-green" };
 }

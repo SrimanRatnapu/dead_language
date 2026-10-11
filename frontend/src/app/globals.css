@@ -62,7 +62,8 @@ h1,h2,h3 { text-wrap: balance; }.display { font-weight: 600; letter-spacing: -.0
 .select { -webkit-appearance:none; appearance:none; padding-right:2.25rem; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' fill='none' stroke='%2316181d' stroke-width='1.5'%3E%3Cpath d='M1 1.5l5 5 5-5'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right .85rem center; transition:border-color 160ms; } @media (hover:hover) and (pointer:fine) { .select:hover { border-color:var(--ink); } }
 
 /* Hero evidence network: draws in once, then nodes breathe and a pulse travels the trunks. */
-.hero-net { position:absolute; inset:0; width:100%; height:100%; -webkit-mask-image:linear-gradient(90deg,transparent 18%,#000 62%); mask-image:linear-gradient(90deg,transparent 18%,#000 62%); }
+.hero-net { position:absolute; inset:0; width:100%; height:100%; opacity:.22; -webkit-mask-image:linear-gradient(90deg,transparent 30%,#000 80%); mask-image:linear-gradient(90deg,transparent 30%,#000 80%); }
+@media (min-width:1024px) { .hero-net { left:58%; width:54%; opacity:.5; -webkit-mask-image:linear-gradient(90deg,transparent,#000 35%); mask-image:linear-gradient(90deg,transparent,#000 35%); } }
 .net-line { fill:none; stroke:color-mix(in oklch,var(--cobalt) 38%,transparent); stroke-width:1.25; stroke-dasharray:1; stroke-dashoffset:1; animation:net-draw 1100ms var(--ease-out) forwards; }
 .net-line--teal { stroke:color-mix(in oklch,var(--teal) 50%,transparent); }
 .net-node { fill:var(--bg); stroke:var(--teal); stroke-width:1.5; opacity:0; transform-box:fill-box; transform-origin:center; animation:net-pop 500ms var(--ease-out) forwards,net-breathe 4.5s ease-in-out 2.4s infinite; }

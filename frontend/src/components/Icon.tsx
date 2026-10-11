@@ -18,6 +18,7 @@ const PATHS = {
   chevron: "M9 6l6 6-6 6",
   flag: "M6 21V4M6 4h11l-2 4 2 4H6",
   split: "M12 3v18M12 3a9 9 0 0 0 0 18",
+  contested: "M4 8h15M15 4l4 4-4 4M20 16H5M9 12l-4 4 4 4",
   clock: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7v5l3 2",
   external: "M14 4h6v6M20 4l-9 9M18 14v6H4V6h6",
 } as const;

@@ -25,9 +25,9 @@ export function CaseView({ target }: { target: CaseTarget }) {
   // Three pages: read the listing, watch the specialists, then the agents discuss. The agents' events are held back until the hand-off.
   const [stage, setStage] = useState<Stage>("listing");
   const ready = events.held || state.rounds.length > 0;
-  const toAgents = () => { events.release(); setStage("agents"); };
+  const toAgents = (instant = false) => { events.release(instant); setStage("agents"); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { const s = new URLSearchParams(location.search).get("stage"); if (s === "agents") toAgents(); else if (s === "examiners") setStage("examiners"); }, []);
+  useEffect(() => { const s = new URLSearchParams(location.search).get("stage"); if (s === "agents") toAgents(true); else if (s === "examiners") setStage("examiners"); }, []);
   const go = (k: Stage) => (k === "agents" ? toAgents() : setStage(k));
   // scripts/record_scripted_demo.py stamps its runs with a "DEMO-" case id; recorded live runs are "C-0001".
   const scripted = Object.values(state.evidence)[0]?.case_id.startsWith("DEMO-") ?? false;
@@ -61,7 +61,7 @@ export function CaseView({ target }: { target: CaseTarget }) {
               </div>
             </div>
           </>}
-          {stage === "examiners" && <Examination state={state} ready={ready} onBack={() => setStage("listing")} onSend={toAgents} onOpen={setOpenEvidence} />}
+          {stage === "examiners" && <Examination state={state} ready={ready} onBack={() => setStage("listing")} onSend={() => toAgents()} onOpen={setOpenEvidence} />}
           {stage === "agents" && <>
             <Standing state={state} />
             <div className="grid min-h-0 flex-1 lg:grid-cols-[17rem_1fr]">

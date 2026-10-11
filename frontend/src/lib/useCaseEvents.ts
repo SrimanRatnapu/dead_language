@@ -29,7 +29,7 @@ export interface CaseEvents {
   offline: boolean;
   controllable: boolean; // replay/fixture only
   held: boolean; // the examination is finished and the agents are waiting for release()
-  release: () => void;
+  release: (instant?: boolean) => void; // instant: show what already happened at once instead of at its original pace
   pause: () => void;
   play: () => void;
   skipToEnd: () => void;
@@ -41,6 +41,8 @@ export function useCaseEvents(source: CaseSource): CaseEvents {
   const [error, setError] = useState<string | null>(null);
   const [offline, setOffline] = useState(false);
   const [held, setHeld] = useState(false);
+  const ended = useRef(false); // the case.ended event has been shown
+  const live = useRef(source.kind === "live");
   const gate = useRef({ open: false, buffer: [] as Event[] });
 
   const speedRef = useRef<Speed>(1);
@@ -62,7 +64,8 @@ export function useCaseEvents(source: CaseSource): CaseEvents {
       if (!gate.current.open && AGENT_STAGE.has(q.events[q.i].type)) return setHeld(true);
       const e = q.events[q.i++];
       dispatch({ type: "event", event: e });
-      if (q.i >= q.events.length) return setStatus("ended");
+      if (e.type === "case.ended") ended.current = true;
+      if (q.i >= q.events.length) return live.current && !ended.current ? undefined : setStatus("ended"); // a live case keeps going after the backlog
       const gap = Math.max(0, Date.parse(q.events[q.i].at) - Date.parse(e.at));
       timer.current = window.setTimeout(() => tickRef.current(), Math.min(gap, MAX_GAP_MS) / speedRef.current);
     };
@@ -77,6 +80,8 @@ export function useCaseEvents(source: CaseSource): CaseEvents {
     pausedRef.current = false;
     queue.current = { events: [], i: 0 };
     gate.current = { open: false, buffer: [] };
+    ended.current = false;
+    live.current = source.kind === "live";
     setHeld(false);
 
     if (source.kind === "live") {
@@ -86,9 +91,12 @@ export function useCaseEvents(source: CaseSource): CaseEvents {
         const event = JSON.parse(m.data) as Event;
         const g = gate.current;
         if (!g.open && (g.buffer.length > 0 || AGENT_STAGE.has(event.type))) { g.buffer.push(event); setHeld(true); setStatus("playing"); return; }
+        const q = queue.current;
+        if (q.i < q.events.length) { q.events.push(event); return; } // still pacing the released backlog: queue behind it
         dispatch({ type: "event", event });
         setStatus("playing");
         if (event.type === "case.ended") {
+          ended.current = true;
           es?.close();
           setStatus("ended");
         }
@@ -96,7 +104,7 @@ export function useCaseEvents(source: CaseSource): CaseEvents {
       EVENT_TYPES.forEach((t) => es!.addEventListener(t, onMsg as EventListener));
       es.onerror = () => {
         // EventSource auto-reconnects (seq dedupe makes that safe); only surface a hard close.
-        if (es?.readyState === EventSource.CLOSED) {
+        if (es?.readyState === EventSource.CLOSED && !ended.current) {
           setError("Lost connection to the backend.");
           setStatus("error");
         }
@@ -143,12 +151,15 @@ export function useCaseEvents(source: CaseSource): CaseEvents {
     tick();
   }, [tick]);
 
-  const release = useCallback(() => {
+  const release = useCallback((instant = false) => {
     const g = gate.current;
     if (g.open) return;
     g.open = true;
-    if (g.buffer.length) dispatch({ type: "events", events: g.buffer.splice(0) });
     setHeld(false);
+    if (!g.buffer.length) return;
+    if (instant) { dispatch({ type: "events", events: g.buffer.splice(0) }); return; }
+    // Play the backlog at the pace it happened (capped), so the agents' stage unfolds instead of landing all at once.
+    queue.current = { events: g.buffer.splice(0), i: 0 };
     tick();
   }, [tick]);
 

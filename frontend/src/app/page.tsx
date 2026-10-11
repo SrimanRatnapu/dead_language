@@ -22,10 +22,9 @@ export default function Landing() {
         <WildlifeSignal />
         <div className="mx-auto flex min-h-[calc(100dvh-3.5rem)] max-w-7xl items-center px-5 py-10 sm:px-8">
           <div className="flex max-w-[46rem] flex-col gap-7">
-            <h1 className="serif text-[clamp(2.5rem,5vw,4.5rem)] leading-[1.02] [text-wrap:balance]">
-              Coded ivory listings slip past word filters. <span className="text-cobalt-ink">The price and photos give them away.</span>
+            <h1 className="serif max-w-[22ch] text-[clamp(2.25rem,4.4vw,4rem)] leading-[1.05] [text-wrap:balance]">
+              Three AI agents argue over every <span className="text-cobalt-ink">suspected illegal wildlife listing.</span>
             </h1>
-            <p className="max-w-[52ch] text-xl text-muted">Specialists check each flagged listing&apos;s price, seller, photos and wording. Then three AI agents with opposing goals argue over the evidence, citing a source for every claim.</p>
             <Link href="/desk" className="press inline-flex min-h-12 w-fit items-center bg-ink px-7 text-base font-semibold text-bg hover:bg-ink-2">Open the review desk</Link>
           </div>
         </div>
