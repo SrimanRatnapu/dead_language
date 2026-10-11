@@ -380,7 +380,6 @@ def api(tmp_path, monkeypatch):
     monkeypatch.setattr(live, "fetch_live", fake_fetch_live)
     monkeypatch.setattr(live, "rank_for_review", fake_rank)
     monkeypatch.setattr(live, "fetch_related", fake_fetch_related)
-    monkeypatch.delenv("DL_FOLLOW_UP", raising=False)
     app = create_app(TwoListingMarket(), transport, FakeDiscovery(), EventBus(runs_dir=tmp_path / "runs"),
                      data_dir=tmp_path / "data", replays_dir=tmp_path / "r", results_dir=tmp_path / "res")
     with TestClient(app) as c:
@@ -409,12 +408,9 @@ def test_live_batch_follows_up_a_flagged_listing(api):
     assert api.get("/api/metrics").json()["funnel"]["ingested"] == 3
 
 
-def test_no_follow_up_for_demo_or_recorded_batches_or_when_switched_off(api, monkeypatch):
+def test_no_follow_up_for_demo_or_recorded_batches(api):
     items, _ = run(api, {"source": "demo"})                       # demo lane: never fetches anything
     assert len(items) == 1 and items[0]["outcome"] == "FILE" and items[0]["follow_up"] is None
     api.mode["mode"] = "recorded"                                 # no live API behind a recorded batch
-    assert len(run(api, {"source": "live", "query": "x"})[0]) == 1
-    api.mode["mode"] = "live"
-    monkeypatch.setenv("DL_FOLLOW_UP", "0")
     assert len(run(api, {"source": "live", "query": "x"})[0]) == 1
     assert api.calls == []

@@ -90,7 +90,7 @@ category whose titles share the flagged title's rarest words; they are appended 
 A batch can therefore **grow after it starts**: clients must add a row for an unknown `listing_id` in an event,
 and the event stream now ends when nothing is running (every item terminal and no follow-up pending).
 Limits: one hop, at most 20 added listings per batch, at most 50 listings per batch in all. Off with
-`DL_FOLLOW_UP=0`. Never runs for `source: "demo"` or `source_mode: "recorded"`. Details: `05-discovery-sweep.md` step 3.
+no env switch. Never runs for `source: "demo"` or `source_mode: "recorded"`. Details: `05-discovery-sweep.md` step 3.
 
 `screened_out` means Haiku triage cleared it and no agents ran. UI marks (D): flag = FILE, check = DISMISS or screened_out, split mark = CONTESTED, clock = WATCHLIST, warning = error. Do **not** use an X for dismiss: X reads as failure.
 

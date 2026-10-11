@@ -254,8 +254,8 @@ def create_app(market: Any = None, transport: Any = None, discovery: Any = None,
     def should_follow(batch: dict[str, Any], item: dict[str, Any]) -> bool:
         """A live listing the agents flagged (FILE or CONTESTED) gets its surroundings fetched. Live lane only:
         nothing is ever fetched for a demo batch, and a recorded batch has no live API to ask.
-        DL_FOLLOW_UP=0 turns it off. (When triage lands, its `suspicious` flag can trigger this earlier.)"""
-        return (os.getenv("DL_FOLLOW_UP", "1").strip() != "0" and batch["source"] == "live"
+        Always on: no env switch. (When triage lands, its `suspicious` flag can trigger this earlier.)"""
+        return (batch["source"] == "live"
                 and batch["source_mode"] == "live" and item.get("outcome") in FOLLOW_UP_OUTCOMES)
 
     async def follow_up(batch: dict[str, Any], item: dict[str, Any], room: int) -> list[dict[str, Any]]:

@@ -98,7 +98,7 @@ the Review desk (`frontend/src/app/desk/page.tsx`). Tests: `backend/tests/test_f
 **Trigger.** A batch with `source: "live"` and `source_mode: "live"`, an item whose case ends FILE or CONTESTED.
 Never for a demo batch (nothing is fetched into the demo lane) and never for a recorded batch (there is no live
 API behind it). When B's triage lands, its `suspicious` flag can trigger it earlier; today the outcome does.
-`DL_FOLLOW_UP=0` switches it off. It is **on by default**.
+It is always on (no env switch).
 
 **Who picks the words: code, not a model.** `distinctive_terms` takes words from the flagged listing's own
 **title**, drops filler words, numbers, words under 3 letters, the material and item-type words the parser already
