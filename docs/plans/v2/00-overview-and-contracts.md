@@ -73,6 +73,8 @@ BatchItem = {
   "error": str | null
 }
 ```
+**As built (C):** `POST` also returns `"mode": "fake"|"real"` (env `DL_WORKER`, default `fake`: canned random statuses and outcomes, no model calls, so D can build the queue UI). `real` runs the Facilitator on each item and skips triage until B's `screen()` lands. With no `listing_ids`, `source: "demo"` uses `data/demo_set.json` if A has added it, else the four recorded demo cases. `source: "live"` returns 501 until A's `fetch_live` exists. Concurrency limit: `DL_MAX_CONCURRENT_CASES` (default 4). SSE events also carry `case_id`; the stream ends when every item is terminal, and late subscribers get the full history.
+
 `screened_out` means Haiku triage cleared it and no agents ran. UI marks (D): flag = FILE, check = DISMISS or screened_out, split mark = CONTESTED, clock = WATCHLIST, warning = error. Do **not** use an X for dismiss: X reads as failure.
 
 ### 4.3 Strike (human-approved takedown), C builds, D consumes

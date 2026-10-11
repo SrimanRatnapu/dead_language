@@ -8,14 +8,15 @@ import os
 import re
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sse_starlette.sse import EventSourceResponse
 
+from deadlang.api.batches import Batches, fake_worker
 from deadlang.api.events import EventBus
 from deadlang.deliberation.facilitator import Facilitator
 from deadlang.schemas import CaseFile, Event, now_iso
@@ -33,14 +34,32 @@ class NameRequest(BaseModel):
     name: str
 
 
+class BatchRequest(BaseModel):
+    source: Literal["demo", "live"]
+    listing_ids: list[str] | None = None
+    query: str | None = None
+    cap: int = Field(25, ge=1, le=200)
+
+
+def demo_listing_ids(data_dir: Path) -> list[str]:
+    """data/demo_set.json (Person A, list of {listing_id}) if present, else the four recorded demo cases."""
+    path = data_dir / "demo_set.json"
+    if path.is_file():
+        return [r["listing_id"] for r in json.loads(path.read_text())]
+    return list(json.loads((data_dir / "demo_cases.json").read_text()).values())
+
+
 def create_app(market: Any = None, transport: Any = None, discovery: Any = None, bus: EventBus | None = None,
-               data_dir: Path | None = None, replays_dir: Path | None = None, results_dir: Path | None = None) -> FastAPI:
+               data_dir: Path | None = None, replays_dir: Path | None = None, results_dir: Path | None = None,
+               worker_mode: str | None = None) -> FastAPI:
     """Dependencies default to the real ones (built at startup); tests inject fakes."""
     data_dir = Path(data_dir or os.getenv("DL_DATA_DIR") or ROOT / "data")
     replays_dir = Path(replays_dir or ROOT / "fixtures" / "replays")
     results_dir = Path(results_dir or ROOT / "results")
     state: dict[str, Any] = {}
     cases: dict[str, dict[str, Any]] = {}
+    worker_mode = worker_mode or os.getenv("DL_WORKER", "fake")   # fake: canned results, no model calls
+    batches: Batches
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -59,6 +78,9 @@ def create_app(market: Any = None, transport: Any = None, discovery: Any = None,
         existing = [int(m_.group(1)) for p in (b.runs_dir.glob("C-*.jsonl") if b.runs_dir else []) if (m_ := CASE_RE.search(p.name))]
         state.update(market=m, transport=t, discovery=d, bus=b, counter=max(existing, default=0),
                      facilitator=Facilitator(m, t, d, b))
+        nonlocal batches
+        batches = Batches(real_worker if worker_mode == "real" else fake_worker(), worker_mode,
+                          int(os.getenv("DL_MAX_CONCURRENT_CASES", "4")))
         yield
 
     app = FastAPI(title="Dead Language API", lifespan=lifespan)
@@ -95,27 +117,70 @@ def create_app(market: Any = None, transport: Any = None, discovery: Any = None,
         return {"listing": l.model_dump(mode="json"), "seller": s.model_dump(mode="json")}
 
     # ------------------------------------------------------------------ cases
-    @app.post("/api/cases")
-    async def create_case(req: CaseRequest):
-        try:
-            await state["market"].get_listing_snapshot(req.listing_id)
-        except KeyError:
-            raise HTTPException(404, "unknown listing")
+    def start_case(listing_id: str) -> str:
         state["counter"] += 1
         case_id = f"C-{state['counter']:04d}"
-        info = {"listing_id": req.listing_id, "started_at": now_iso(), "case_file": None}
+        info = {"listing_id": listing_id, "started_at": now_iso(), "case_file": None}
         cases[case_id] = info
 
         async def run():
             try:
-                info["case_file"] = await state["facilitator"].run_case(case_id, req.listing_id)
+                info["case_file"] = await state["facilitator"].run_case(case_id, listing_id)
             except Exception as exc:
                 log.exception("case %s failed", case_id)
                 # Always terminate the stream. Extends the case.ended payload with `error` (case_file is null).
                 state["bus"].emit(case_id, "case.ended", {"case_file": None, "error": f"{type(exc).__name__}: {exc}"})
 
         info["task"] = asyncio.create_task(run())
-        return {"case_id": case_id}
+        return case_id
+
+    @app.post("/api/cases")
+    async def create_case(req: CaseRequest):
+        try:
+            await state["market"].get_listing_snapshot(req.listing_id)
+        except KeyError:
+            raise HTTPException(404, "unknown listing")
+        return {"case_id": start_case(req.listing_id)}
+
+    async def real_worker(item: dict[str, Any], set_status: Any) -> None:
+        # No triage step until Person B's screen() lands: every item is deliberated.
+        set_status(status="deliberating", case_id=(case_id := start_case(item["listing_id"])))
+        await cases[case_id]["task"]
+        cf = cases[case_id]["case_file"]
+        if cf is None:
+            raise RuntimeError("case failed before a case file was produced")
+        set_status(status="done", outcome=cf.outcome)
+
+    # ------------------------------------------------------------------ batches
+    @app.post("/api/batches", status_code=202)
+    async def create_batch(req: BatchRequest):
+        if req.source == "live":
+            raise HTTPException(501, "live source needs Person A's fetch_live, which is not merged yet")
+        ids = req.listing_ids or demo_listing_ids(data_dir)
+        for lid in ids:
+            try:
+                await state["market"].get_listing_snapshot(lid)
+            except KeyError:
+                raise HTTPException(404, f"unknown listing {lid}")
+        b = batches.submit(req.source, ids)
+        return {"batch_id": b["batch_id"], "mode": b["mode"], "items": b["items"]}
+
+    @app.get("/api/batches/{batch_id}")
+    async def get_batch(batch_id: str):
+        if batches.get(batch_id) is None:
+            raise HTTPException(404, "unknown batch")
+        return batches.view(batch_id)
+
+    @app.get("/api/batches/{batch_id}/events")
+    async def batch_events(batch_id: str):
+        if batches.get(batch_id) is None:
+            raise HTTPException(404, "unknown batch")
+
+        async def gen():
+            async for e in batches.events(batch_id):
+                yield {"event": e["type"], "data": json.dumps(e)}
+
+        return EventSourceResponse(gen())
 
     @app.get("/api/cases")
     async def list_cases():
