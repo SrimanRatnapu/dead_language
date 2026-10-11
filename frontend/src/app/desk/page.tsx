@@ -152,7 +152,7 @@ export default function Cases() {
       <Photo src={imageUrl(l?.image_paths[0] ?? "")} label={l?.title ?? i.listing_id} className="size-14 w-full" />
       <span className="min-w-0"><span className="block line-clamp-2 font-semibold">{l?.title ?? i.listing_id}</span>
         <span className="block text-sm text-muted">{l ? `$${l.price_usd.toLocaleString()} · ` : ""}{l?.origin === "live" || i.found_via ? "Live listing" : "Demo listing"}</span>
-        {note && <span className="block text-sm text-cobalt-ink">{i.found_via && <b className="mr-2 border border-cobalt-ink px-1.5 text-xs uppercase">Added</b>}{note}</span>}</span>
+        {note && <span className="block text-sm text-cobalt-ink">{note}</span>}</span>
       <span className={`inline-flex items-center justify-end gap-2 text-sm font-semibold ${m?.tone ?? "text-muted"}`}>
         {m ? <><Icon name={m.icon} size={18} />{m.label}</>
            : <><span className="typing flex gap-1" aria-hidden><span /><span /><span /></span>{phaseLabel(i)}{i.status === "deliberating" && i.started_at ? ` · ${Math.max(0, Math.round((now - Date.parse(i.started_at)) / 1000))}s` : ""}</>}
