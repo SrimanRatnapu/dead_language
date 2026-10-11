@@ -21,7 +21,7 @@ async def test_one_bad_item_does_not_fail_batch_and_late_subscriber_sees_history
             raise ValueError("boom")
         set_status(status="done", outcome="FILE")
 
-    b = Batches(worker, "fake", limit=1)
+    b = Batches(worker, limit=1)
     batch = b.submit("demo", ["L1", "BAD", "L2", "L1"])        # duplicate id is collapsed
     assert [i["listing_id"] for i in batch["items"]] == ["L1", "BAD", "L2"]
     first = await collect(b, batch["batch_id"])                  # subscribes mid-run, ends when all terminal
@@ -44,7 +44,7 @@ async def test_concurrency_limit_is_respected():
         running -= 1
         set_status(status="done", outcome="DISMISS")
 
-    b = Batches(worker, "fake", limit=2)
+    b = Batches(worker, limit=2)
     await collect(b, b.submit("demo", [f"L{i}" for i in range(6)])["batch_id"])
     assert peak == 2
 
@@ -55,7 +55,7 @@ def client(tmp_path):
     (tmp_path / "data" / "demo_cases.json").write_text(json.dumps({"d1": "L0101", "d2": "L0102"}))
     t = FakeTransport(posts={(a, 1): post(a, 1, "file") for a in ("undercover", "counsel", "case_officer")})
     app = create_app(FakeMarket(), t, FakeDiscovery(), EventBus(runs_dir=tmp_path / "runs"), data_dir=tmp_path / "data",
-                     replays_dir=tmp_path / "r", results_dir=tmp_path / "res", worker_mode="real")
+                     replays_dir=tmp_path / "r", results_dir=tmp_path / "res")
     with TestClient(app) as c:
         yield c
 
@@ -64,7 +64,7 @@ def test_batch_api_runs_real_cases_and_streams_to_the_end(client):
     r = client.post("/api/batches", json={"source": "demo"})         # no ids: the demo set
     assert r.status_code == 202
     body = r.json()
-    assert body["mode"] == "real" and [i["status"] for i in body["items"]] == ["queued", "queued"]
+    assert [i["status"] for i in body["items"]] == ["queued", "queued"]
     statuses = []
     with client.stream("GET", f"/api/batches/{body['batch_id']}/events") as s:
         for line in s.iter_lines():

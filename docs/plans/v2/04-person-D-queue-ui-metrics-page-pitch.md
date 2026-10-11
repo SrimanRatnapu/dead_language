@@ -16,8 +16,8 @@ Pages: `/` listings, `/listing/[id]`, `/replays`, `/replay/[name]`, `/results`, 
 
 ## Tasks
 
-### D1. Build against fakes first (P0)
-C ships a **fake worker** for the batch API (`"mode": "fake"` in responses) on day one. Until then, add a local fake in `frontend/src/lib/stubs.ts` that mimics the shapes in file 00 §4.2 and §4.6 so you are never blocked. The existing `withFallback` pattern in `lib/stubs.ts` is the model.
+### D1. Build against the real batch API (P0)
+C's batch API is live (`POST /api/batches` and its SSE stream) and runs real cases, so there is no fake mode. For anything C hasn't shipped yet (metrics, strike, refresh), add a local fake in `frontend/src/lib/stubs.ts` that mimics the shapes in file 00 §4.2 and §4.6 so you are never blocked. The existing `withFallback` pattern in `lib/stubs.ts` is the model.
 
 ### D2. Queue view (P0/P1)
 New page `frontend/src/app/queue/page.tsx` (primary nav item "Queue"; the listings page can link to it).

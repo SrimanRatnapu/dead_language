@@ -16,7 +16,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from sse_starlette.sse import EventSourceResponse
 
-from deadlang.api.batches import Batches, fake_worker
+from deadlang.api.batches import Batches
 from deadlang.api.events import EventBus
 from deadlang.deliberation.facilitator import Facilitator
 from deadlang.schemas import CaseFile, Event, now_iso
@@ -50,15 +50,13 @@ def demo_listing_ids(data_dir: Path) -> list[str]:
 
 
 def create_app(market: Any = None, transport: Any = None, discovery: Any = None, bus: EventBus | None = None,
-               data_dir: Path | None = None, replays_dir: Path | None = None, results_dir: Path | None = None,
-               worker_mode: str | None = None) -> FastAPI:
+               data_dir: Path | None = None, replays_dir: Path | None = None, results_dir: Path | None = None) -> FastAPI:
     """Dependencies default to the real ones (built at startup); tests inject fakes."""
     data_dir = Path(data_dir or os.getenv("DL_DATA_DIR") or ROOT / "data")
     replays_dir = Path(replays_dir or ROOT / "fixtures" / "replays")
     results_dir = Path(results_dir or ROOT / "results")
     state: dict[str, Any] = {}
     cases: dict[str, dict[str, Any]] = {}
-    worker_mode = worker_mode or os.getenv("DL_WORKER", "fake")   # fake: canned results, no model calls
     batches: Batches
 
     @asynccontextmanager
@@ -79,8 +77,7 @@ def create_app(market: Any = None, transport: Any = None, discovery: Any = None,
         state.update(market=m, transport=t, discovery=d, bus=b, counter=max(existing, default=0),
                      facilitator=Facilitator(m, t, d, b))
         nonlocal batches
-        batches = Batches(real_worker if worker_mode == "real" else fake_worker(), worker_mode,
-                          int(os.getenv("DL_MAX_CONCURRENT_CASES", "4")))
+        batches = Batches(real_worker, int(os.getenv("DL_MAX_CONCURRENT_CASES", "4")))
         yield
 
     app = FastAPI(title="Dead Language API", lifespan=lifespan)
@@ -163,7 +160,7 @@ def create_app(market: Any = None, transport: Any = None, discovery: Any = None,
             except KeyError:
                 raise HTTPException(404, f"unknown listing {lid}")
         b = batches.submit(req.source, ids)
-        return {"batch_id": b["batch_id"], "mode": b["mode"], "items": b["items"]}
+        return {"batch_id": b["batch_id"], "items": b["items"]}
 
     @app.get("/api/batches/{batch_id}")
     async def get_batch(batch_id: str):

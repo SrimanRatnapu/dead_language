@@ -6,21 +6,19 @@ ponytail: in-process asyncio queue; swap Batches for Redis/SQS behind submit()/e
 from __future__ import annotations
 
 import asyncio
-import random
 from collections.abc import AsyncIterator, Awaitable, Callable
 from typing import Any
 
 from deadlang.schemas import now_iso
 
 TERMINAL = {"screened_out", "done", "error"}
-OUTCOMES = ["FILE", "DISMISS", "CONTESTED", "WATCHLIST"]
 # worker(item, set_status): drives one item; set_status(status=..., triage=..., outcome=..., case_id=..., error=...)
 Worker = Callable[[dict[str, Any], Callable[..., None]], Awaitable[None]]
 
 
 class Batches:
-    def __init__(self, worker: Worker, mode: str, limit: int = 4):
-        self.worker, self.mode = worker, mode
+    def __init__(self, worker: Worker, limit: int = 4):
+        self.worker = worker
         self._sem = asyncio.Semaphore(limit)
         self._batches: dict[str, dict[str, Any]] = {}
         self._subs: dict[str, list[asyncio.Queue]] = {}
@@ -30,7 +28,7 @@ class Batches:
         bid = f"B-{len(self._batches) + 1:04d}"
         items = [{"listing_id": i, "case_id": None, "status": "queued", "triage": None, "outcome": None, "error": None}
                  for i in dict.fromkeys(listing_ids)]
-        batch = {"batch_id": bid, "source": source, "mode": self.mode, "created_at": now_iso(), "items": items,
+        batch = {"batch_id": bid, "source": source, "created_at": now_iso(), "items": items,
                  "_events": [], "_finished": not items}
         self._batches[bid] = batch
         for it in items:
@@ -86,19 +84,3 @@ class Batches:
         finally:
             self._subs[bid].remove(q)
 
-
-def fake_worker(rng: random.Random | None = None, delay: tuple[float, float] = (0.4, 1.4)) -> Worker:
-    """Canned-random worker so the queue UI can be built without model calls. Batches report mode="fake"."""
-    rng = rng or random.Random()
-
-    async def work(item: dict[str, Any], set_status: Callable[..., None]) -> None:
-        set_status(status="triaging")
-        await asyncio.sleep(rng.uniform(*delay))
-        triage = {"score": round(rng.random(), 2), "reason": "fake triage score"}
-        if triage["score"] < 0.3:
-            return set_status(status="screened_out", triage=triage)
-        set_status(status="deliberating", triage=triage)
-        await asyncio.sleep(rng.uniform(*delay) * 2)
-        set_status(status="done", outcome=rng.choice(OUTCOMES))
-
-    return work
