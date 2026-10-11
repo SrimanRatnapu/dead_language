@@ -41,10 +41,23 @@ recompute its pseudonym. A seller's own shop name inside listing text is replace
 dataset and in live fetches. Photos can
 contain watermarks; stored-dataset photos were checked by eye (not every photo of every listing), live photos are not.
 
+## Follow-up fetch (live lane)
+
+When the agents flag a live listing, we fetch that seller's other listings and listings in the same eBay category
+whose titles share its rarest words, and queue them for the same review (`fetch_related`). The search words are
+picked by code from the flagged listing's title; no model reads the listing to choose them. The seller search
+needs the seller's real eBay username: it is read from eBay at that moment, used for that search, and dropped. It
+is not written to any file, not returned, and the request line in the log has it blanked. Why a listing was
+fetched ("same seller", "shares these title words") is shown to the reviewer and is not given to the agents.
+Each live record now also keeps the listing's eBay category id (not personal data) so the same category can be
+searched after the listing is gone.
+
 ## Limits on our own fetching
 
 At most 50 listings per live fetch, at most 3 search pages, one request per 0.1 s, at most 3 photos per listing.
-The refresh check makes one request per live listing.
+The refresh check makes one request per live listing. A follow-up fetch adds at most 10 seller listings and
+2 x 10 title matches per flagged listing, at most 20 listings per batch, never follows a follow-up, and uses at
+most 6 search requests, plus one item request for the flagged listing and one for each new listing it looks at.
 
 ## Retention and deletion
 

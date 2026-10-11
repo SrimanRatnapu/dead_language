@@ -77,6 +77,21 @@ BatchItem = {
 
 **As built (C):** every batch runs the Facilitator on each item (real model calls; there is no fake mode). Triage is skipped until B's `screen()` lands. With no `listing_ids`, `source: "demo"` uses `data/demo_set.json` if A has added it, else the four recorded demo cases. `source: "live"` returns 501 until A's `fetch_live` exists. Concurrency limit: `DL_MAX_CONCURRENT_CASES` (default 4). SSE events also carry `case_id`; the stream ends when every item is terminal, and late subscribers get the full history.
 
+**Follow-up fetch (A, added 2026-10-11).** In a live batch, when an item ends FILE or CONTESTED, A's
+`fetch_related(listing_id, limit, exclude)` fetches that seller's other listings and listings in the same eBay
+category whose titles share the flagged title's rarest words; they are appended to the same batch as `queued`.
+`BatchItem` gained four fields (null unless they apply), and `batch.item` events carry them when set:
+```
+"found_via": "seller" | "keyword" | null     # why a follow-up listing is in the batch
+"term":      str | null                      # the shared title words, for "keyword"
+"parent":    str | null                      # listing_id of the flagged listing that led to it
+"follow_up": {"state": "searching" | "done", "added": int} | null     # on the flagged item itself
+```
+A batch can therefore **grow after it starts**: clients must add a row for an unknown `listing_id` in an event,
+and the event stream now ends when nothing is running (every item terminal and no follow-up pending).
+Limits: one hop, at most 20 added listings per batch, at most 50 listings per batch in all. Off with
+`DL_FOLLOW_UP=0`. Never runs for `source: "demo"` or `source_mode: "recorded"`. Details: `05-discovery-sweep.md` step 3.
+
 `screened_out` means Haiku triage cleared it and no agents ran. UI marks (D): flag = FILE, check = DISMISS or screened_out, split mark = CONTESTED, clock = WATCHLIST, warning = error. Do **not** use an X for dismiss: X reads as failure.
 
 ### 4.3 Strike (human-approved takedown), C builds, D consumes
