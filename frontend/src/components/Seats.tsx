@@ -32,8 +32,7 @@ export function Seats({ state }: { state: CaseState }) {
 
   let note: React.ReactNode = "";
   if (thinking) note = reading ? <>{who(thinking)} is reading what {who(reading)} said.</> : <>{who(thinking)} is reading the evidence.</>;
-  else if (finished) note = "Discussion finished.";
-  else if (p?.challenge) note = <>{who(p.agent)} asked {who(p.challenge.target_agent)}: “{cut(p.challenge.question, 70)}”</>;
+    else if (p?.challenge) note = <>{who(p.agent)} asked {who(p.challenge.target_agent)}: “{cut(p.challenge.question, 70)}”</>;
   else if (p?.rebuttal) note = <>{who(p.agent)} answered {who(p.rebuttal.target_agent)}.</>;
 
   return (
@@ -56,7 +55,7 @@ export function Seats({ state }: { state: CaseState }) {
           );
         })}
       </div>
-      <p key={state.feed.length} className="rise mt-2 min-h-6 text-base font-medium text-ink [text-wrap:pretty]" aria-live="polite">{note}</p>
+      <p key={state.feed.length} className="rise mt-2 text-base font-medium empty:hidden text-ink [text-wrap:pretty]" aria-live="polite">{note}</p>
     </div>
   );
 }

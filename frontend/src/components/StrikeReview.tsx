@@ -24,20 +24,18 @@ export function StrikeReview({ caseId }: { caseId: string }) {
     try { setS(await postStrike(caseId, action, by)); } catch { setErr("That did not go through. Check the name and try again."); }
   }
   const simulated = s.status === "submitted_simulated" || s.status === "observed_removed";
-  const btn = "press min-h-11 px-4 py-2.5 font-semibold disabled:opacity-40";
+  const btn = "press min-h-9 px-3 py-1 font-semibold disabled:opacity-40";
   return (
-    <section className="flex flex-col gap-3 border border-line p-3" aria-label="Human review">
+    <section className="flex flex-wrap items-center gap-x-3 gap-y-2 text-base" aria-label="Human review">
       <h3 className="font-semibold">Human review</h3>
-      <p aria-live="polite">{STATUS_TEXT[s.status]}{s.approved_by && s.status !== "pending_review" ? ` · approved by ${s.approved_by}` : ""}</p>
-      {s.status === "pending_review" && (
-        <div className="flex flex-wrap items-end gap-3">
-          <label className="text-sm text-muted">Your name<input value={by} onChange={(e) => setBy(e.target.value)} className="mt-1 block min-h-11 w-56 border border-line bg-surface px-3 text-base text-ink" /></label>
-          <button onClick={() => act("approve")} disabled={!by.trim()} className={`${btn} bg-ink text-surface hover:bg-cobalt`}>Approve</button>
-        </div>
-      )}
-      {s.status === "approved" && <button onClick={() => act("submit")} className={`${btn} w-fit bg-ink text-surface hover:bg-cobalt`}>Submit report</button>}
-      {simulated && <p className="mono bg-ink px-3 py-2 text-surface">Simulated: nothing is sent to any marketplace</p>}
-      {err && <p role="alert" className="text-red">{err}</p>}
+      <p aria-live="polite" className="text-muted">{STATUS_TEXT[s.status]}{s.approved_by && s.status !== "pending_review" ? ` · approved by ${s.approved_by}` : ""}</p>
+      {s.status === "pending_review" && <>
+        <input value={by} onChange={(e) => setBy(e.target.value)} placeholder="Your name" aria-label="Your name" className="min-h-9 w-40 border border-line bg-surface px-2 text-ink" />
+        <button onClick={() => act("approve")} disabled={!by.trim()} className={`${btn} bg-ink text-surface hover:bg-cobalt`}>Approve</button>
+      </>}
+      {s.status === "approved" && <button onClick={() => act("submit")} className={`${btn} bg-ink text-surface hover:bg-cobalt`}>Submit report</button>}
+      {simulated && <p className="mono bg-ink px-2 py-1 text-surface">Simulated: nothing is sent to any marketplace</p>}
+      {err && <p role="alert" className="w-full text-red">{err}</p>}
     </section>
   );
 }
