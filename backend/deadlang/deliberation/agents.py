@@ -66,7 +66,11 @@ def build_user_message(turn: DeliberationTurn) -> str:
         parts.append("# Questions for you\n" + "\n".join(f"- {q.asker.replace("_", " ").title()} asks: {q.question}"
                                                          for q in turn.questions_for_you))
     parts.append("# Your previous post\n" + (render_post(turn.your_previous) if turn.your_previous else "None."))
-    parts.append(f"# This round\nRound {turn.round} of {turn.max_rounds}. Post your position.")
+    if turn.final_decision:
+        parts.append(f"# Final decision\nThe discussion is closed: {turn.final_decision} Decide with what is on the "
+                     "board and in the thread. Post your final position now. Do not request anything.")
+    else:
+        parts.append(f"# This round\nRound {turn.round} of {turn.max_rounds}. Post your position.")
     if turn.repair_feedback:
         parts.append("# Fix these problems\n" + "\n".join(f"- {f}" for f in turn.repair_feedback)
                      + "\nRepost your full position with these fixed.")

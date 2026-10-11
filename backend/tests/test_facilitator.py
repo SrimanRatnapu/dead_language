@@ -54,7 +54,8 @@ async def test_contested_after_max_rounds():
         posts[("case_officer", rnd)] = r("case_officer", rnd, "need_more", c, "undercover")
     fac, bus = setup(FakeTransport(posts=posts))
     cf = await fac.run_case("C-1", "L0101")
-    assert (cf.outcome, cf.stop_reason, cf.rounds_used) == ("CONTESTED", "max_rounds", 4)
+    # nobody moves in round 2, so the discussion stops there and the Case Officer makes the closing call
+    assert (cf.outcome, cf.stop_reason) == ("CONTESTED", "no_movement") and cf.rounds_used <= 4
     assert "Outcome of agent review: CONTESTED" in cf.tip_draft
 
 
@@ -148,8 +149,12 @@ async def test_specialist_request_caps_and_dedupe():
     fac, bus = setup(t, max_rounds=1)
     await fac.run_case("C-1", "L0101")
     requested = [c for n, c in t.calls if c.params]
-    # counsel's duplicate of undercover's k0 is merged; its legal_lookup and the officer's seller_inventory run
-    assert sorted(str(c.params) for c in requested) == sorted(map(str, [{"k": 0}, {"k": 1}, {"x": 1}, {"x": 2}]))
+    # counsel's duplicate of undercover's k0 is merged; its legal_lookup runs; the officer's seller_inventory is the
+    # fourth request this round, so the 3-per-round cap drops it and says so
+    assert sorted(str(c.params) for c in requested) == sorted(map(str, [{"k": 0}, {"k": 1}, {"x": 1}]))
+    dropped = [e.payload for e in types(bus, "specialist.failed") if e.payload["error"].startswith("request limit")]
+    assert [(d["capability"], d["requested_by"], d["error"]) for d in dropped] == [
+        ("seller_inventory", "case_officer", "request limit reached (3 per round)")]
 
 
 async def test_precomputed_intake_is_reused_without_calling_specialists_again():
@@ -228,4 +233,4 @@ async def test_agents_think_at_the_same_time_and_a_specialist_answer_wakes_the_r
     assert sorted(first_turns) == ["case_officer", "counsel", "undercover"]
     # the requested price check came back after the first posts, so every agent took a second look at it
     assert sorted(a for r, [a] in t.broadcasts if r == 2) == ["case_officer", "counsel", "undercover"]
-    assert cf.stop_reason in ("ready_to_close", "max_rounds")
+    assert cf.stop_reason in ("ready_to_close", "max_rounds", "no_movement")

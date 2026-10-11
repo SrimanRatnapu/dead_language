@@ -181,9 +181,27 @@ def is_full_mode(args: argparse.Namespace) -> bool:
     return any(bool(getattr(args, k, None)) for k in FULL_FLAGS)
 
 
+def set_eval_mode(environ=None) -> str:
+    """Evaluations run the agents one at a time (cheaper, repeatable) unless DL_EVAL_DYNAMIC=1 opts back into dynamic
+    mode; the round, turn and call limits apply either way. Returns the line to print at startup."""
+    import os
+
+    from deadlang import config
+    from deadlang.deliberation import facilitator as fac
+
+    raw = (os.environ if environ is None else environ).get("DL_EVAL_DYNAMIC", "")
+    config.DYNAMIC = raw.split(" #", 1)[0].strip().lower() in ("1", "true", "yes", "on")
+    limits = f"max 4 rounds, {fac.MAX_AGENT_CALLS_PER_CASE} agent calls per case"
+    if config.DYNAMIC:
+        return (f"Eval mode: DYNAMIC (DL_EVAL_DYNAMIC=1): agents run at the same time, up to "
+                f"{fac.MAX_TURNS_PER_AGENT_PER_ROUND} turns each per round; {limits}.")
+    return f"Eval mode: ONE AT A TIME (default; set DL_EVAL_DYNAMIC=1 for dynamic): one turn each per round; {limits}."
+
+
 if __name__ == "__main__":
     import sys
 
+    print(set_eval_mode(), flush=True)
     args = build_parser().parse_args()
     if is_full_mode(args):
         from deadlang.eval import full_eval
