@@ -61,8 +61,8 @@ def post(stance, confidence, claims, *, rebut=None, requests=(), challenge=None,
 # Evidence is cited by role, resolved to real ids from the board each agent is shown:
 #   @E0 listing · @price · @inv / @inv2 (first / latest seller inventory) · @linked / @linked2 ·
 #   @cites / @law (the two legal items) · @exam / @exam2 (first / latest photo exam) · @notice / @notice2
-def d1(linked_photo_seller: str) -> dict:
-    price = "At $1,290 this piece is priced 12.1x the $107 median for comparable bone netsuke."
+def d1(f: dict, linked_photo_seller: str) -> dict:
+    price = f"At {f['price']} this piece is priced {f['ratio']}x the {f['median']} median for comparable bone netsuke."
     unsure = "The examiner could not tell the material from any of the 3 photos, so nothing on the board shows this is not bone."
     return {"exam": {3: [UNSURE, UNSURE, UNSURE], 1: [IVORY]}, "posts": {
         "buyer": [
@@ -79,7 +79,7 @@ def d1(linked_photo_seller: str) -> dict:
         "defender": [
             post("dismiss", 0.6, [
                 (unsure, ["@exam"]),
-                ("Bone netsuke often sell for $1,000 or more when they are old and signed.", ["@price"])],
+                (f"Bone netsuke often sell for {f['unsupported']} or more when they are old and signed.", ["@price"])],
                 requests=[("material_exam", "Look closely at the back of the piece in photo 1: bone pitting, or grain?",
                            "A close look at the back could clear the seller.", {"image_index": 1})]),
             post("file", 0.7, [
@@ -88,13 +88,13 @@ def d1(linked_photo_seller: str) -> dict:
                 rebut=("buyer", price, "I argued an optimistic seller could explain the price. With the exam result "
                        "that explanation is no longer plausible.", ["@exam2"]),
                 changed=("The close exam I asked for reports cross-hatched grain on photo 1, which bone does not have, "
-                         "and the price is 12.1x the bone median.", ["@exam2", "@price"]),
+                         f"and the price is {f['ratio']}x the bone median.", ["@exam2", "@price"]),
                 ready=True)],
         "caseload": [
             post("need_more", 0.5, [
                 ("The item ships from California, where selling ivory is unlawful under Fish and Game Code section 2022.", ["@law"]),
                 ("Two other sellers share wording with this listing and one of them reuses a photo, but this seller "
-                 "has only 2 listings.", ["@linked", "@inv"])],
+                 f"has only {f['listings']} listings.", ["@linked", "@inv"])],
                 requests=[("seller_inventory", "What else does the seller who reuses this photo have listed?",
                            "A pattern across accounts is worth an investigator's time; a single item is not.",
                            {"seller_id": linked_photo_seller})],
@@ -110,7 +110,7 @@ def d1(linked_photo_seller: str) -> dict:
                 ready=True)]}}
 
 
-def d2() -> dict:
+def d2(f: dict) -> dict:
     hk = "The listing says the piece was sold in Hong Kong, a market where carvings of many materials change hands."
     seed = "The examiner sees brown seed skin consistent with tagua nut in the photos."
     return {"exam": {3: [tagua(0.7, "brown seed husk left around the carving"), UNSURE,
@@ -129,15 +129,15 @@ def d2() -> dict:
         "defender": [
             post("dismiss", 0.85, [
                 (seed, ["@exam"]),
-                ("At $20 the price is 0.5x the $39 median for tagua figurines, so nobody is paying an ivory price.", ["@price"])]),
+                (f"At {f['price']} the price is {f['ratio']}x the {f['median']} median for tagua figurines, so nobody is paying an ivory price.", ["@price"])]),
             post("dismiss", 0.9, [
                 ("Every photo with a readable surface shows tagua nut.", ["@exam", "@exam2"]),
-                ("At $20 the price is 0.5x the $39 median for tagua figurines.", ["@price"])],
+                (f"At {f['price']} the price is {f['ratio']}x the {f['median']} median for tagua figurines.", ["@price"])],
                 rebut=("buyer", hk, "Where a carving was sold says nothing about what it is made of. The photos do.", ["@exam2"]),
                 ready=True)],
         "caseload": [
             post("dismiss", 0.8, [
-                ("One $20 item from a seller whose 4 listings total $79 is not worth an investigator's time.", ["@inv", "@price"]),
+                (f"One {f['price']} item from a seller whose {f['listings']} listings total {f['total']} is not worth an investigator's time.", ["@inv", "@price"]),
                 ("No other sellers share wording or photos with this listing.", ["@linked"])]),
             post("dismiss", 0.85, [
                 ("The item is a tagua nut carving, which is legal to sell.", ["@exam2"]),
@@ -146,8 +146,8 @@ def d2() -> dict:
                 ready=True)]}}
 
 
-def d3() -> dict:
-    price = "At $1,505 the piece is priced 14.1x the $107 median for comparable bone netsuke."
+def d3(f: dict) -> dict:
+    price = f"At {f['price']} the piece is priced {f['ratio']}x the {f['median']} median for comparable bone netsuke."
     unsure = "The examiner could not tell the material from the 3 photos."
     return {"remove_at_first_post": True, "exam": {3: [UNSURE, UNSURE, UNSURE], 1: [IVORY]}, "posts": {
         "buyer": [
@@ -186,8 +186,8 @@ def d3() -> dict:
                 ready=True)]}}
 
 
-def d4() -> dict:
-    price = "At $1,520 the figure is priced 9.0x the $169 median for comparable bone figurines."
+def d4(f: dict) -> dict:
+    price = f"At {f['price']} the figure is priced {f['ratio']}x the {f['median']} median for comparable bone figurines."
     unsure = "The examiner could not tell the material from the single photo."
     return {"exam": {1: [UNSURE]}, "posts": {
         "buyer": [
@@ -214,7 +214,7 @@ def d4() -> dict:
         "caseload": [
             post("need_more", 0.6, [
                 ("This seller has 1 listing, and no other sellers share its wording or photos.", ["@inv", "@linked"]),
-                ("One item worth $1,520 is a weak use of investigator time without a material finding.", ["@inv"])],
+                (f"One item worth {f['total']} is a weak use of investigator time without a material finding.", ["@inv"])],
                 requests=[("material_exam", "Can a second close look at the only photo settle the material?",
                            "Without a material finding this is one item and one price.", {"image_index": 0})]),
             post("need_more", 0.6, [
@@ -329,7 +329,19 @@ async def main() -> None:
         case_id="setup", listing_id=DEMO["d1_network"], capability="linked_sellers"))).drafts[0].data["linked"]
     photo_seller = next(e["seller_id"] for e in links if e["shared_photo_count"])
 
-    cases = {"d1_network": d1(photo_seller), "d2_tagua": d2(), "d3_removed": d3(), "d4_ambiguous": d4()}
+    async def facts(listing_id: str) -> dict:
+        """The numbers the scripted claims quote, read from the real specialists so they always match the board."""
+        async def data(name, capability):
+            call = SpecialistCall(case_id="setup", listing_id=listing_id, capability=capability)
+            return (await transport_mod.get_transport().call_specialist(name, call)).drafts[0].data
+        price, inv = await data("deadlang-price-checker", "price_check"), await data("deadlang-seller-inventory", "seller_inventory")
+        return {"price": f"${price['price_usd']:,}", "ratio": price["ratio"], "median": f"${price['median_usd']:,}",
+                "unsupported": f"${round(price['price_usd'] * 0.6, -2):,.0f}",      # in no evidence: gets rejected
+                "listings": inv["listing_count"], "total": f"${inv['total_value_usd']:,}"}
+
+    f = {name: await facts(listing_id) for name, listing_id in DEMO.items()}
+    cases = {"d1_network": d1(f["d1_network"], photo_seller), "d2_tagua": d2(f["d2_tagua"]),
+             "d3_removed": d3(f["d3_removed"]), "d4_ambiguous": d4(f["d4_ambiguous"])}
     public = ROOT / "frontend" / "public" / "replays"
     for name, script in cases.items():
         events = await record(name, DEMO[name], script, market)

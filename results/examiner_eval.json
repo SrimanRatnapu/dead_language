@@ -1,0 +1,44 @@
+{
+  "thorough": {
+    "n": 41,
+    "decisive": 28,
+    "correct": 28,
+    "accuracy_on_decisive": 1.0,
+    "cannot_tell_rate": 0.317,
+    "ivory_precision": 1.0,
+    "ivory_recall": 0.8,
+    "confusion": {
+      "wood": {
+        "wood": 8,
+        "cannot_tell": 2
+      },
+      "elephant_ivory": {
+        "cannot_tell": 4,
+        "elephant_ivory": 16
+      },
+      "bone": {
+        "cannot_tell": 6,
+        "bone": 4
+      },
+      "other": {
+        "cannot_tell": 1
+      }
+    }
+  },
+  "meta": {
+    "generated_at": "2026-10-11T00:06:56.319883+00:00",
+    "images_in_set": 41,
+    "labels": {
+      "wood": 10,
+      "elephant_ivory": 20,
+      "bone": 10,
+      "other": 1
+    },
+    "missing_images": [],
+    "limit": null,
+    "models": {
+      "quick": "claude-haiku-4-5-20251001",
+      "thorough": "claude-sonnet-5-5"
+    }
+  }
+}
