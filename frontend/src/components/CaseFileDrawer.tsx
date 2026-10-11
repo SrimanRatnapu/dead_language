@@ -54,7 +54,7 @@ export function CaseFileDrawer({ caseFile, evidence, open, onClose, onOpenEviden
 
           <Section title="Legal basis">
             {caseFile.legal_basis.length ? (
-              <ul className="list-disc pl-5">{caseFile.legal_basis.map((l) => <li key={l}>{l}</li>)}</ul>
+              <ul className="list-disc pl-5">{caseFile.legal_basis.map((l, i) => <li key={i}>{l}</li>)}</ul>
             ) : <p className="text-muted">None recorded.</p>}
           </Section>
 
