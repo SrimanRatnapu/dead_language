@@ -17,7 +17,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="flex h-full flex-col">
         <header className="glass sticky top-0 z-20 flex h-14 shrink-0 items-center border-b border-line/80 px-5 sm:px-8">
           <Link href="/" className="group flex items-center gap-2.5" aria-label="Dead Language home">
-            <span className="grid size-6 place-items-center border border-cobalt/60 text-[10px] font-bold text-cobalt transition-transform duration-200 group-hover:rotate-12">DL</span>
+            <span className="grid size-7 place-items-center border border-cobalt/60 text-xs font-bold text-cobalt transition-transform duration-200 group-hover:rotate-12">DL</span>
             <span className="font-semibold tracking-[-0.04em]">Dead Language</span>
           </Link>
           <nav className="ml-auto flex items-center gap-1 text-sm" aria-label="Primary navigation">

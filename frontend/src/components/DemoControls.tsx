@@ -37,12 +37,12 @@ export function DemoControls({ listingId, events, speed, onSpeed }: Props) {
             <Icon name={events.status === "paused" ? "play" : "pause"} size={14} />
             {events.status === "paused" ? "Play" : "Pause"}
           </button>
-          <button className={btn} onClick={events.skipToEnd} disabled={ended}>
+          <button className={`${btn} hidden sm:inline-flex`} onClick={events.skipToEnd} disabled={ended}>
             <Icon name="skip" size={14} />Skip to end
           </button>
-          <div className="flex items-center gap-1" role="group" aria-label="Replay speed">
+          <div className="hidden items-center gap-1 sm:flex" role="group" aria-label="Replay speed">
             {([1, 2, 4] as const).map((s) => (
-              <button key={s} aria-pressed={speed === s} onClick={() => onSpeed(s)} className={`${btn} ${speed === s ? "border-ink bg-sunken" : ""}`}>{s}×</button>
+              <button key={s} aria-pressed={speed === s} onClick={() => onSpeed(s)} className={`${btn} min-w-11 justify-center ${speed === s ? "border-ink bg-sunken" : ""}`}>{s}×</button>
             ))}
           </div>
         </>

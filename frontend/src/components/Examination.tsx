@@ -43,7 +43,7 @@ export function Examination({ state, ready, onSend, onOpen }: { state: CaseState
       </ol>
 
       <div className="sticky bottom-0 -mx-5 flex items-center justify-between gap-4 border-t border-line bg-surface/95 px-5 py-3 sm:-mx-8 sm:px-8">
-        <p className="text-muted" aria-live="polite">{ready ? "" : `${done} of ${rows.length} done`}</p>
+        <p className="shrink-0 whitespace-nowrap text-muted" aria-live="polite">{ready ? "" : `${done} of ${rows.length} done`}</p>
         <button onClick={onSend} disabled={!ready} className="press min-h-11 bg-ink px-5 py-2.5 font-semibold text-surface enabled:hover:bg-cobalt disabled:opacity-40">Hand findings to the agents →</button>
       </div>
     </div>
