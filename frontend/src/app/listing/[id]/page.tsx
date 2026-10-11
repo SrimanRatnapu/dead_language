@@ -44,12 +44,12 @@ function ListingPage() {
   }
 
   if (data === undefined) return <main className="p-8 text-muted">Loading…</main>;
-  if (data === null) return <main className="p-8"><p>Listing not found.</p><Link href="/" className="text-cobalt-ink underline">All listings</Link></main>;
+  if (data === null) return <main className="p-8"><p>Listing not found.</p><Link href="/" className="text-cobalt-ink underline">Cases</Link></main>;
   const { listing, seller } = data;
   return (
     <main className="shell-grid min-h-[calc(100dvh-3.5rem)]">
       <div className="mx-auto max-w-5xl px-5 py-6 sm:px-8">
-        <Link href="/" className="press -ml-2 inline-flex min-h-11 items-center px-2 text-muted hover:text-cobalt-ink">← All listings</Link>
+        <Link href="/" className="press -ml-2 inline-flex min-h-11 items-center px-2 text-muted hover:text-cobalt-ink">← Cases</Link>
         <div className="mt-2 grid gap-8 lg:grid-cols-[1.1fr_1fr]">
           <div>
             <Photo src={imageUrl(listing.image_paths[photo] ?? "")} label={listing.title} caption="Photo unavailable" className="aspect-[4/3] w-full border border-line" />

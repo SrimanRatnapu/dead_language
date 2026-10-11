@@ -47,3 +47,5 @@ h1,h2,h3 { text-wrap: balance; }.display { font-family: var(--font-sans),system-
 @keyframes halo { 0% { transform: scale(.8); opacity: .45; } 100% { transform: scale(1.5); opacity: 0; } } .halo { animation: halo 1.4s var(--ease-out) infinite; }
 @keyframes flash { from { background-color: var(--amber-tint); } } .flash { animation: flash 1.2s ease-out; }
 @media (prefers-reduced-motion:reduce) { .flow,.halo,.flash { animation:none; } }
+
+.serif { font-family: var(--font-serif), Georgia, serif; font-optical-sizing: auto; letter-spacing: -.01em; }
