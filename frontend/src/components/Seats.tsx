@@ -56,7 +56,7 @@ export function Seats({ state }: { state: CaseState }) {
           );
         })}
       </div>
-      <p key={state.feed.length} className="rise mt-2 text-base font-medium empty:hidden text-ink [text-wrap:pretty]" aria-live="polite">{note}</p>
+      <p className="mt-2 text-base font-medium empty:hidden text-ink [text-wrap:pretty]" aria-live="polite">{note}</p>
     </div>
   );
 }

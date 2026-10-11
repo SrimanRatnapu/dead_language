@@ -18,7 +18,7 @@ export function Examination({ state, ready, onSend, onOpen }: { state: CaseState
   const done = rows.filter((r) => r.ev).length;
 
   return (
-    <div className="mx-auto flex max-w-[640px] flex-col gap-6 px-5 py-8 sm:px-8">
+    <div className="mx-auto flex max-w-[640px] flex-col gap-6 px-5 pb-0 pt-8 sm:px-8">
       <div>
         <h2 className="text-lg font-semibold tracking-tight">Examining the listing</h2>
         <p className="mt-1 text-muted">Checking price, seller, law and photos.</p>
