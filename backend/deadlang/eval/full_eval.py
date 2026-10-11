@@ -772,7 +772,7 @@ def _commands(run_id: str, args, est: costs.Estimate | None) -> list[str]:
             f"  bash (from the backend folder):        {sh}",
             "  It prints the estimate and asks y/N; add --yes to skip the question.",
             "  Resume after a stop: run the same command again (finished listings are skipped).",
-            f"  Rescore for free, no calls:            uv run python -m deadlang.eval.run_eval --run-id {run_id} --score-only"]
+            f"  Rescore for free, no calls:            uv run python -m deadlang.eval.run_eval {'--triage-only ' if args.triage_only else ''}--run-id {run_id} --score-only"]
 
 
 async def main(args, ask: Callable[[str], str] = input, market: Any = None, out: Callable[[str], None] = print) -> int:
