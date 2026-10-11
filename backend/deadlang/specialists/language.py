@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from deadlang import config, llm
+from deadlang import config, llm, untrusted
 from deadlang.llm import BudgetExceeded
 from deadlang.schemas import EvidenceDraft, SpecialistCall, SpecialistReply
 
@@ -11,7 +11,7 @@ SCHEMA_NAME = "report_translation"
 MAX_PHRASES = 5
 SYSTEM = ("Translate the marketplace listing to plain English. Then list up to 5 notable phrases from the "
           "original whose literal meaning matters for understanding what is being sold (materials, age, "
-          "origin, quantity, payment or contact instructions). Do not judge legality.")
+          "origin, quantity, payment or contact instructions). Do not judge legality. " + untrusted.RULE)
 
 SCHEMA = {
     "type": "object",
@@ -55,7 +55,8 @@ class Translator:
         if listing.language == "en":
             return SpecialistReply(ok=False, error="already_english")
         language = LANGUAGE_NAMES.get(listing.language, listing.language)
-        user = f"Listing language: {language}\nTitle: {listing.title}\nDescription: {listing.description}"
+        user = (f"Listing language: {language}\n"
+                + untrusted.wrap(f"Title: {listing.title}\nDescription: {listing.description}", marker=untrusted.boundary()))
         try:
             out = await llm.call_json(model=self.model, system=SYSTEM, user=user, schema_name=SCHEMA_NAME,
                                       schema=SCHEMA, case_id=call.case_id, max_tokens=1500)

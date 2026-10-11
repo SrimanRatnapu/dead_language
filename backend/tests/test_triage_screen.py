@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from deadlang import config, llm, triage
+from deadlang import config, llm, triage, untrusted
 from deadlang.llm import BudgetExceeded
 from deadlang.schemas import Seller, TriageResult
 from tests.fakes import make_listing
@@ -32,7 +32,7 @@ class StubModel:
 def model(monkeypatch):
     stub = StubModel()
     monkeypatch.setattr(llm, "call_json", stub)
-    monkeypatch.setattr(triage, "_boundary", lambda: "TESTBOUND")
+    monkeypatch.setattr(untrusted, "boundary", lambda: "TESTBOUND")
     monkeypatch.setattr(config, "TRIAGE_THRESHOLD", 0.2)
     return stub
 
@@ -114,7 +114,7 @@ async def test_a_listing_cannot_close_the_block_early_even_by_quoting_the_marker
 
 
 def test_the_real_marker_is_different_every_call_so_it_cannot_be_guessed():
-    assert triage._boundary() != triage._boundary()
+    assert untrusted.boundary() != untrusted.boundary()
 
 
 async def test_very_long_listings_are_cut_down_and_say_so(model):
