@@ -37,7 +37,9 @@ def build_case_file(case_id: str, listing: Listing, seller: Seller, outcome: Out
             "Key evidence:", *key_lines,
             "Linked sellers: " + (", ".join(f"{n} ({i})" for i, n in linked) or "none found"),
             "Legal basis: " + (" ".join(legal) or "none on the board"),
-            "Positions: " + ", ".join(f"{p.agent.capitalize()} {p.stance} ({p.confidence:.2f})" for p in ordered),
+            "Positions: " + ", ".join(
+                f"{p.agent.capitalize()} abstained (no other cases to compare)" if p.abstained
+                else f"{p.agent.capitalize()} {p.stance} ({p.confidence:.2f})" for p in ordered),
         ])
     return CaseFile(case_id=case_id, listing_id=listing.id, seller_id=seller.id, outcome=outcome,
                     rounds_used=rounds_used, stop_reason=stop_reason, final_positions=ordered,
