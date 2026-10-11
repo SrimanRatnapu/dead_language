@@ -255,3 +255,39 @@ def test_images_missing_from_disk_are_reported_in_the_output(world, monkeypatch)
     out = json.loads((config.REPO_ROOT / "results" / "examiner_eval.json").read_text())
     assert code == 0 and len(fake.calls) == 5
     assert out["meta"]["missing_images"] == ["w1"] and out["quick"]["n"] == 5
+
+
+# ---------------- diagnostics: rows keep the model's reasons and, for thorough, each look ----------------
+
+async def test_rows_keep_the_visible_features_and_best_region(world, monkeypatch):
+    monkeypatch.setattr(llm, "call_vision_json", FakeVision())
+    items, _ = ev.load_items(config.DATA_DIR / "museum" / "museum_labels.csv")
+
+    result = await ev.evaluate("quick", QuickExaminer(None), items, done=set(), concurrency=1)
+
+    for row in result.rows:
+        assert row["visible_features"] == ["a feature"] and row["best_region"] == "base"
+        assert row["looks"] is None                       # quick makes a single look; nothing extra to record
+    assert {"mode", "object_id", "truth", "predicted", "confidence"} <= set(result.rows[0])
+
+
+async def test_thorough_rows_record_what_each_look_said(world, monkeypatch):
+    monkeypatch.setattr(llm, "call_vision_json", FakeVision())
+    items, _ = ev.load_items(config.DATA_DIR / "museum" / "museum_labels.csv")
+
+    result = await ev.evaluate("thorough", ThoroughExaminer(None), items, done=set(), concurrency=1)
+
+    by_id = {r["object_id"]: r for r in result.rows}
+    assert by_id["i2"]["predicted"] == "cannot_tell"          # the looks disagreed...
+    assert [look["material"] for look in by_id["i2"]["looks"]] == ["elephant_ivory", "bone"]   # ...and now we can see how
+    assert [look["material"] for look in by_id["i1"]["looks"]] == ["elephant_ivory", "elephant_ivory"]
+    assert all({"material", "confidence"} == set(look) for look in by_id["i1"]["looks"])
+
+
+def test_the_saved_rows_file_contains_the_new_fields(world, monkeypatch):
+    code, _ = run_main(monkeypatch, ["--yes", "--modes", "thorough"])
+    saved = [json.loads(line) for line in (config.REPO_ROOT / "results" / "examiner_eval_rows.jsonl").read_text().splitlines()]
+    assert code == 0 and len(saved) == 6
+    assert all("visible_features" in r and "best_region" in r and len(r["looks"]) == 2 for r in saved)
+    metrics = json.loads((config.REPO_ROOT / "results" / "examiner_eval.json").read_text())
+    assert metrics["thorough"]["accuracy_on_decisive"] == 1.0          # the numbers themselves are unchanged

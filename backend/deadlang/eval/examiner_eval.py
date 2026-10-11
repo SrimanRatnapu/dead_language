@@ -136,7 +136,8 @@ async def evaluate(mode: str, examiner, items: list[Item], done: set[str], concu
             if stop.is_set():
                 return
             try:
-                (photo,) = await examiner.examine([item.path], case_id=f"examiner_eval-{mode}-{position // SHARD}")
+                (photo,) = await examiner.examine([item.path], case_id=f"examiner_eval-{mode}-{position // SHARD}",
+                                                   detail=True)
             except BudgetExceeded:
                 result.stopped = result.stopped or "budget"
                 stop.set()
@@ -149,7 +150,10 @@ async def evaluate(mode: str, examiner, items: list[Item], done: set[str], concu
                     stop.set()
                 return
             row = {"mode": mode, "object_id": item.object_id, "truth": item.truth,
-                   "predicted": photo["material"], "confidence": photo["confidence"]}
+                   "predicted": photo["material"], "confidence": photo["confidence"],
+                   # what the model said it saw, and (thorough) what each of the two looks answered
+                   "visible_features": photo["visible_features"], "best_region": photo["best_region"],
+                   "looks": photo["looks"] if len(photo["looks"]) > 1 else None}
             result.rows.append(row)
             if on_row:
                 on_row(row)

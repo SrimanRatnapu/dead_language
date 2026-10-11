@@ -299,3 +299,29 @@ async def test_the_quick_examiner_is_unchanged(monkeypatch):
     await ex.run(call())
     assert len(fake.calls) == 1 and fake.calls[0]["user"] == material.USER_MESSAGE
     assert fake.calls[0]["image_paths"] == [Path("/data/images/L0101_0.jpg"), Path("/data/images/L0101_1.jpg")]
+
+
+# ---------------- diagnostics: examine(detail=True) shows each look; the default output is unchanged ----------------
+
+async def test_examine_detail_shows_each_look_and_default_output_is_unchanged(monkeypatch):
+    run1 = answer(photo(0, "elephant_ivory", 0.9, ["lines"]), photo(1, "bone", 0.8, ["pits"]))
+    run2 = second_look(photo(0, "elephant_ivory", 0.84, ["lines"]), photo(1, "wood", 0.6, ["rings"]))
+    ex, _ = setup(monkeypatch, run1, run2)
+    paths = [Path("/data/a.jpg"), Path("/data/b.jpg")]
+
+    detailed = await ex.examine(paths, case_id="x", detail=True)
+
+    assert [[look["material"] for look in p["looks"]] for p in detailed] == [["elephant_ivory", "elephant_ivory"], ["bone", "wood"]]
+    assert detailed[0]["looks"][1]["confidence"] == 0.8                 # 0.84 shown to one decimal, like the rest
+    assert detailed[1]["material"] == "cannot_tell"
+
+    ex2, _ = setup(monkeypatch, run1, second_look(photo(0, "elephant_ivory", 0.84, ["lines"]), photo(1, "wood", 0.6, ["rings"])))
+    plain = await ex2.examine(paths, case_id="x")
+    assert all("looks" not in p for p in plain)                         # evidence data stays exactly as before
+
+
+async def test_the_evidence_a_case_sees_has_no_looks_field(monkeypatch):
+    a = answer(photo(0, "bone", 0.7), photo(1, "bone", 0.7))
+    ex, _ = setup(monkeypatch, a, second_look(photo(0, "bone", 0.7), photo(1, "bone", 0.7)))
+    d = (await ex.run(call())).drafts[0]
+    assert all("looks" not in p for p in d.data["photos"])

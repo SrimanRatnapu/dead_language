@@ -93,14 +93,21 @@ class _Examiner:
         raise NotImplementedError
 
     async def examine(self, image_paths: list[Path], case_id: str | None,
-                      indices: list[int] | None = None) -> list[dict]:
-        """Per-photo results, reported under `indices` (default 0..n-1). Also used by the accuracy test."""
+                      indices: list[int] | None = None, detail: bool = False) -> list[dict]:
+        """Per-photo results, reported under `indices` (default 0..n-1). Also used by the accuracy test.
+
+        `detail=True` adds `looks`: what each look said (material and confidence), for diagnosing why the
+        looks of the thorough examiner disagreed. Cases never ask for it, so evidence data is unchanged."""
         indices = indices if indices is not None else list(range(len(image_paths)))
         runs = await self._runs(image_paths, case_id)
         photos = []
         for pos, index in enumerate(indices):
-            photo = self._combine([run[pos] for run in runs])
-            photos.append({"index": index, **photo, "confidence": round(photo["confidence"], 1)})
+            per_run = [run[pos] for run in runs]
+            photo = self._combine(per_run)
+            entry = {"index": index, **photo, "confidence": round(photo["confidence"], 1)}
+            if detail:
+                entry["looks"] = [{"material": r["material"], "confidence": round(r["confidence"], 1)} for r in per_run]
+            photos.append(entry)
         return photos
 
     def _combine(self, per_run: list[dict]) -> dict:
