@@ -3,11 +3,8 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { Icon, type IconName } from "@/components/Icon";
 import { Photo } from "@/components/Photo";
-import { ListingCard } from "@/components/ListingCard";
-import { DEMO_CASES } from "@/lib/demoCases";
 import { batchEventsUrl, getBatch, getCaseFile, getListing, getHealth, imageUrl, startBatch, getMetrics, type addToQueue } from "@/lib/api";
 import { AddListing } from "@/components/AddListing";
-import { loadListings } from "@/lib/stubs";
 import type { Metrics, BatchEvent, BatchItem, BatchStart, Listing, ListingRow, AgentName, Capability } from "@/lib/types";
 import { AGENTS, CAPABILITY_LABEL } from "@/lib/agents";
 
@@ -64,8 +61,6 @@ export default function Cases() {
   const [items, setItems] = useState<BatchItem[]>([]);
   const [mode, setMode] = useState<BatchStart["source_mode"] | null>(null);
   const [listings, setListings] = useState<Record<string, Listing>>({});
-  const [shown, setShown] = useState(24);
-  const [rows, setRows] = useState<ListingRow[] | null>(null);
   const [query, setQuery] = useState("");
   const [sweep, setSweep] = useState("netsuke"); // "" = keyword search
   const [source, setSource] = useState<string | null>(null); // what the current batch was fetched by, for the header
@@ -99,7 +94,6 @@ export default function Cases() {
         batchId.current = id; setItems(b.items); setMode(m); setStartedAt(t); setSource(src ?? null); setNow(Date.now());
       }).catch(() => sessionStorage.removeItem("dl_batch"));
     }
-    loadListings().then(({ data }) => { setRows(data); setListings(Object.fromEntries(data.map((x) => [x.listing.id, x.listing]))); }).catch(() => setRows([]));
     getMetrics().then(setM).catch(() => {});
     getHealth().then((h) => setProblems(h.problems)).catch(() => {});
     return () => es.current?.close();
@@ -175,18 +169,18 @@ export default function Cases() {
   const Row = ({ i }: { i: BatchItem }) => {
     const l = listings[i.listing_id]; const m = markFor(i); const note = followUpNote(i);
     const body = <>
-      <Photo src={imageUrl(l?.image_paths[0] ?? "")} label={l?.title ?? i.listing_id} className="size-14 w-full" />
-      <span className="min-w-0"><span className="block line-clamp-2 font-semibold">{l?.title ?? i.listing_id}</span>
-        <span className="block text-sm text-muted">{l ? `$${l.price_usd.toLocaleString()} · ` : ""}{l?.origin === "live" || i.found_via ? "Live listing" : "Demo listing"}</span>
-        {note && <span className="block text-sm text-cobalt-ink">{note}</span>}</span>
-      <span className={`inline-flex items-center justify-end gap-2 text-sm font-semibold ${m?.tone ?? "text-muted"}`}>
+      <Photo src={imageUrl(l?.image_paths[0] ?? "")} label={l?.title ?? i.listing_id} className="aspect-[4/3] w-full" />
+      <span className="mt-3 line-clamp-2 block font-semibold leading-snug">{l?.title ?? i.listing_id}</span>
+      {l && <span className="mt-1 block text-lg font-semibold tracking-tight text-cobalt-ink">{`$${l.price_usd.toLocaleString()}`}</span>}
+      <span className={`mt-1 inline-flex items-center gap-2 text-sm font-semibold ${m?.tone ?? "text-muted"}`}>
         {m ? <><Icon name={m.icon} size={18} />{m.label}</>
            : <><span className="typing flex gap-1" aria-hidden><span /><span /><span /></span>{phaseLabel(i)}{i.status === "deliberating" && i.started_at ? ` · ${Math.max(0, Math.round((now - Date.parse(i.started_at)) / 1000))}s` : ""}</>}
-      </span></>;
-    const row = `${m ? "" : "scan "}relative grid min-h-16 grid-cols-[3.5rem_1fr_auto] items-center gap-4 px-3 py-3`;
+      </span>
+      {note && <span className="block text-sm text-cobalt-ink">{note}</span>}</>;
+    const card = `${m ? "" : "scan "}relative block min-w-0`;
     return i.case_id
-      ? <Link href={`/case/${i.case_id}?stage=agents`} className={`press ${row} hover:bg-surface`}>{body}</Link>
-      : <div className={row}>{body}</div>;
+      ? <Link href={`/case/${i.case_id}?stage=agents`} className={`press group ${card}`}>{body}</Link>
+      : <div className={card}>{body}</div>;
   };
 
   return (
@@ -196,12 +190,11 @@ export default function Cases() {
           <div>
             <h1 className="serif text-4xl leading-none">Review desk</h1>
             {(items.length === 0 || running) && <p className="mt-2 text-muted" aria-live="polite">
-              {items.length === 0 ? "No cases yet. Run the demo set or fetch live listings." : "Agents are working."}
+              {items.length === 0 ? "No cases yet. Fetch live listings or add one by link." : "Agents are working."}
             </p>}
           </div>
           <section aria-label="Load listings" className="flex flex-wrap items-end gap-x-4 gap-y-3">
             <AddListing onAdded={addedByHand} />
-            <button onClick={() => run("demo")} disabled={busy || running} className={`${btn} bg-ink text-surface hover:bg-ink-2`}>Run demo set</button>
             <form onSubmit={(e) => { e.preventDefault(); run("live"); }} className="flex flex-wrap items-end gap-3">
               <label className="text-sm text-muted">Fetch live by
                 <select value={sweep} onChange={(e) => setSweep(e.target.value)} className="select mt-1 block min-h-11 w-52 border border-line bg-surface px-3 text-base text-ink">
@@ -228,35 +221,10 @@ export default function Cases() {
                 <h2 id={`g-${g.key}`} className="serif text-xl">{g.title}</h2>
                 <span className="serial">{rows.length}</span>
               </div>
-              <ul className="-mx-3 divide-y divide-line">{rows.map((i, n) => <li key={i.listing_id} className="rise" style={{ animationDelay: `${Math.min(n, 8) * 40}ms` }}>{Row({ i })}</li>)}</ul>
+              <ul className="mt-5 grid gap-x-5 gap-y-9 sm:grid-cols-2 lg:grid-cols-4">{rows.map((i, n) => <li key={i.listing_id} className="rise" style={{ animationDelay: `${Math.min(n, 8) * 40}ms` }}>{Row({ i })}</li>)}</ul>
             </section>
           );
         })}
-
-        <section aria-labelledby="recorded" className="mt-12">
-          <h2 id="recorded" className="serif border-b border-ink pb-1.5 text-xl">Recorded reviews</h2>
-          <ul className="mt-2 divide-y divide-line">
-            {DEMO_CASES.map((c) => {
-              const l = listings[c.listingId];
-              return (
-                <li key={c.key}>
-                  <Link href={`/replay/${c.replay}`} className="press group grid min-h-16 grid-cols-[3.5rem_1fr_auto] items-center gap-4 py-3 hover:bg-surface">
-                    <Photo src={imageUrl(l?.image_paths[0] ?? "")} label={c.label} className="size-14 w-full" />
-                    <span className="min-w-0"><span className="block font-semibold">{c.label}</span><span className="block text-sm text-muted">{c.blurb}</span></span>
-                    <span className="text-sm font-semibold text-cobalt-ink group-hover:underline">Replay →</span>
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        </section>
-        <section aria-labelledby="all" className="mt-12">
-          <h2 id="all" className="serif border-b border-ink pb-1.5 text-xl">All listings{rows ? ` (${rows.length})` : ""}</h2>
-          {rows === null ? <p className="mt-6 text-muted">Loading listings…</p>
-            : rows.length === 0 ? <p className="mt-6 text-muted">No listings found.</p>
-            : <div className="mt-5 grid gap-x-5 gap-y-9 sm:grid-cols-2 lg:grid-cols-4">{rows.slice(0, shown).map((row) => <ListingCard key={row.listing.id} row={row} />)}</div>}
-          {rows && rows.length > shown && <button onClick={() => setShown((n) => n + 48)} className="press mt-8 min-h-11 border border-ink px-4 py-2.5 font-semibold hover:bg-surface">Show more ({rows.length - shown} left)</button>}
-        </section>
       </div>
     </main>
   );
