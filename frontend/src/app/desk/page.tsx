@@ -167,17 +167,15 @@ export default function Cases() {
         <header className="flex flex-wrap items-end justify-between gap-x-8 gap-y-6 border-b border-ink pb-6">
           <div>
             <h1 className="serif text-4xl leading-none">Review desk</h1>
-            <p className="mt-2 text-muted" aria-live="polite">
-              {items.length === 0 ? "No cases yet. Run the demo set or fetch live listings." : waiting > 0 ? `${waiting} ${waiting === 1 ? "case needs" : "cases need"} your decision.` : running ? "Agents are working." : "Nothing waiting on you."}
-            </p>
-            {items.length > 0 && <p className="serial mt-1">{source ? `${source} · ` : ""}{items.length - added} fetched{added > 0 ? `, ${added} added from flagged listings` : ""}</p>}
-            {m && m.funnel.deliberated > 0 && <p className="serial mt-1">{m.funnel.deliberated} cases reviewed so far, {Math.round(m.latency_ms.case.p50 / 1000)}s and ${m.cost.usd_per_case.toFixed(2)} each</p>}
+            {(items.length === 0 || waiting > 0 || running) && <p className="mt-2 text-muted" aria-live="polite">
+              {items.length === 0 ? "No cases yet. Run the demo set or fetch live listings." : waiting > 0 ? `${waiting} ${waiting === 1 ? "case needs" : "cases need"} your decision.` : "Agents are working."}
+            </p>}
           </div>
           <section aria-label="Load listings" className="flex flex-wrap items-end gap-x-4 gap-y-3">
             <button onClick={() => run("demo")} disabled={busy || running} className={`${btn} bg-ink text-surface hover:bg-ink-2`}>Run demo set</button>
             <form onSubmit={(e) => { e.preventDefault(); run("live"); }} className="flex flex-wrap items-end gap-3">
               <label className="text-sm text-muted">Fetch live by
-                <select value={sweep} onChange={(e) => setSweep(e.target.value)} className="mt-1 block min-h-11 w-52 border border-line bg-surface px-3 text-base text-ink">
+                <select value={sweep} onChange={(e) => setSweep(e.target.value)} className="select mt-1 block min-h-11 w-52 border border-line bg-surface px-3 text-base text-ink">
                   {SWEEPS.map((w) => <option key={w.key} value={w.key}>{w.label}</option>)}
                   <option value="">Keyword</option>
                 </select></label>
