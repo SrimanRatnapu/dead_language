@@ -43,8 +43,8 @@ function phaseLabel(i: BatchItem): string {
 const WORKING: Partial<Record<BatchItem["status"], string>> = { queued: "Queued", triaging: "Checking", deliberating: "Agents working" };
 // Why a row is on the desk when nobody searched for it, or what a flagged row set in motion.
 function followUpNote(i: BatchItem): string | null {
-  if (i.found_via === "seller") return `Same seller as ${i.parent ?? "a flagged listing"}`;
-  if (i.found_via === "keyword") return `Title shares \u201c${i.term}\u201d with ${i.parent ?? "a flagged listing"}`;
+  if (i.found_via === "seller") return "Seller flagged for related listings";
+  if (i.found_via === "keyword") return "Title keywords flagged for related listings";
   if (i.follow_up?.state === "searching") return "Finding related listings\u2026";
   if (i.follow_up?.state === "done" && i.follow_up.added > 0) return `${i.follow_up.added} related ${i.follow_up.added === 1 ? "listing" : "listings"} added to the desk`;
   return null;
