@@ -350,9 +350,13 @@ class Evaluator:
         return row
 
 
-def build_evaluator(run_id: str, market: Any) -> Evaluator:
+def build_evaluator(run_id: str, market: Any = None) -> Evaluator:
+    """The same pieces the server builds: the process-wide marketplace client (local unless MARKETPLACE_MODE=mcp),
+    discovery and transport, whose specialists share that client."""
     from deadlang.agntcy.discovery import get_discovery
     from deadlang.agntcy.transport import get_transport
+    from deadlang.marketplace.client import get_marketplace_client
+    market = market if market is not None else get_marketplace_client()
     return Evaluator(run_id, market, get_transport(), get_discovery())
 
 
@@ -700,9 +704,15 @@ async def main(args, ask: Callable[[str], str] = input, market: Any = None, out:
     summary = None
     if todo:
         ev = build_evaluator(run_id, market)
-        with collecting_costs(ev.costs):
-            summary = await run_items(ev, chosen, run_id=run_id, out=out, concurrency=args.concurrency,
-                                      max_usd=args.max_usd, per_listing_estimate=per_listing or None)
+        try:
+            await ev.discovery.register_all()
+            with collecting_costs(ev.costs):
+                summary = await run_items(ev, chosen, run_id=run_id, out=out, concurrency=args.concurrency,
+                                          max_usd=args.max_usd, per_listing_estimate=per_listing or None)
+        finally:
+            close = getattr(ev.market, "aclose", None)       # the MCP client holds a session; the local one has nothing
+            if close:
+                await close()
         out(f"Spend this run: ${summary.spent:.2f} | listings done: {summary.done} | errors: {summary.errors}"
             + (f" | stopped: {summary.stopped}" if summary.stopped else ""))
     rows = list(read_rows(run_id).values())

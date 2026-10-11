@@ -200,8 +200,8 @@ def _config_value(code: str, **env) -> str:
 
 
 def test_the_triage_model_defaults_to_the_fast_model_and_can_be_overridden():
-    assert _config_value("config.MODEL_TRIAGE == config.MODEL_FAST", DL_MODEL_FAST="fast-x") == "True"
-    assert _config_value("config.MODEL_TRIAGE", DL_MODEL_FAST="fast-x") == "fast-x"
+    assert _config_value("config.MODEL_TRIAGE == config.MODEL_FAST", DL_MODEL_FAST="fast-x", DL_MODEL_TRIAGE="") == "True"
+    assert _config_value("config.MODEL_TRIAGE", DL_MODEL_FAST="fast-x", DL_MODEL_TRIAGE="") == "fast-x"   # empty = unset, even if .env sets it
     assert _config_value("config.MODEL_TRIAGE + '|' + config.MODEL_FAST", DL_MODEL_FAST="fast-x",
                          DL_MODEL_TRIAGE="tri-y") == "tri-y|fast-x"
 
