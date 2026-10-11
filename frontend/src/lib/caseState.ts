@@ -43,6 +43,7 @@ export interface CaseState {
   evidence: Record<string, Evidence>;
   evidenceOrder: string[];
   rounds: Round[];
+  thinking: AgentName[]; // agents working on a reply right now (they run at the same time)
   selections: Selection[];
   failures: Failure[];
   removed: { listing_id: string; relisted_as: string | null } | null;
@@ -58,6 +59,7 @@ export const initialCaseState: CaseState = {
   evidence: {},
   evidenceOrder: [],
   rounds: [],
+  thinking: [],
   selections: [],
   failures: [],
   removed: null,
@@ -103,12 +105,16 @@ export function reduce(state: CaseState, e: Event): CaseState {
       return {
         ...next,
         rounds: withRound(state.rounds, e.payload.round, (r) => ({ ...r, active: e.payload.active })),
+        thinking: e.payload.active,
         feed: [...state.feed, { kind: "round", round: e.payload.round }],
       };
+    case "agent.thinking":
+      return { ...next, thinking: state.thinking.includes(e.payload.agent) ? state.thinking : [...state.thinking, e.payload.agent] };
     case "stance.posted": {
       const post = e.payload.post;
       return {
         ...next,
+        thinking: state.thinking.filter((a) => a !== post.agent),
         rounds: withRound(state.rounds, post.round, (r) => ({ ...r, posts: { ...r.posts, [post.agent]: post } })),
         feed: [...state.feed, { kind: "post", post }],
       };

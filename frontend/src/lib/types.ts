@@ -122,7 +122,8 @@ export interface EventPayloads {
   "evidence.added": { evidence: Evidence };
   "specialist.selected": { capability: Capability; specialist_name: string; why: string; requested_by: Requester; candidates: string[] };
   "specialist.failed": { capability: Capability; specialist_name: string; error: string; fallback: string | null };
-  "round.started": { round: number; active: AgentName[] };
+  "round.started": { round: number; active: AgentName[] }; // recordings made before agents ran at the same time
+  "agent.thinking": { agent: AgentName; turn: number };
   "stance.posted": { post: StancePost };
   "claim.rejected": { agent: AgentName; round: number; claim_text: string; reasons: string[] };
   "listing.removed": { listing_id: string; relisted_as: string | null };
@@ -137,7 +138,7 @@ export type Event = {
 
 export const EVENT_TYPES: EventType[] = [
   "case.started", "evidence.added", "specialist.selected", "specialist.failed", "round.started",
-  "stance.posted", "claim.rejected", "listing.removed", "case.ended", "budget.exceeded",
+  "agent.thinking", "stance.posted", "claim.rejected", "listing.removed", "case.ended", "budget.exceeded",
 ];
 
 // ---- REST shapes (file 01 §4.6) ----

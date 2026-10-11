@@ -30,27 +30,6 @@ def is_ready(post: StancePost, *, unseen_evidence: int, tools_left: int, questio
     return post.confidence >= READY_CONFIDENCE or tools_left == 0
 
 
-def stop_reason(round_no: int, max_rounds: int,
-                this_round: dict[AgentName, StancePost],
-                prev_round: dict[AgentName, StancePost] | None,
-                new_evidence_this_round: int,
-                expected: int = 3,
-                ready: dict[AgentName, bool] | None = None) -> str | None:
-    """this_round / prev_round hold the CURRENT posts (carried-forward ones included) of the agents taking part:
-    all three, or two when the Case Officer sits out (then pass expected=2). `ready` says who is ready to close; without
-    it each post's own ready_to_close flag is used.
-    Returns "unanimous" | "ready_to_close" | "no_movement" | "max_rounds" | None. Budget is the Facilitator's."""
-    stances = {p.stance for p in this_round.values()}
-    if len(this_round) == expected and stances in ({"file"}, {"dismiss"}):
-        return "unanimous"
-    flags = ready if ready is not None else {a: p.ready_to_close for a, p in this_round.items()}
-    if round_no >= 2 and len(this_round) == expected and all(flags.get(a, False) for a in this_round):
-        return "ready_to_close"
-    if (prev_round is not None and new_evidence_this_round == 0
-            and all(a in prev_round and prev_round[a].stance == p.stance
-                    and abs(prev_round[a].confidence - p.confidence) < 0.10
-                    for a, p in this_round.items())):
-        return "no_movement"
-    if round_no >= max_rounds:
-        return "max_rounds"
-    return None
+def is_unanimous(stances: dict[AgentName, Stance], expected: int) -> bool:
+    """Every agent taking part (`expected` of them, whoever sat out excluded) says file, or every one says dismiss."""
+    return len(stances) == expected and set(stances.values()) in ({"file"}, {"dismiss"})

@@ -34,7 +34,10 @@ function phaseLabel(i: BatchItem): string {
   const [kind, arg] = (i.phase ?? "").split(":");
   if (i.status === "deliberating") {
     if (kind === "examining") return `Waiting on ${arg.split(",").map((c) => (CAPABILITY_LABEL[c as Capability] ?? c).toLowerCase()).join(", ")}`;
-    if (kind === "thinking") return `${AGENTS[arg as AgentName]?.label ?? arg} ${THINKING[arg as AgentName] ?? "is thinking"}`;
+    if (kind === "thinking") {
+      const who = arg.split(",") as AgentName[];
+      return who.length === 1 ? `${AGENTS[who[0]]?.label ?? who[0]} ${THINKING[who[0]] ?? "is thinking"}` : `${who.map((a) => AGENTS[a]?.label ?? a).join(" and ")} are thinking`;
+    }
     if (kind === "briefing") return "Briefing the agents";
     if (kind === "closing") return "Applying the outcome rule";
     return "Opening the listing";

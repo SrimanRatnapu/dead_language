@@ -1,6 +1,6 @@
 """Facilitator: referee of process. Runs intake, wakes agents, validates claims, applies published rules.
 
-It never decides an outcome; `rules.outcome` and `rules.stop_reason` do.
+It never decides an outcome; `rules.outcome` does, and the discussion ends when nobody has anything left to say.
 """
 from __future__ import annotations
 
@@ -20,7 +20,6 @@ from deadlang.schemas import (AgentName, Capability, CaseFile, DeliberationTurn,
                               PeerQuestion, Requester, Seller, SpecialistCall, StancePost)
 
 AGENTS: tuple[AgentName, ...] = ("undercover", "counsel", "case_officer")
-MAX_CALLS_PER_ROUND = 3
 MAX_CALLS_PER_CASE = 6
 
 
@@ -32,8 +31,11 @@ class CaseState:
     board: EvidenceBoard
     current: dict[AgentName, StancePost] = field(default_factory=dict)   # each agent's latest validated post
     transcript: list[StancePost] = field(default_factory=list)           # every validated post, in order
-    last_round_posts: list[StancePost] = field(default_factory=list)
     seen: dict[AgentName, int] = field(default_factory=dict)             # board size at each agent's last turn
+    seen_posts: dict[AgentName, int] = field(default_factory=dict)       # transcript length at each agent's last turn
+    turns: dict[AgentName, int] = field(default_factory=dict)            # turns each agent has taken (a post's `round`)
+    jobs: set[asyncio.Task] = field(default_factory=set)                 # specialist calls in flight
+    request_keys: set[tuple[str, str]] = field(default_factory=set)      # (capability, params) already requested
     requested_calls: int = 0
     removal_noted: bool = False
     relist_noted: bool = False
@@ -121,22 +123,24 @@ class Facilitator:
                                      {"listing_id": listing_id, "relisted_as": relisted_as}), "system")
             self.bus.emit(st.case_id, "listing.removed", {"listing_id": listing_id, "relisted_as": relisted_as})
 
-    # ------------------------------------------------------------------ rounds
-    def _active(self, st: CaseState, r: int) -> list[AgentName]:
-        if r == 1:
-            return list(AGENTS)
-        rebutted = {p.rebuttal.target_agent for p in st.last_round_posts if p.rebuttal}
-        challenged = {p.challenge.target_agent for p in st.last_round_posts if p.challenge}
-        active: list[AgentName] = []
-        for a in AGENTS:
-            post = st.current.get(a)
-            unseen = st.board.count() > st.seen.get(a, 0)
-            # New evidence it has not seen, or a direct question, always calls an agent. A rebuttal alone does
-            # not call one that is already ready to close: it has nothing left to check.
-            ready = post is not None and not post.abstained and self._ready(st, a, post)
-            if unseen or a in challenged or (a in rebutted and not ready):
-                active.append(a)
-        return active
+    # ------------------------------------------------------------------ the discussion
+    # No rounds. An agent runs as soon as it has a reason to: it has not spoken yet, there is evidence it has not seen,
+    # someone asked it a question, or someone rebutted it and it is not ready to close. Agents run at the same time,
+    # post the moment they finish, and a post's specialist requests start at once. The discussion ends when nobody is
+    # working and nobody has a reason to run; max_rounds caps how many turns one agent may take.
+    def _pending_questions(self, st: CaseState, a: AgentName) -> list[PeerQuestion]:
+        return [PeerQuestion(asker=p.agent, question=p.challenge.question) for p in st.transcript
+                if p.challenge and p.challenge.target_agent == a and (p.agent, p.challenge.question) not in st.answered]
+
+    def _wants_turn(self, st: CaseState, a: AgentName) -> bool:
+        post = st.current.get(a)
+        if post is None:
+            return True
+        if st.board.count() > st.seen.get(a, 0) or self._pending_questions(st, a):
+            return True
+        rebutted = any(p.agent != a and p.rebuttal and p.rebuttal.target_agent == a
+                       for p in st.transcript[st.seen_posts.get(a, 0):])
+        return rebutted and (post.abstained or not self._ready(st, a, post))   # a rebuttal alone does not call a ready agent
 
     def _tools_left(self, st: CaseState) -> int:
         """Specialist checks that could still be run for this case (never tried, and the request budget is not spent)."""
@@ -147,16 +151,12 @@ class Facilitator:
 
     def _ready(self, st: CaseState, a: AgentName, post: StancePost) -> bool:
         unseen = max(st.board.count() - st.seen.get(a, 0), 0)
-        asked = any(p.challenge and p.challenge.target_agent == a for p in st.last_round_posts)
-        return rules.is_ready(post, unseen_evidence=unseen, tools_left=self._tools_left(st), questions_pending=asked)
+        return rules.is_ready(post, unseen_evidence=unseen, tools_left=self._tools_left(st),
+                              questions_pending=bool(self._pending_questions(st, a)))
 
-    def _turn(self, st: CaseState, a: AgentName, r: int, this_round: list[StancePost]) -> DeliberationTurn:
-        # Questions from last round, plus any asked earlier in this round (answered once, never re-delivered).
-        questions = []
-        for p in [*st.last_round_posts, *this_round]:
-            if p.challenge and p.challenge.target_agent == a and (p.agent, p.challenge.question) not in st.answered:
-                st.answered.add((p.agent, p.challenge.question))
-                questions.append(PeerQuestion(asker=p.agent, question=p.challenge.question))
+    def _turn(self, st: CaseState, a: AgentName, r: int) -> DeliberationTurn:
+        questions = self._pending_questions(st, a)             # answered once, never re-delivered
+        st.answered.update((q.asker, q.question) for q in questions)
         return DeliberationTurn(case_id=st.case_id, round=r, max_rounds=self.max_rounds,
                                 evidence=st.board.all(), transcript=list(st.transcript),
                                 your_previous=None if (prev := st.current.get(a)) and prev.abstained else prev,
@@ -169,6 +169,85 @@ class Facilitator:
             return StancePost(agent=a, round=r, stance="need_more", confidence=0.0, claims=[])
         return prev.model_copy(update={"round": r, "rebuttal": None, "requests": [], "challenge": None,
                                        "changed_because": None, "changed_because_evidence": []})
+
+    async def _agent_turn(self, st: CaseState, a: AgentName) -> str | None:
+        """One turn for one agent: read the board and the thread as they are now, post, start its specialist requests.
+        Returns the transport error if the agent did not answer."""
+        st.turns[a] = r = st.turns.get(a, 0) + 1
+        st.seen[a], st.seen_posts[a] = st.board.count(), len(st.transcript)
+        self.bus.emit(st.case_id, "agent.thinking", {"agent": a, "turn": r})
+        turn = self._turn(st, a, r)
+        result = (await self.transport.broadcast_turns({a: turn})).get(a, "no reply")
+        post, rejections = await self._resolve(st, a, turn, result, list(st.current.values()), r)
+        for rj in rejections:
+            self.bus.emit(st.case_id, "claim.rejected", {
+                "agent": rj.agent, "round": rj.round, "claim_text": rj.claim_text, "reasons": rj.reasons})
+        self.bus.emit(st.case_id, "stance.posted", {"post": post.model_dump(mode="json")})
+        st.transcript.append(post)
+        st.current[a] = post
+        self._dispatch_requests(st, post)
+        return None if isinstance(result, StancePost) else str(result)
+
+    def _dispatch_requests(self, st: CaseState, post: StancePost) -> None:
+        """Start the specialist calls an agent asked for, now. The evidence they return wakes whoever has not seen it."""
+        for req in post.requests:
+            key = (req.capability, json.dumps(req.params, sort_keys=True))
+            if key in st.request_keys:
+                continue
+            if req.capability == "translation" and st.listing.language == "en":
+                # Nothing to translate: the note goes on the board once, with no specialist call and no slot used.
+                st.request_keys.add(key)
+                if "translation" not in st.attempted:
+                    st.attempted.add("translation")
+                    self._add(st, english_note(st.listing.id), post.agent)
+                continue
+            if st.requested_calls >= MAX_CALLS_PER_CASE:       # a post holds at most 2 requests (validator)
+                self.bus.emit(st.case_id, "specialist.failed", {
+                    "capability": req.capability, "specialist_name": "", "requested_by": post.agent,
+                    "error": f"request limit reached ({MAX_CALLS_PER_CASE} per case)", "fallback": None})
+                continue
+            st.request_keys.add(key)
+            st.requested_calls += 1
+            job = asyncio.create_task(self._run_specialist(st, req.capability, req.params, post.agent, req.question))
+            st.jobs.add(job)
+            job.add_done_callback(st.jobs.discard)
+
+    async def _discuss(self, st: CaseState) -> str:
+        """Run the agents until nothing is left to say. Returns the stop reason."""
+        running: dict[asyncio.Task, AgentName] = {}
+        first_errors: dict[AgentName, str] = {}
+        capped = False
+        try:
+            while True:
+                if not running and not st.jobs and len(st.current) == len(AGENTS) and rules.is_unanimous(
+                        {a: p.stance for a, p in st.current.items() if not p.abstained}, sum(not p.abstained for p in st.current.values())):
+                    return "unanimous"
+                if len(first_errors) == len(AGENTS):
+                    # Nobody answered at all (bad API key, outage): an error, not an outcome. Empty "need more" posts
+                    # would otherwise close as WATCHLIST and look like a real review.
+                    raise RuntimeError(f"no agent answered: {next(iter(first_errors.values()))[:300]}")
+                for a in AGENTS:
+                    if a in running.values() or not self._wants_turn(st, a):
+                        continue
+                    if st.turns.get(a, 0) >= self.max_rounds:
+                        capped = True                          # backstop: this agent has spoken as often as it may
+                        continue
+                    running[asyncio.create_task(self._agent_turn(st, a))] = a
+                if not running and not st.jobs:
+                    break
+                done, _ = await asyncio.wait({*running, *st.jobs}, return_when=asyncio.FIRST_COMPLETED)
+                for task in done:
+                    if task in running:
+                        a = running.pop(task)
+                        err = task.result()
+                        if err and st.turns[a] == 1:
+                            first_errors[a] = err
+                    elif task.exception():
+                        raise task.exception()                 # a specialist call that blew up (not a failed reply)
+        finally:
+            for t in [*running, *st.jobs]:
+                t.cancel()
+        return "max_rounds" if capped else "ready_to_close"
 
     async def _resolve(self, st: CaseState, a: AgentName, turn: DeliberationTurn, result: Any,
                        latest: list[StancePost], r: int) -> tuple[StancePost, list[Rejection]]:
@@ -196,60 +275,6 @@ class Facilitator:
                     stats["rejected_final"] += len(rejections) - first_pass         # what is still rejected after the repair
         cleaned, _ = apply_empty_claims_rule(cleaned)
         return cleaned, rejections
-
-    async def _run_round(self, st: CaseState, r: int, active: list[AgentName]) -> int:
-        """Run one round for the active agents. Returns the number of evidence items added during it."""
-        start_count = st.board.count()
-        posts: list[StancePost] = []
-        first_round = not st.current
-        errors: list[str] = []
-        for a in active:                                    # one at a time: each agent reads the posts made before it
-            st.seen[a] = start_count
-            turn = self._turn(st, a, r, posts)
-            results = await self.transport.broadcast_turns({a: turn})
-            result = results.get(a, "no reply")
-            if not isinstance(result, StancePost):
-                errors.append(str(result))
-            post, rejections = await self._resolve(st, a, turn, result, list(st.current.values()), r)
-            for rj in rejections:
-                self.bus.emit(st.case_id, "claim.rejected", {
-                    "agent": rj.agent, "round": rj.round, "claim_text": rj.claim_text, "reasons": rj.reasons})
-            self.bus.emit(st.case_id, "stance.posted", {"post": post.model_dump(mode="json")})
-            posts.append(post)
-            st.transcript.append(post)
-            st.current[a] = post
-        if first_round and active and len(errors) == len(active):
-            # Nobody answered at all (bad API key, outage): an error, not a verdict. Empty "need more" posts would
-            # otherwise close as WATCHLIST and look like a real review.
-            raise RuntimeError(f"no agent answered: {errors[0][:300]}")
-        st.last_round_posts = posts
-
-        seen_keys: set[tuple[str, str]] = set()
-        jobs = []
-        for p in posts:
-            for req in p.requests:
-                key = (req.capability, json.dumps(req.params, sort_keys=True))
-                if key in seen_keys:
-                    continue
-                if req.capability == "translation" and st.listing.language == "en":
-                    # Nothing to translate: the note goes on the board once, with no specialist call and no slot used.
-                    seen_keys.add(key)
-                    if "translation" not in st.attempted:
-                        st.attempted.add("translation")
-                        self._add(st, english_note(st.listing.id), p.agent)
-                    continue
-                if len(jobs) >= MAX_CALLS_PER_ROUND or st.requested_calls >= MAX_CALLS_PER_CASE:
-                    limit = (f"{MAX_CALLS_PER_ROUND} per round" if len(jobs) >= MAX_CALLS_PER_ROUND
-                             else f"{MAX_CALLS_PER_CASE} per case")
-                    self.bus.emit(st.case_id, "specialist.failed", {
-                        "capability": req.capability, "specialist_name": "", "requested_by": p.agent,
-                        "error": f"request limit reached ({limit})", "fallback": None})
-                    continue
-                seen_keys.add(key)
-                st.requested_calls += 1
-                jobs.append(self._run_specialist(st, req.capability, req.params, p.agent, req.question))
-        await asyncio.gather(*jobs)
-        return st.board.count() - start_count
 
     # ------------------------------------------------------------------ case
     async def _new_state(self, case_id: str, listing_id: str) -> CaseState:
@@ -293,7 +318,6 @@ class Facilitator:
     async def _run(self, st: CaseState, intake: CaseState | None) -> CaseFile:
         case_id, listing, seller = st.case_id, st.listing, st.seller
         reason: str | None = None
-        rounds_used = 0
         try:
             if intake is None:
                 await self._intake(st)
@@ -303,23 +327,12 @@ class Facilitator:
                     self._add(st, EvidenceDraft.model_validate(ev.model_dump(include=set(EvidenceDraft.model_fields))),
                               ev.requested_by)
 
-            for r in range(1, self.max_rounds + 1):
-                rounds_used = r
-                active = self._active(st, r)
-                self.bus.emit(case_id, "round.started", {"round": r, "active": active})
-                before = {a: p for a, p in st.current.items() if not p.abstained} or None   # posts before this round
-                new_evidence = await self._run_round(st, r, active) if active else 0
-                taking_part = {a: p for a, p in st.current.items() if not p.abstained}
-                ready = {a: self._ready(st, a, p) for a, p in taking_part.items()}
-                sat_out = sum(p.abstained for p in st.current.values())
-                reason = rules.stop_reason(r, self.max_rounds, taking_part, before, new_evidence,
-                                           expected=len(AGENTS) - sat_out, ready=ready)
-                if reason:
-                    break
+            reason = await self._discuss(st)
         except BudgetExceeded as exc:
             self.bus.emit(case_id, "budget.exceeded", {"detail": str(exc)})
             reason = "budget"
 
+        rounds_used = max(st.turns.values(), default=0)
         finals = [st.current.get(a) or StancePost(agent=a, round=rounds_used, stance="need_more", confidence=0.0, claims=[])
                   for a in AGENTS]
         outcome = rules.outcome({p.agent: p.stance for p in finals if not p.abstained})   # whoever sat out does not count

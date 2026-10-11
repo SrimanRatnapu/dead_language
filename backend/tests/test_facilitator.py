@@ -131,8 +131,8 @@ async def test_only_triggered_agents_are_called_and_others_carry_forward():
     fac, bus = setup(t)
     cf = await fac.run_case("C-1", "L0101")
     assert t.broadcasts == [(1, ["undercover"]), (1, ["counsel"]), (1, ["case_officer"]), (2, ["undercover"])]
-    assert [e.payload["active"] for e in types(bus, "round.started")] == [["undercover", "counsel", "case_officer"], ["undercover"]]
-    assert cf.stop_reason == "no_movement" and cf.outcome == "CONTESTED"
+    assert [e.payload["agent"] for e in types(bus, "agent.thinking")] == ["undercover", "counsel", "case_officer", "undercover"]
+    assert cf.stop_reason == "ready_to_close" and cf.outcome == "CONTESTED"
     assert len([e for e in types(bus, "stance.posted") if e.payload["post"]["round"] == 2]) == 1
 
 
@@ -148,8 +148,8 @@ async def test_specialist_request_caps_and_dedupe():
     fac, bus = setup(t, max_rounds=1)
     await fac.run_case("C-1", "L0101")
     requested = [c for n, c in t.calls if c.params]
-    assert len(requested) == 3                                              # duplicate merged, capped at 3 per round
-    assert (requested[0].params, requested[1].params) == ({"k": 0}, {"k": 1})
+    # counsel's duplicate of undercover's k0 is merged; its legal_lookup and the officer's seller_inventory run
+    assert sorted(str(c.params) for c in requested) == sorted(map(str, [{"k": 0}, {"k": 1}, {"x": 1}, {"x": 2}]))
 
 
 async def test_precomputed_intake_is_reused_without_calling_specialists_again():
@@ -201,3 +201,31 @@ async def test_a_case_where_no_agent_answers_is_an_error_not_a_watchlist():
     fac, _ = setup(t)
     with pytest.raises(RuntimeError, match="no agent answered.*401"):
         await fac.run_case("C-1", "L0101")
+
+
+async def test_agents_think_at_the_same_time_and_a_specialist_answer_wakes_the_rest():
+    import asyncio
+    exam = SpecialistRequest(capability="price_check", question="q", reason="r", params={"k": 1})
+    t = FakeTransport(posts={
+        ("undercover", 1): post("undercover", 1, "need_more", requests=[exam]),
+        ("counsel", 1): post("counsel", 1, "need_more"), ("case_officer", 1): post("case_officer", 1, "need_more")})
+    live = peak = 0
+    orig = t.broadcast_turns
+
+    async def slow(turns, timeout=90.0):
+        nonlocal live, peak
+        live += 1
+        peak = max(peak, live)
+        await asyncio.sleep(0.02)
+        live -= 1
+        return await orig(turns, timeout)
+
+    t.broadcast_turns = slow
+    fac, bus = setup(t)
+    cf = await fac.run_case("C-1", "L0101")
+    assert peak == 3                                                         # nobody waited for anybody
+    first_turns = [e.payload["agent"] for e in types(bus, "agent.thinking")][:3]
+    assert sorted(first_turns) == ["case_officer", "counsel", "undercover"]
+    # the requested price check came back after the first posts, so every agent took a second look at it
+    assert sorted(a for r, [a] in t.broadcasts if r == 2) == ["case_officer", "counsel", "undercover"]
+    assert cf.stop_reason in ("ready_to_close", "max_rounds")

@@ -15,8 +15,7 @@ function derive(state: CaseState) {
   const lastRound = state.rounds.at(-1);
   const history = (agent: AgentName) => state.rounds.flatMap((r) => (r.posts[agent] ? [r.posts[agent]] : []));
   const latest = AGENT_ORDER.flatMap((a) => history(a).at(-1) ?? []);
-  const order = lastRound?.active ?? [];
-  const thinking = finished ? null : order.find((a) => lastRound?.posts[a] === undefined) ?? null;
+  const thinking = finished ? [] : state.thinking;
   return { finished, lastRound, history, latest, thinking };
 }
 
@@ -35,7 +34,7 @@ export function Standing({ state }: { state: CaseState }) {
         {latest.length === 0 && <span className="grow bg-line" />}
       </div>
       <p className="font-semibold">{words}</p>
-      <p className="ml-auto text-muted">{finished ? "Review finished" : thinking ? <><b className={AGENTS[thinking].text}>{AGENTS[thinking].label}</b> is thinking</> : null}</p>
+      <p className="ml-auto text-muted">{finished ? "Review finished" : thinking.length > 0 ? <>{thinking.map((a, i) => <span key={a}>{i > 0 && (i === thinking.length - 1 ? " and " : ", ")}<b className={AGENTS[a].text}>{AGENTS[a].label}</b></span>)} {thinking.length > 1 ? "are" : "is"} thinking</> : null}</p>
     </div>
   );
 }
@@ -54,7 +53,7 @@ export function AgentRail({ state, onOpen }: { state: CaseState; onOpen: (id: st
       {AGENT_ORDER.map((agent) => {
         const a = AGENTS[agent];
         const now = history(agent).at(-1);
-        const busy = thinking === agent;
+        const busy = thinking.includes(agent);
         return (
           <li key={agent} title={a.goal} className={`border-b p-3 transition-colors duration-300 ${busy ? "border-ink" : "border-line"}`}>
             <div className="flex items-center gap-3">

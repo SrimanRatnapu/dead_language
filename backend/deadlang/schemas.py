@@ -159,7 +159,7 @@ class CaseFile(BaseModel):
 
 # ---------------- UI events (SSE) ----------------
 EventType = Literal["case.started", "evidence.added", "specialist.selected", "specialist.failed",
-                    "round.started", "stance.posted", "claim.rejected", "listing.removed",
+                    "round.started", "agent.thinking", "stance.posted", "claim.rejected", "listing.removed",
                     "case.ended", "budget.exceeded"]
 
 class Event(BaseModel):

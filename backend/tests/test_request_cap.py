@@ -1,4 +1,4 @@
-"""Specialist requests in _run_round: translation on an English listing never uses a slot, and a request the per-round
+"""Specialist requests (Facilitator._dispatch_requests): translation on an English listing never uses a slot, and a request the per-case
 cap drops is reported. Real Facilitator, LocalTransport, discovery and specialists; stub agents and a stub model."""
 import pytest
 
@@ -17,15 +17,16 @@ from deadlang.specialists.network import LinkedSellers, SellerInventory
 from deadlang.specialists.price import PriceChecker
 from tests.conftest import make_listing, make_seller
 
-LIMIT = "request limit reached (3 per round)"
+LIMIT = "request limit reached (6 per case)"
 
 
 class Asker:
-    def __init__(self, name, asks):
-        self.name, self.asks = name, asks
+    def __init__(self, name, asks, varied=False):
+        self.name, self.asks, self.varied = name, asks, varied
 
     async def handle(self, turn):
-        reqs = [SpecialistRequest(capability=c, question="q", reason="r") for c in self.asks] if turn.round == 1 else []
+        reqs = [SpecialistRequest(capability=c, question="q", reason="r", params={"n": f"{self.name}{turn.round}{i}"} if self.varied else {})
+                for i, c in enumerate(self.asks)] if turn.round <= (2 if self.varied else 1) else []
         return StancePost(agent=self.name, round=turn.round, stance="need_more", confidence=0.5, requests=reqs,
                           claims=[Claim(text="The listing is on the board.", evidence_ids=["E0"])],
                           ready_to_close=turn.round >= 2, take="t")
@@ -52,12 +53,12 @@ def market():
         [make_seller("S1"), make_seller("S2")]))
 
 
-async def run_case(listing_id, undercover=(), counsel=(), officer=()):
+async def run_case(listing_id, undercover=(), counsel=(), officer=(), varied=False):
     m = market()
     # No material examiner: these listings have no photos and the model is stubbed for translation only.
     specs = [SellerInventory(m), LinkedSellers(m), PriceChecker(m), LegalTable(m), Translator(m)]
-    agents = {"undercover": Asker("undercover", list(undercover)), "counsel": Asker("counsel", list(counsel)),
-              "case_officer": Asker("case_officer", list(officer))}
+    agents = {"undercover": Asker("undercover", list(undercover), varied), "counsel": Asker("counsel", list(counsel), varied),
+              "case_officer": Asker("case_officer", list(officer), varied)}
     disc = LocalDiscovery([card_for(n) for n in ALL_AGENT_NAMES])
     bus = CollectBus()
     fac = Facilitator(m, LocalTransport({s.name: s for s in specs}, agents, discovery=disc), disc, bus, max_rounds=2)
@@ -85,7 +86,7 @@ async def test_translation_on_an_english_listing_makes_no_call_uses_no_slot_and_
     notes = evidence(events, "translation")
     assert len(notes) == 1 and notes[0]["data"]["already_english"] is True and notes[0]["requested_by"] == "case_officer"
     assert notes[0]["produced_by"] == "code" and "already in English" in notes[0]["summary"]
-    # translation took no slot: price_check, seller_inventory and linked_sellers all fit under the 3-per-round cap
+    # translation took no slot: price_check, seller_inventory and linked_sellers all fit under the 6-per-case cap
     assert [c for c, by in selected(events) if by != "intake"] == ["price_check", "seller_inventory", "linked_sellers"]
     assert [f for f in failed(events) if f["error"].startswith("request limit")] == []
 
@@ -106,15 +107,12 @@ async def test_a_vietnamese_listing_is_translated_as_before(translations):
 
 
 # (c)
-async def test_a_request_dropped_by_the_round_cap_is_reported_for_the_agent_that_made_it(translations):
-    events = await run_case("L1", undercover=["price_check", "seller_inventory"], counsel=["legal_lookup"],
-                            officer=["linked_sellers"])
+async def test_requests_past_the_case_cap_are_reported_for_the_agent_that_made_it(translations):
+    both = ["price_check", "seller_inventory"]
+    events = await run_case("L1", undercover=both, counsel=both, officer=both, varied=True)   # asks again when woken by evidence
     dropped = [f for f in failed(events) if f["error"].startswith("request limit")]
-    assert len(dropped) == 1
-    assert dropped[0] == {"capability": "linked_sellers", "specialist_name": "", "requested_by": "case_officer",
-                          "error": LIMIT, "fallback": None}
-    # the cap, the order and which requests are kept are unchanged
-    assert [c for c, by in selected(events) if by != "intake"] == ["price_check", "seller_inventory", "legal_lookup"]
+    assert dropped and all(f["error"] == LIMIT and f["specialist_name"] == "" and f["requested_by"] in ("undercover", "counsel", "case_officer") for f in dropped)
+    assert len([1 for c, by in selected(events) if by != "intake"]) == 6
 
 
 # (d)

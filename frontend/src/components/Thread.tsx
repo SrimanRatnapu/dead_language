@@ -78,8 +78,7 @@ export function Thread({ state, onOpen, children }: { state: CaseState; onOpen: 
   const [pinned, setPinned] = useState(true);
   const blocks = toBlocks(state);
   const finished = state.caseFile !== null || state.budgetExceeded !== null;
-  const lastRound = state.rounds.at(-1);
-  const waiting = finished ? [] : (lastRound?.active ?? []).filter((a) => lastRound?.posts[a] === undefined).slice(0, 1);  // one speaks at a time
+  const waiting = finished ? [] : state.thinking;
   const key = `${blocks.length}:${waiting.join()}:${finished}`;
 
   // Newest at the bottom, verdict last. Stay glued to the bottom while the reader is there; stop when they scroll up.

@@ -205,26 +205,24 @@ def create_app(market: Any = None, transport: Any = None, discovery: Any = None,
 
     async def _watch_phase(case_id: str, set_status: Any) -> None:
         """Turn the case's events into a phase string for the batch row: reading, examining:<capability,...>, briefing,
-        thinking:<agent> (agents speak one at a time, in the order the round lists them), closing."""
-        active: list[str] = []
-        posted: set[str] = set()
+        thinking:<agent,...> (agents run at the same time), closing."""
+        thinking: list[str] = []
         pending: list[str] = []    # specialists asked but not yet answered
         phase = "reading"
         async for e in state["bus"].subscribe(case_id):
             p = e.payload
-            if e.type == "round.started":
-                active, posted = list(p["active"]), set()
+            if e.type == "agent.thinking":
+                thinking.append(p["agent"])
+            elif e.type == "stance.posted" and p["post"]["agent"] in thinking:
+                thinking.remove(p["post"]["agent"])
             elif e.type == "specialist.selected":
                 pending.append(p["capability"])
             elif e.type in ("evidence.added", "specialist.failed"):
                 cap = p["evidence"]["capability"] if e.type == "evidence.added" else p["capability"]
                 if cap in pending:
                     pending.remove(cap)
-            elif e.type == "stance.posted":
-                posted.add(p["post"]["agent"])
-            nxt = next((a for a in active if a not in posted), None)
-            new = (f"examining:{','.join(dict.fromkeys(pending))}" if pending else f"thinking:{nxt}" if nxt else
-                   "closing" if active else "briefing" if e.type == "evidence.added" else phase)
+            new = (f"thinking:{','.join(thinking)}" if thinking else f"examining:{','.join(dict.fromkeys(pending))}" if pending
+                   else "briefing" if e.type == "evidence.added" else phase)
             if new != phase:
                 phase = new
                 set_status(phase=phase)

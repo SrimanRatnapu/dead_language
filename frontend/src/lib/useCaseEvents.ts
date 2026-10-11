@@ -20,7 +20,7 @@ function reducer(state: CaseState, a: Action): CaseState {
 
 const MAX_GAP_MS = 2500;
 // Everything from the first of these onward is the agents' stage. It is held back until release() is called.
-const AGENT_STAGE = new Set<string>(["round.started", "stance.posted", "claim.rejected", "case.ended", "budget.exceeded"]);
+const AGENT_STAGE = new Set<string>(["round.started", "agent.thinking", "stance.posted", "claim.rejected", "case.ended", "budget.exceeded"]);
 
 export interface CaseEvents {
   state: CaseState;
