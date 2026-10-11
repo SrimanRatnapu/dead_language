@@ -6,6 +6,7 @@ export type ListingStatus = "active" | "removed" | "hidden";
 
 export interface Listing {
   id: string;
+  origin?: "demo" | "live";
   marketplace: string;
   seller_id: string;
   title: string;
@@ -174,3 +175,15 @@ export interface EvalResults {
   };
   _stub?: boolean; // set only by public/stub/eval.json: placeholders, not results
 }
+
+export type BatchStatus = "queued" | "triaging" | "screened_out" | "deliberating" | "done" | "error";
+export interface BatchItem {
+  listing_id: string;
+  case_id: string | null;
+  status: BatchStatus;
+  triage: { score: number; reason: string } | null;
+  outcome: Outcome | null;
+  error: string | null;
+}
+export interface BatchStart { batch_id: string; source_mode: "demo" | "live" | "recorded"; items: BatchItem[] }
+export interface BatchEvent { type: "batch.item"; listing_id: string; case_id: string | null; status: BatchStatus; outcome?: Outcome; at: string }

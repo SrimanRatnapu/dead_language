@@ -22,6 +22,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </Link>
           <nav className="ml-auto flex items-center gap-1 text-sm" aria-label="Primary navigation">
             <Link href="/" className="press rounded-md inline-flex min-h-11 items-center px-3 text-muted hover:bg-surface hover:text-ink">Listings</Link>
+            <Link href="/queue" className="press rounded-md inline-flex min-h-11 items-center px-3 text-muted hover:bg-surface hover:text-ink">Queue</Link>
             <Link href="/replays" className="press rounded-md inline-flex min-h-11 items-center px-3 text-muted hover:bg-surface hover:text-ink">Replays</Link>
             <Link href="/results" className="press rounded-md inline-flex min-h-11 items-center px-3 text-muted hover:bg-surface hover:text-ink">Evaluation</Link>
           </nav>
