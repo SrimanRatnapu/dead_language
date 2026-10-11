@@ -11,3 +11,5 @@ fixtures/replays/runs/
 .DS_Store
 .run/
 data/runs.db
+data/live/
+data/images/live/

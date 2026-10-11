@@ -98,6 +98,46 @@ def _shared_phrases(listing: Listing, shared: set[tuple[str, ...]]) -> list[str]
     return sorted(long_enough, key=len, reverse=True)
 
 
+def photo_hashes(market, rel_paths: set[str]) -> dict[str, int]:
+    """64-bit perceptual hash per readable image; cached in data/phash_cache.json as {rel_path: [size, hex]}."""
+    import imagehash
+    from PIL import Image
+
+    cache_file: Path = market.image_path("phash_cache.json")
+    try:
+        cache = json.loads(cache_file.read_text())
+    except (OSError, ValueError):
+        cache = {}
+    hashes, dirty = {}, False
+    for rel in sorted(rel_paths):
+        path: Path = market.image_path(rel)
+        try:
+            size = path.stat().st_size
+            if rel.startswith("images/live/"):             # live photos are never written to the committed cache
+                with Image.open(path) as img:
+                    hashes[rel] = int(str(imagehash.phash(img)), 16)
+                continue
+            if cache.get(rel, [None])[0] != size:
+                with Image.open(path) as img:
+                    cache[rel] = [size, str(imagehash.phash(img))]
+                dirty = True
+            hashes[rel] = int(cache[rel][1], 16)
+        except OSError:
+            continue                                       # missing or unreadable image: no photo evidence from it
+    if dirty:
+        try:
+            tmp = cache_file.with_suffix(f".{os.getpid()}.tmp")
+            tmp.write_text(json.dumps(cache, sort_keys=True))
+            tmp.replace(cache_file)
+        except OSError:
+            pass                                           # the cache is an optimisation only
+    return hashes
+
+
+def same_photo(a: int, b: int) -> bool:
+    return (a ^ b).bit_count() <= MAX_PHOTO_DISTANCE
+
+
 class LinkedSellers:
     name = "deadlang-linked-sellers"
     capability = "linked_sellers"
@@ -112,35 +152,8 @@ class LinkedSellers:
         self._tried: set[str] = set()                      # image paths already looked at (readable or not)
 
     def _load_hashes(self, rel_paths: set[str]) -> None:
-        """Hash every image once; cached in data/phash_cache.json as {rel_path: [file_size, hex_hash]}."""
-        import imagehash
-        from PIL import Image
-
-        cache_file: Path = self.market.image_path("phash_cache.json")
-        try:
-            cache = json.loads(cache_file.read_text())
-        except (OSError, ValueError):
-            cache = {}
-        dirty = False
         self._tried |= rel_paths
-        for rel in sorted(rel_paths):
-            path: Path = self.market.image_path(rel)
-            try:
-                size = path.stat().st_size
-                if cache.get(rel, [None])[0] != size:
-                    with Image.open(path) as img:
-                        cache[rel] = [size, str(imagehash.phash(img))]
-                    dirty = True
-                self._hashes[rel] = int(cache[rel][1], 16)
-            except OSError:
-                continue                                   # missing or unreadable image: no photo evidence from it
-        if dirty:
-            try:
-                tmp = cache_file.with_suffix(f".{os.getpid()}.tmp")
-                tmp.write_text(json.dumps(cache, sort_keys=True))
-                tmp.replace(cache_file)
-            except OSError:
-                pass                                       # the cache is an optimisation only
+        self._hashes.update(photo_hashes(self.market, rel_paths))
 
     def _build_index(self, target: Listing, active: list[Listing]) -> None:
         ngram_sellers: dict[tuple[str, ...], set[str]] = defaultdict(set)
@@ -156,7 +169,9 @@ class LinkedSellers:
             target = await self.market.get_listing_snapshot(call.listing_id)   # works after removal too
         except KeyError:
             return SpecialistReply(ok=False, error=f"unknown listing {call.listing_id}")
-        active = await self.market.all_active()
+        # Two lanes: a demo-lane listing is only compared with the stored dataset, so live fetches can never
+        # change a demo case; a live listing is compared with everything.
+        active = [l for l in await self.market.all_active() if target.origin == "live" or l.origin == "demo"]
         key = frozenset(l.id for l in active)
         if key != self._index_key or any(p not in self._tried for p in target.image_paths):
             await asyncio.to_thread(self._build_index, target, active)   # also picks up a revealed relist
@@ -174,7 +189,7 @@ class LinkedSellers:
             if len(_shared_phrases(target, shared)) < MIN_SHARED_PHRASES:
                 shared = set()
             pairs = [[tp, p] for tp, th in target_photos for p in l.image_paths
-                     if p in self._hashes and (th ^ self._hashes[p]).bit_count() <= MAX_PHOTO_DISTANCE]
+                     if p in self._hashes and same_photo(th, self._hashes[p])]
             if not shared and not pairs:
                 continue
             entry = by_seller.setdefault(l.seller_id, {"listing_ids": [], "ngrams": set(), "pairs": []})
