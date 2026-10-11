@@ -92,7 +92,7 @@ export default function Queue() {
             {summary.map(([k, n]) => <span key={k}>{n} {k}</span>)}<span>{secs}s</span>
             {mode === "recorded" && <span className="text-ink">recorded data</span>}
           </p>
-          <ul className="divide-y divide-line border-b border-line">
+          <ul className="-mx-3 divide-y divide-line border-b border-line">
             {items.map((i) => {
               const l = listings[i.listing_id]; const m = markFor(i);
               const body = <>
@@ -103,9 +103,9 @@ export default function Queue() {
                   {m ? <><Icon name={m.icon} size={18} />{m.label}</>
                      : <><span className="typing flex gap-1" aria-hidden><span /><span /><span /></span>{WORKING[i.status]}{i.status === "deliberating" && secs > 0 ? ` · ${secs}s` : ""}</>}
                 </span></>;
-              const row = "grid min-h-16 grid-cols-[3.5rem_1fr_auto] items-center gap-4 py-3";
-              return <li key={i.listing_id}>{i.case_id && i.status === "done"
-                ? <Link href={`/case/${i.case_id}`} className={`press ${row} hover:bg-surface/70`}>{body}</Link>
+              const row = "grid min-h-16 grid-cols-[3.5rem_1fr_auto] items-center gap-4 px-3 py-3";
+              return <li key={i.listing_id}>{i.case_id
+                ? <Link href={`/case/${i.case_id}?stage=agents`} className={`press ${row} hover:bg-surface/70`}>{body}</Link>
                 : <div className={row}>{body}</div>}</li>;
             })}
           </ul></>}
