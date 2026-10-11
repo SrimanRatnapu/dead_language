@@ -66,6 +66,18 @@ async def test_the_evaluation_baselines_use_the_strong_model_too(models, monkeyp
     assert rec.models == ["strong-model"]
 
 
-def test_no_accusing_role_is_on_the_cheap_model_by_default():
-    assert config.MODEL_TRIAGE == config.MODEL_FAST            # the documented default
-    assert config.MODEL_STRONG != config.MODEL_FAST            # and strong really is a different, stronger model
+def _defaults(code: str) -> str:
+    """config values with no DL_* settings in the environment (and none from .env, which only fills gaps)."""
+    import os, subprocess, sys
+    from pathlib import Path
+    env = {k: v for k, v in os.environ.items() if not k.startswith("DL_")}
+    env.update({"DL_MODEL_STRONG": "", "DL_MODEL_FAST": "", "DL_MODEL_TRIAGE": ""})       # empty means: use the default
+    out = subprocess.run([sys.executable, "-W", "ignore", "-c", f"from deadlang import config; print({code})"],
+                         cwd=Path(__file__).resolve().parents[1], env=env, capture_output=True, text=True, timeout=60)
+    assert out.returncode == 0, out.stderr
+    return out.stdout.strip().splitlines()[-1]
+
+
+def test_the_built_in_defaults_put_no_accusing_role_on_the_cheap_model():
+    assert _defaults("config.MODEL_TRIAGE == config.MODEL_FAST") == "True"                # the documented default
+    assert _defaults("'haiku' in config.MODEL_FAST and 'haiku' not in config.MODEL_STRONG") == "True"

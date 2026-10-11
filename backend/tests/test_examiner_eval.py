@@ -54,6 +54,8 @@ def world(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "DATA_DIR", data)
     monkeypatch.setattr(config, "REPO_ROOT", tmp_path / "repo")
     monkeypatch.setattr(config, "USAGE_FILE", tmp_path / "usage.json")
+    monkeypatch.setattr(config, "MODEL_FAST", "fast-test-model")        # two different models, whatever .env says
+    monkeypatch.setattr(config, "MODEL_STRONG", "strong-test-model")
     return tmp_path
 
 
