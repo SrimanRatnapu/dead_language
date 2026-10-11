@@ -28,7 +28,7 @@ export default function MetricsPage() {
 
   if (!m) return <main className="shell-grid min-h-[calc(100dvh-3.5rem)]"><p className="mx-auto max-w-5xl px-5 py-8 text-muted">{offline ? "The review service is offline. Start the backend and reload." : "Loading…"}</p></main>;
   const f = m.funnel;
-  const steps: [string, number][] = [["Ingested", f.ingested], ["Screened out", f.screened_out], ["Reviewed by agents", f.deliberated]];
+  const steps: [string, number][] = [["Ingested", f.ingested], ["Screened out", f.screened_out], ["Reviewed by agents", f.deliberated], ["Errors", f.errors]];
   const outs: [string, number][] = [["File", f.FILE], ["Contested", f.CONTESTED], ["Watchlist", f.WATCHLIST], ["Dismiss", f.DISMISS]];
   const total = Math.max(f.ingested, 1);
   const pct = (n: number) => `${(n / total) * 100}%`;

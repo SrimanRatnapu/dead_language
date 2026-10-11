@@ -29,6 +29,7 @@ export const getEval = () => req<EvalResults>("/api/eval");
 export const startBatch = (body: { source: "demo" | "live"; query?: string; cap?: number }) =>
   post<BatchStart>("/api/batches", body);
 export const batchEventsUrl = (id: string) => `${API_BASE}/api/batches/${id}/events`;
+export const getHealth = () => req<{ transport: string; problems: string[] }>("/api/health");
 export const getMetrics = () => req<Metrics>("/api/metrics");
 export const refreshNow = () => post<ListingChange[]>("/api/refresh");
 export const getStrike = (caseId: string) => req<Strike>(`/api/cases/${caseId}/strike`);

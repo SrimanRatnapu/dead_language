@@ -17,8 +17,9 @@ Worker = Callable[[dict[str, Any], Callable[..., None]], Awaitable[None]]
 
 
 class Batches:
-    def __init__(self, worker: Worker, limit: int = 4, on_event: Callable[[str, dict], None] | None = None):
+    def __init__(self, worker: Worker, limit: int = 4, on_event: Callable[[str, dict], None] | None = None, first_id: int = 1):
         self.worker = worker
+        self._first = first_id
         self.on_event = on_event
         self._sem = asyncio.Semaphore(limit)
         self._batches: dict[str, dict[str, Any]] = {}
@@ -26,7 +27,7 @@ class Batches:
         self._tasks: set[asyncio.Task] = set()   # strong refs so running items are not garbage collected
 
     def submit(self, source: str, listing_ids: list[str], source_mode: str) -> dict[str, Any]:
-        bid = f"B-{len(self._batches) + 1:04d}"
+        bid = f"B-{self._first + len(self._batches):04d}"
         items = [{"listing_id": i, "case_id": None, "status": "queued", "triage": None, "outcome": None, "error": None}
                  for i in dict.fromkeys(listing_ids)]
         batch = {"batch_id": bid, "source": source, "source_mode": source_mode, "created_at": now_iso(), "items": items,

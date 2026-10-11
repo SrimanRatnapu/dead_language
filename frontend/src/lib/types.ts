@@ -193,7 +193,7 @@ export interface Strike { status: StrikeStatus; approved_by: string | null; noti
 export interface ListingChange { listing_id: string; kind: "price_changed" | "removed" | "relisted"; at: string; old: unknown; new: unknown }
 export interface Stage { p50: number; p95: number }
 export interface Metrics {
-  funnel: { ingested: number; screened_out: number; deliberated: number; FILE: number; DISMISS: number; CONTESTED: number; WATCHLIST: number };
+  funnel: { ingested: number; errors: number; screened_out: number; deliberated: number; FILE: number; DISMISS: number; CONTESTED: number; WATCHLIST: number };
   latency_ms: { triage: Stage; case: Stage };
   throughput_per_min: number;
   cost: { usd_total: number; usd_per_case: number; tokens_in: number; tokens_out: number };

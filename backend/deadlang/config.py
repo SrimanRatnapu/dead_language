@@ -41,6 +41,7 @@ MODEL_STRONG: str = _str("DL_MODEL_STRONG", "claude-sonnet-5-5")
 MODEL_FAST: str = _str("DL_MODEL_FAST", "claude-haiku-4-5-20251001")
 
 MAX_INPUT_TOKENS: int = _int("DL_MAX_INPUT_TOKENS", 6_000_000)
+CASE_TIMEOUT_S: float = float(_str("DL_CASE_TIMEOUT_S", "420"))   # one case, all rounds; stalled agents fail the case instead of hanging
 MAX_OUTPUT_TOKENS: int = _int("DL_MAX_OUTPUT_TOKENS", 600_000)
 CASE_MAX_INPUT_TOKENS: int = _int("DL_CASE_MAX_INPUT_TOKENS", 300_000)
 CASE_MAX_OUTPUT_TOKENS: int = _int("DL_CASE_MAX_OUTPUT_TOKENS", 30_000)

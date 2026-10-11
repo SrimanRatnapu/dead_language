@@ -63,7 +63,7 @@ def set_client_for_tests(fake: Any) -> None:
 def _get_client() -> Any:
     global _client
     if _client is None:
-        _client = anthropic.AsyncAnthropic(max_retries=0)   # retries are ours: at most 1
+        _client = anthropic.AsyncAnthropic(max_retries=0, timeout=120.0)   # retries are ours: at most 1
     return _client
 
 

@@ -100,6 +100,9 @@ class Runs:
         self._x("insert into refreshes values(?,?,?,?)", now_iso(), checked, len(changes),
                 sum(c.kind == "removed" for c in changes))
 
+    def batch_count(self) -> int:
+        return self.db.execute("select count(distinct batch_id) from items").fetchone()[0]
+
     def spend_today(self) -> float:
         day = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         return self.db.execute("select coalesce(sum(usd),0) from usage where at >= ?", (day,)).fetchone()[0]
@@ -144,7 +147,7 @@ class Runs:
             last[(r["batch_id"], r["listing_id"])] = r
         outs = [r["outcome"] for r in last.values() if r["status"] == "done"]
         funnel = {"ingested": len(last), "screened_out": sum(r["status"] == "screened_out" for r in last.values()),
-                  "deliberated": len(outs), **{o: outs.count(o) for o in ("FILE", "DISMISS", "CONTESTED", "WATCHLIST")}}
+                  "deliberated": len(outs), "errors": sum(r["status"] == "error" for r in last.values()), **{o: outs.count(o) for o in ("FILE", "DISMISS", "CONTESTED", "WATCHLIST")}}
         cutoff = (datetime.now(timezone.utc) - timedelta(minutes=window_min)).isoformat()
         recent = sum(1 for r in last.values() if r["status"] in ("done", "screened_out") and r["at"] >= cutoff)
         tri = [r["duration_ms"] for r in q("select duration_ms from usage where stage like 'triage%'")]

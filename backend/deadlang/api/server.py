@@ -90,7 +90,8 @@ def create_app(market: Any = None, transport: Any = None, discovery: Any = None,
         llm.usage_hook = runs.record_usage
         nonlocal batches
         batches = Batches(real_worker, int(os.getenv("DL_MAX_CONCURRENT_CASES", "4")),
-                          lambda bid, it: runs.record_item(bid, it["listing_id"], it["status"], it["outcome"]))
+                          lambda bid, it: runs.record_item(bid, it["listing_id"], it["status"], it["outcome"]),
+                          first_id=runs.batch_count() + 1)
         yield
         llm.usage_hook = None
 
@@ -98,6 +99,22 @@ def create_app(market: Any = None, transport: Any = None, discovery: Any = None,
     app.add_middleware(CORSMiddleware, allow_origin_regex=r"http://(localhost|127\.0\.0\.1)(:\d+)?",  # any local dev port (3000 can be taken)
                        allow_origins=[],
                        allow_methods=["*"], allow_headers=["*"])
+
+    @app.get("/api/health")
+    async def health():
+        """Which backing services are unreachable (agntcy mode only). Agent processes are not probed."""
+        problems: list[str] = []
+        if config.TRANSPORT == "agntcy":
+            import socket
+            from urllib.parse import urlparse
+            u = urlparse(config.SLIM_ENDPOINT)
+            host, _, port = config.DIRECTORY_ADDRESS.partition(":")
+            for name, h, p in (("SLIM", u.hostname, u.port), ("Directory", host, int(port))):
+                try:
+                    socket.create_connection((h, p), timeout=1).close()
+                except OSError:
+                    problems.append(f"{name} is not reachable at {h}:{p}")
+        return {"transport": config.TRANSPORT, "problems": problems}
 
     # ------------------------------------------------------------------ listings
     @app.get("/api/listings")
@@ -139,7 +156,10 @@ def create_app(market: Any = None, transport: Any = None, discovery: Any = None,
         async def run():
             try:
                 state["runs"].start_case(case_id, await state["market"].get_listing_snapshot(listing_id))
-                info["case_file"] = await state["facilitator"].run_case(case_id, listing_id)
+                try:
+                    info["case_file"] = await asyncio.wait_for(state["facilitator"].run_case(case_id, listing_id), config.CASE_TIMEOUT_S)
+                except asyncio.TimeoutError:
+                    raise RuntimeError(f"case timed out after {config.CASE_TIMEOUT_S:g}s: the agents did not finish; check the agent processes, SLIM and Directory, or set TRANSPORT=local")
                 state["runs"].end_case(case_id, info["case_file"].outcome)
             except Exception as exc:
                 state["runs"].end_case(case_id, None)

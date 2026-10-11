@@ -3,7 +3,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { Icon, type IconName } from "@/components/Icon";
 import { Photo } from "@/components/Photo";
-import { batchEventsUrl, getListing, getListings, imageUrl, startBatch } from "@/lib/api";
+import { batchEventsUrl, getListing, getHealth, getListings, imageUrl, startBatch } from "@/lib/api";
 import type { BatchEvent, BatchItem, BatchStart, Listing } from "@/lib/types";
 
 const MAX_CAP = 50; // server rejects more (422); keep in sync with MAX_LIVE_CAP in api/server.py
@@ -30,10 +30,12 @@ export default function Queue() {
   const [error, setError] = useState<string | null>(null);
   const [startedAt, setStartedAt] = useState<number | null>(null);
   const [now, setNow] = useState(0);
+  const [problems, setProblems] = useState<string[]>([]);
   const es = useRef<EventSource | null>(null);
 
   useEffect(() => {
     getListings().then((rows) => setListings(Object.fromEntries(rows.map((r) => [r.listing.id, r.listing])))).catch(() => {});
+    getHealth().then((h) => setProblems(h.problems)).catch(() => {});
     return () => es.current?.close();
   }, []);
   const running = items.some((i) => !["done", "screened_out", "error"].includes(i.status));
@@ -83,6 +85,7 @@ export default function Queue() {
             <button type="submit" disabled={busy || running || !query.trim()} className={`${btn} border border-ink hover:bg-surface`}>Fetch live</button>
           </form>
         </section>
+        {problems.length > 0 && <p role="alert" className="border-b border-amber/40 bg-amber-tint px-3 py-2 text-ink">{problems.join(". ")}. Reviews will stall until it is running.</p>}
         {error && <p role="alert" className="border-b border-red/30 bg-red-tint px-3 py-2 text-red">{error}</p>}
         {items.length > 0 && <>
           <p className="mono flex flex-wrap gap-x-4 border-b border-line py-2 text-sm text-muted" aria-live="polite">
@@ -98,7 +101,7 @@ export default function Queue() {
                   <span className="block text-sm text-muted">{l ? `$${l.price_usd.toLocaleString()} · ` : ""}<span className="mono text-xs">{l?.origin === "live" ? "Live" : "Demo"}</span></span></span>
                 <span className={`inline-flex items-center justify-end gap-2 text-sm font-semibold ${m?.tone ?? "text-muted"}`}>
                   {m ? <><Icon name={m.icon} size={18} />{m.label}</>
-                     : <><span className="typing flex gap-1" aria-hidden><span /><span /><span /></span>{WORKING[i.status]}</>}
+                     : <><span className="typing flex gap-1" aria-hidden><span /><span /><span /></span>{WORKING[i.status]}{i.status === "deliberating" && secs > 0 ? ` · ${secs}s` : ""}</>}
                 </span></>;
               const row = "grid min-h-16 grid-cols-[3.5rem_1fr_auto] items-center gap-4 py-3";
               return <li key={i.listing_id}>{i.case_id && i.status === "done"

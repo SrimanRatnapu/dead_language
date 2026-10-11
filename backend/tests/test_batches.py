@@ -118,3 +118,18 @@ def test_spend_cap_stops_new_cases(client, monkeypatch):
     llm.usage_hook("claude-sonnet-5-5", "x", None, 1_000_000, 1_000_000, 1)   # $12 of recorded spend
     items = run_batch(client)
     assert all(i["status"] == "error" and "spend cap" in i["error"] for i in items)
+
+
+def test_batch_ids_continue_after_restart():
+    async def w(item, set_status):
+        set_status(status="done", outcome="FILE")
+    assert Batches(w, first_id=7).submit("demo", [], "demo")["batch_id"] == "B-0007"
+
+
+def test_health_reports_unreachable_services(client, monkeypatch):
+    from deadlang import config
+    monkeypatch.setattr(config, "TRANSPORT", "agntcy")
+    monkeypatch.setattr(config, "SLIM_ENDPOINT", "http://127.0.0.1:1")
+    monkeypatch.setattr(config, "DIRECTORY_ADDRESS", "127.0.0.1:1")
+    h = client.get("/api/health").json()
+    assert len(h["problems"]) == 2 and "SLIM" in h["problems"][0]
