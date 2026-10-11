@@ -357,8 +357,8 @@ async def test_a_missing_image_file_is_an_error_and_holds_no_budget(tmp_path, en
 
 def test_unstringify_decodes_nested_json_strings():
     from deadlang.llm import _unstringify
-    out = _unstringify({"rebuttal": '{"target_agent":"buyer"}', "claims": '[{"a":1}]', "text": "plain", "bad": "{oops"})
-    assert out == {"rebuttal": {"target_agent": "buyer"}, "claims": [{"a": 1}], "text": "plain", "bad": "{oops"}
+    out = _unstringify({"rebuttal": '{"target_agent":"undercover"}', "claims": '[{"a":1}]', "text": "plain", "bad": "{oops"})
+    assert out == {"rebuttal": {"target_agent": "undercover"}, "claims": [{"a": 1}], "text": "plain", "bad": "{oops"}
 
 # ---------------- demo hardening: cancelled / timed-out calls count as spent; no nudge on refusal ----------------
 

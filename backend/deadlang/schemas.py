@@ -34,6 +34,7 @@ class Listing(BaseModel):
     reconstruction_source: Optional[str] = None
     status: ListingStatus = "active"
     relist_of: Optional[str] = None   # hidden relist listing points at the original
+    origin: Literal["demo", "live"] = "demo"   # where it came from; the UI badge reads this
 
 class Seller(BaseModel):
     id: str
@@ -51,8 +52,8 @@ class Label(BaseModel):           # ground truth: eval only
 # ---------------- Evidence ----------------
 Capability = Literal["listing_snapshot", "price_check", "seller_inventory", "linked_sellers",
                      "legal_lookup", "material_exam", "translation", "system_notice"]
-AgentName = Literal["buyer", "defender", "caseload"]
-Requester = Literal["intake", "buyer", "defender", "caseload", "system"]
+AgentName = Literal["undercover", "counsel", "case_officer"]
+Requester = Literal["intake", "undercover", "counsel", "case_officer", "system"]
 
 class EvidenceDraft(BaseModel):   # what a specialist returns; the board assigns the id
     capability: Capability

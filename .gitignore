@@ -10,3 +10,4 @@ data/raw/
 fixtures/replays/runs/
 .DS_Store
 .run/
+data/runs.db

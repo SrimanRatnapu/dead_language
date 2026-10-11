@@ -4,7 +4,7 @@ from __future__ import annotations
 from deadlang.evidence.board import EvidenceBoard
 from deadlang.schemas import CaseFile, Listing, Outcome, Seller, StancePost
 
-ORDER = ("buyer", "defender", "caseload")
+ORDER = ("undercover", "counsel", "case_officer")
 
 
 def _linked(board: EvidenceBoard) -> list[tuple[str, str]]:
@@ -14,6 +14,16 @@ def _linked(board: EvidenceBoard) -> list[tuple[str, str]]:
             for item in e.data.get("linked", []):
                 out[item["seller_id"]] = item.get("seller_name") or item["seller_id"]
     return list(out.items())
+
+
+def _name(agent: str) -> str:
+    return agent.replace("_", " ").title()          # case_officer -> Case Officer
+
+
+def _position(p: StancePost) -> str:
+    if p.abstained:
+        return f"{_name(p.agent)} abstained (no other cases to compare)"
+    return f"{_name(p.agent)} {p.stance} ({p.confidence:.2f})"
 
 
 def build_case_file(case_id: str, listing: Listing, seller: Seller, outcome: Outcome, rounds_used: int,
@@ -37,9 +47,7 @@ def build_case_file(case_id: str, listing: Listing, seller: Seller, outcome: Out
             "Key evidence:", *key_lines,
             "Linked sellers: " + (", ".join(f"{n} ({i})" for i, n in linked) or "none found"),
             "Legal basis: " + (" ".join(legal) or "none on the board"),
-            "Positions: " + ", ".join(
-                f"{p.agent.capitalize()} abstained (no other cases to compare)" if p.abstained
-                else f"{p.agent.capitalize()} {p.stance} ({p.confidence:.2f})" for p in ordered),
+            "Positions: " + ", ".join(_position(p) for p in ordered),
         ])
     return CaseFile(case_id=case_id, listing_id=listing.id, seller_id=seller.id, outcome=outcome,
                     rounds_used=rounds_used, stop_reason=stop_reason, final_positions=ordered,

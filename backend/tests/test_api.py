@@ -14,7 +14,7 @@ FIXTURE = Path(__file__).resolve().parents[2] / "fixtures" / "sample_case_events
 
 
 def slow_transport(delay=0.4):
-    t = FakeTransport(posts={(a, 1): post(a, 1, "file") for a in ("buyer", "defender", "caseload")})
+    t = FakeTransport(posts={(a, 1): post(a, 1, "file") for a in ("undercover", "counsel", "case_officer")})
 
     async def pause(r):
         await asyncio.sleep(delay)

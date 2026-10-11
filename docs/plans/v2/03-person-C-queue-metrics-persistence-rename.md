@@ -18,28 +18,27 @@ Triage and eval code (B), data and refresh detection (A), UI (D).
 
 ### C1. Rename and `origin` field (P0, do first, one commit)
 1. Post in team chat that you are about to rename. Then in one commit:
-   - `AgentName` -> `Literal["undercover", "provenance", "case_officer"]`; update `Requester`.
-   - Prompt files in `deliberation/prompts/`, `AGENT_ORDER`/`AGENTS` in `frontend/src/lib/agents.ts` (labels: Undercover, Provenance, Case Officer; keep goals as short phrases of the question each owns: see file 00 §3), replay fixtures in `fixtures/replays/` and `frontend/public/replays/`, `scripts/record_scripted_demo.py`, `tests/`.
+   - `AgentName` -> `Literal["undercover", "counsel", "case_officer"]`; update `Requester`.
+   - Prompt files in `deliberation/prompts/`, `AGENT_ORDER`/`AGENTS` in `frontend/src/lib/agents.ts` (labels: Undercover, Counsel, Case Officer; keep goals as short phrases of the question each owns: see file 00 §3), replay fixtures in `fixtures/replays/` and `frontend/public/replays/`, `scripts/record_scripted_demo.py`, `tests/`.
    - Add `origin: Literal["demo", "live"] = "demo"` to `Listing`.
-   - Add `APP_NAME` constant in `frontend/src/lib/agents.ts` (working name Plainsight) and use it where the header says "Dead Language".
+   - Add `APP_NAME` constant in `frontend/src/lib/agents.ts` once the team picks the app name (undecided; do not hard-code it elsewhere).
 2. Replay fixtures contain hand-written `take` text that names roles. Update wording where an old name appears in prose.
 3. Run backend tests and `npx tsc --noEmit && npm run build`. Push, announce, everyone pulls.
 
-### C2. Queue and batch API (P0 with a fake worker, P1 real)
+### C2. Queue and batch API (BUILT: `api/batches.py`, endpoints in server.py; remaining: triage, live source, spend guard)
 Contract in file 00 §4.2. Implementation, keeping it boring:
 - A `JobQueue` protocol (`submit`, `status`) with an in-process asyncio implementation now: a bounded `asyncio.Semaphore` concurrency limit (`DL_MAX_CONCURRENT_CASES`) and an `asyncio.Queue`. # ponytail: single-process queue, swap the implementation for Redis/SQS behind the same protocol when scaling past one API process.
-- Worker per item: `queued -> triaging` (call B's `screen()`; use `FakeTriage` until it lands) -> `screened_out` (no agents) **or** `deliberating` (run the existing `Facilitator.run_case`) -> `done` with outcome, or `error` with message. One bad item never fails the batch.
+- Worker per item: `queued -> triaging` (call B's `screen()` once it lands; until then items skip triage) -> `screened_out` (no agents) **or** `deliberating` (run the existing `Facilitator.run_case`) -> `done` with outcome, or `error` with message. One bad item never fails the batch.
 - Emit `batch.item` SSE events on every status change; keep an in-memory history per batch for late subscribers.
 - `source: "demo"` uses `load_demo_set()` (A). `source: "live"` calls `fetch_live(query, cap)` (A), then enqueues the results.
-- Spend and rate guard: per API key request limit and a global `DL_MAX_SPEND_USD` per day, enforced before each Sonnet case. When hit, items go `error` with a clear reason.
-- Fake worker first (random delays and outcomes from the demo set's designed outcomes) so D can build the queue UI on day one. Make the switch `DL_WORKER=fake|real`. The fake must be obviously labeled in the response (`"mode": "fake"`) so it is never mistaken for real results.
+- Spend guard (BUILT, `DL_MAX_SPEND_USD`, default 20/day): a global `DL_MAX_SPEND_USD` per day, enforced before each Sonnet case. When hit, items go `error` with a clear reason. (No authentication and no per-key limits: not needed for this app.)
 
-### C3. Persistence and audit log (P1)
+### C3. Persistence and audit log (BUILT: `api/runs.py`; `data/runs.db`; events stay in `runs/<case>.jsonl`)
 SQLite via stdlib `sqlite3` (single file `data/runs.db`). # ponytail: SQLite, move to Postgres when more than one writer process is needed.
 Tables: `cases` (case_id, listing_id, origin, outcome, started_at, ended_at, model_versions, prompt_hash, rules_version, snapshot_sha256), `events` (the existing event log, append-only), `strikes` (history), `changes` (A's `ListingChange`), `usage` (per call: model, tokens, usd, stage, duration_ms).
 Rules: append-only for `events` and `strikes`. A finished case is immutable and replayable from its events. Store the prompt files' hash and the rules version with each case so any outcome can be reproduced.
 
-### C4. Metrics backend (P1)
+### C4. Metrics backend (BUILT: `GET /api/metrics`; remaining: `/api/market` once A's `market_stats()` lands; B must name triage schema `triage*` so triage latency is measured)
 `GET /api/metrics` with the exact shape in file 00 §4.6. Compute from the `usage`, `cases`, `changes` and `strikes` tables and live counters. Rules:
 - Latency percentiles per stage from `usage.duration_ms`.
 - `throughput_per_min` from completed items over a trailing window.
@@ -48,26 +47,23 @@ Rules: append-only for `events` and `strikes`. A finished case is immutable and 
 - `by_model` makes the Haiku/Sonnet split visible for the funnel story.
 Also expose `market_stats()` from A through `GET /api/market` so D can draw the market view (use the same response, do not re-compute).
 
-### C5. Strike API and refresh scheduling (P1/P2)
+### C5. Strike API and refresh scheduling (BUILT: strike GET/POST with test; `POST /api/refresh` returns 501 until A's `refresh_listings` exists; `DL_REFRESH_SECS` scheduler not built)
 Contract in file 00 §4.3-4.4.
 - Strike: statuses `none -> pending_review` (set automatically when a case ends FILE or CONTESTED; a human decides) `-> approved` (POST, requires `by`) `-> submitted_simulated` (POST submit; generates `notice_draft` from the existing code-template case file, no model) `-> observed_removed` (set by the refresh job).
 - Reject `submit` unless status is `approved`. Reject any attempt without a `by` value. This is the human gate: add a test that proves a FILE case cannot reach `submitted_simulated` without an approval.
 - Refresh: `POST /api/refresh` calls A's `refresh_listings` on active listings, stores changes, advances strike statuses, and returns the changes. Optional interval via `DL_REFRESH_SECS` (default 0 = manual).
 
-### C6. Auth and abuse limits (P1, safety)
-Static API keys from env (`DL_API_KEYS`), checked by a FastAPI dependency on every `/api/*` route except `/api/images` and read-only replays. Per-key rate limit and spend cap. # ponytail: static keys and in-memory counters, replace with real identity and shared limits for multi-instance deployments. The frontend uses a demo key from `NEXT_PUBLIC_*` env.
-
-### C7. Concurrency load test (P2)
-A script `scripts/load_test.py`: submits N demo-lane items with the fake worker and then a small real batch, records time to completion and the metrics output. This is where the "speed" number for the pitch comes from, and it must be measured, not estimated.
+### C6. Concurrency load test (P2)
+A script `scripts/load_test.py`: submits a small real batch and then a larger one, records time to completion and the metrics output. This is where the "speed" number for the pitch comes from, and it must be measured, not estimated.
 
 ## Dependencies and fakes
-- B's `screen()`: use `FakeTriage` until it lands.
+- B's `screen()`: until it lands, batch items skip triage.
 - A's `load_demo_set()`, `fetch_live`, `refresh_listings`: stub them with canned returns until A pushes.
-- D builds against your fake worker. Keep the batch JSON shape frozen.
+- D builds against the real batch API. Keep the batch JSON shape frozen.
 
 ## Done means
 - Rename landed with tests and fixtures consistent, tsc and build green.
 - A batch of 12 demo items completes asynchronously with the real worker, statuses stream over SSE, and `GET /api/metrics` returns measured numbers.
 - A FILE case cannot be struck without a named approver (test).
 - Every case has an audit record with model, prompt hash, rules version and snapshot hash.
-- Auth and spend cap work (a test that the cap stops a case).
+- The daily spend cap works (a test that the cap stops a case).

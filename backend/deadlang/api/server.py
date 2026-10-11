@@ -8,21 +8,27 @@ import os
 import re
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sse_starlette.sse import EventSourceResponse
 
+from deadlang import config, llm
+from deadlang.api.batches import Batches
 from deadlang.api.events import EventBus
+from deadlang.api.runs import Runs
 from deadlang.deliberation.facilitator import Facilitator
 from deadlang.schemas import CaseFile, Event, now_iso
 
 log = logging.getLogger("deadlang.api")
 ROOT = Path(__file__).resolve().parents[3]
 CASE_RE = re.compile(r"C-(\d+)\.jsonl$")
+
+
+MAX_LIVE_CAP = 50   # hard ceiling for a live fetch; the UI shows the same number
 
 
 class CaseRequest(BaseModel):
@@ -33,6 +39,26 @@ class NameRequest(BaseModel):
     name: str
 
 
+class StrikeRequest(BaseModel):
+    action: Literal["approve", "submit"]
+    by: str
+
+
+class BatchRequest(BaseModel):
+    source: Literal["demo", "live"]
+    listing_ids: list[str] | None = None
+    query: str | None = None
+    cap: int = Field(25, ge=1, le=MAX_LIVE_CAP)
+
+
+def demo_listing_ids(data_dir: Path) -> list[str]:
+    """data/demo_set.json (Person A, list of {listing_id}) if present, else the four recorded demo cases."""
+    path = data_dir / "demo_set.json"
+    if path.is_file():
+        return [r["listing_id"] for r in json.loads(path.read_text())]
+    return list(json.loads((data_dir / "demo_cases.json").read_text()).values())
+
+
 def create_app(market: Any = None, transport: Any = None, discovery: Any = None, bus: EventBus | None = None,
                data_dir: Path | None = None, replays_dir: Path | None = None, results_dir: Path | None = None) -> FastAPI:
     """Dependencies default to the real ones (built at startup); tests inject fakes."""
@@ -41,6 +67,7 @@ def create_app(market: Any = None, transport: Any = None, discovery: Any = None,
     results_dir = Path(results_dir or ROOT / "results")
     state: dict[str, Any] = {}
     cases: dict[str, dict[str, Any]] = {}
+    batches: Batches
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -59,22 +86,47 @@ def create_app(market: Any = None, transport: Any = None, discovery: Any = None,
         existing = [int(m_.group(1)) for p in (b.runs_dir.glob("C-*.jsonl") if b.runs_dir else []) if (m_ := CASE_RE.search(p.name))]
         state.update(market=m, transport=t, discovery=d, bus=b, counter=max(existing, default=0),
                      facilitator=Facilitator(m, t, d, b))
+        runs = state["runs"] = Runs(data_dir / "runs.db")
+        llm.usage_hook = runs.record_usage
+        nonlocal batches
+        batches = Batches(real_worker, int(os.getenv("DL_MAX_CONCURRENT_CASES", "4")),
+                          lambda bid, it: runs.record_item(bid, it["listing_id"], it["status"], it["outcome"]),
+                          first_id=runs.batch_count() + 1)
         yield
+        llm.usage_hook = None
 
     app = FastAPI(title="Dead Language API", lifespan=lifespan)
     app.add_middleware(CORSMiddleware, allow_origin_regex=r"http://(localhost|127\.0\.0\.1)(:\d+)?",  # any local dev port (3000 can be taken)
                        allow_origins=[],
                        allow_methods=["*"], allow_headers=["*"])
 
+    @app.get("/api/health")
+    async def health():
+        """Which backing services are unreachable (agntcy mode only). Agent processes are not probed."""
+        problems: list[str] = []
+        if config.TRANSPORT == "agntcy":
+            import socket
+            from urllib.parse import urlparse
+            u = urlparse(config.SLIM_ENDPOINT)
+            host, _, port = config.DIRECTORY_ADDRESS.partition(":")
+            for name, h, p in (("SLIM", u.hostname, u.port), ("Directory", host, int(port))):
+                try:
+                    socket.create_connection((h, p), timeout=1).close()
+                except OSError:
+                    problems.append(f"{name} is not reachable at {h}:{p}")
+        return {"transport": config.TRANSPORT, "problems": problems}
+
     # ------------------------------------------------------------------ listings
     @app.get("/api/listings")
-    async def listings(sort: str | None = None):
+    async def listings(sort: str | None = None, origin: Literal["demo", "live"] | None = None):
         market_ = state["market"]
         triage_file = data_dir / "triage.json"
         triage = json.loads(triage_file.read_text()) if triage_file.exists() else {}
         sellers: dict[str, Any] = {}
         rows = []
         for listing in await market_.all_active():
+            if origin and listing.origin != origin:
+                continue
             if listing.seller_id not in sellers:
                 sellers[listing.seller_id] = await market_.get_seller(listing.seller_id)
             t = triage.get(listing.id)
@@ -95,27 +147,114 @@ def create_app(market: Any = None, transport: Any = None, discovery: Any = None,
         return {"listing": l.model_dump(mode="json"), "seller": s.model_dump(mode="json")}
 
     # ------------------------------------------------------------------ cases
+    def start_case(listing_id: str) -> str:
+        state["counter"] += 1
+        case_id = f"C-{state['counter']:04d}"
+        info = {"listing_id": listing_id, "started_at": now_iso(), "case_file": None}
+        cases[case_id] = info
+
+        async def run():
+            try:
+                state["runs"].start_case(case_id, await state["market"].get_listing_snapshot(listing_id))
+                try:
+                    info["case_file"] = await asyncio.wait_for(state["facilitator"].run_case(case_id, listing_id), config.CASE_TIMEOUT_S)
+                except asyncio.TimeoutError:
+                    raise RuntimeError(f"case timed out after {config.CASE_TIMEOUT_S:g}s: the agents did not finish; check the agent processes, SLIM and Directory, or set TRANSPORT=local")
+                state["runs"].end_case(case_id, info["case_file"].outcome)
+            except Exception as exc:
+                state["runs"].end_case(case_id, None)
+                log.exception("case %s failed", case_id)
+                # Always terminate the stream. Extends the case.ended payload with `error` (case_file is null).
+                state["bus"].emit(case_id, "case.ended", {"case_file": None, "error": f"{type(exc).__name__}: {exc}"})
+
+        info["task"] = asyncio.create_task(run())
+        return case_id
+
     @app.post("/api/cases")
     async def create_case(req: CaseRequest):
         try:
             await state["market"].get_listing_snapshot(req.listing_id)
         except KeyError:
             raise HTTPException(404, "unknown listing")
-        state["counter"] += 1
-        case_id = f"C-{state['counter']:04d}"
-        info = {"listing_id": req.listing_id, "started_at": now_iso(), "case_file": None}
-        cases[case_id] = info
+        return {"case_id": start_case(req.listing_id)}
 
-        async def run():
+    async def real_worker(item: dict[str, Any], set_status: Any) -> None:
+        if state["runs"].spend_today() >= config.MAX_SPEND_USD:
+            raise RuntimeError(f"daily spend cap reached (${config.MAX_SPEND_USD:g}); not starting a new case")
+        # No triage step until Person B's screen() lands: every item is deliberated.
+        set_status(status="deliberating", case_id=(case_id := start_case(item["listing_id"])))
+        await cases[case_id]["task"]
+        cf = cases[case_id]["case_file"]
+        if cf is None:
+            raise RuntimeError("case failed before a case file was produced")
+        set_status(status="done", outcome=cf.outcome)
+
+    # ------------------------------------------------------------------ batches
+    @app.post("/api/batches", status_code=202)
+    async def create_batch(req: BatchRequest):
+        if req.source == "live":
+            raise HTTPException(501, "live source needs Person A's fetch_live, which is not merged yet")
+        ids = req.listing_ids or demo_listing_ids(data_dir)
+        for lid in ids:
             try:
-                info["case_file"] = await state["facilitator"].run_case(case_id, req.listing_id)
-            except Exception as exc:
-                log.exception("case %s failed", case_id)
-                # Always terminate the stream. Extends the case.ended payload with `error` (case_file is null).
-                state["bus"].emit(case_id, "case.ended", {"case_file": None, "error": f"{type(exc).__name__}: {exc}"})
+                await state["market"].get_listing_snapshot(lid)
+            except KeyError:
+                raise HTTPException(404, f"unknown listing {lid}")
+        b = batches.submit(req.source, ids, "demo")   # live: "live" | "recorded", reported by fetch_live
+        return {"batch_id": b["batch_id"], "source_mode": b["source_mode"], "items": b["items"]}
 
-        info["task"] = asyncio.create_task(run())
-        return {"case_id": case_id}
+    @app.get("/api/batches/{batch_id}")
+    async def get_batch(batch_id: str):
+        if batches.get(batch_id) is None:
+            raise HTTPException(404, "unknown batch")
+        return batches.view(batch_id)
+
+    @app.get("/api/batches/{batch_id}/events")
+    async def batch_events(batch_id: str):
+        if batches.get(batch_id) is None:
+            raise HTTPException(404, "unknown batch")
+
+        async def gen():
+            async for e in batches.events(batch_id):
+                yield {"event": e["type"], "data": json.dumps(e)}
+
+        return EventSourceResponse(gen())
+
+    # ------------------------------------------------------------------ strikes, metrics, refresh
+    @app.get("/api/cases/{case_id}/strike")
+    async def get_strike(case_id: str):
+        if case_id not in cases:
+            raise HTTPException(404, "unknown case")
+        cf = cases[case_id]["case_file"]
+        return state["runs"].strike(case_id, cf.tip_draft if cf else None)
+
+    @app.post("/api/cases/{case_id}/strike")
+    async def post_strike(case_id: str, req: StrikeRequest):
+        if case_id not in cases:
+            raise HTTPException(404, "unknown case")
+        try:
+            state["runs"].advance_strike(case_id, req.action, req.by)
+        except ValueError as exc:
+            raise HTTPException(409, str(exc))
+        return await get_strike(case_id)
+
+    @app.get("/api/metrics")
+    async def metrics():
+        return state["runs"].metrics()
+
+    @app.post("/api/refresh")
+    async def refresh():
+        try:
+            from deadlang.marketplace.refresh import refresh_listings
+        except ImportError:
+            raise HTTPException(501, "refresh needs Person A's refresh_listings, which is not merged yet")
+        ids = [l.id for l in await state["market"].all_active()]
+        changes = await refresh_listings(ids)
+        state["runs"].record_changes(changes, len(ids))
+        for c in changes:
+            if c.kind == "removed":
+                state["runs"].observe_removed(c.listing_id)
+        return [c.model_dump(mode="json") if hasattr(c, "model_dump") else c for c in changes]
 
     @app.get("/api/cases")
     async def list_cases():

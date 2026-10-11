@@ -66,7 +66,7 @@ def turn(r=1):
 
 
 def transport(agent_behaviors=None, specialists=()):
-    behaviors = {"buyer": "ok", "defender": "ok", "caseload": "ok", **(agent_behaviors or {})}
+    behaviors = {"undercover": "ok", "counsel": "ok", "case_officer": "ok", **(agent_behaviors or {})}
     agents = {a: FakeAgent(a, b) for a, b in behaviors.items()}
     return LocalTransport({s.name: s for s in specialists}, agents, discovery=FakeDiscovery())
 
@@ -107,7 +107,7 @@ async def test_missing_specialist_is_a_connect_error():
 
 # ---------------- deliberators ----------------
 
-@pytest.mark.parametrize("called", [[], ["buyer"], ["buyer", "caseload"], ["buyer", "defender", "caseload"]])
+@pytest.mark.parametrize("called", [[], ["undercover"], ["undercover", "case_officer"], ["undercover", "counsel", "case_officer"]])
 async def test_broadcast_calls_only_agents_in_turns(called):
     t = transport()
     results = await t.broadcast_turns({a: turn(2) for a in called})
@@ -118,30 +118,30 @@ async def test_broadcast_calls_only_agents_in_turns(called):
 
 
 async def test_broadcast_one_agent_raising_becomes_error_string():
-    t = transport({"defender": "raise"})
-    results = await t.broadcast_turns({a: turn() for a in ("buyer", "defender", "caseload")})
-    assert isinstance(results["buyer"], StancePost) and isinstance(results["caseload"], StancePost)
-    assert results["defender"] == "model said no"
+    t = transport({"counsel": "raise"})
+    results = await t.broadcast_turns({a: turn() for a in ("undercover", "counsel", "case_officer")})
+    assert isinstance(results["undercover"], StancePost) and isinstance(results["case_officer"], StancePost)
+    assert results["counsel"] == "model said no"
 
 
 async def test_broadcast_timeout_becomes_error_string():
-    t = transport({"caseload": "slow"})
-    results = await t.broadcast_turns({a: turn() for a in ("buyer", "caseload")}, timeout=0.05)
-    assert results["caseload"] == "timeout"
-    assert isinstance(results["buyer"], StancePost)
+    t = transport({"case_officer": "slow"})
+    results = await t.broadcast_turns({a: turn() for a in ("undercover", "case_officer")}, timeout=0.05)
+    assert results["case_officer"] == "timeout"
+    assert isinstance(results["undercover"], StancePost)
 
 
 async def test_budget_exceeded_propagates_from_broadcast_and_call_agent():
-    t = transport({"buyer": "budget"})
+    t = transport({"undercover": "budget"})
     with pytest.raises(BudgetExceeded):
-        await t.broadcast_turns({a: turn() for a in ("buyer", "defender")})
+        await t.broadcast_turns({a: turn() for a in ("undercover", "counsel")})
     with pytest.raises(BudgetExceeded):
-        await t.call_agent("buyer", turn())
+        await t.call_agent("undercover", turn())
 
 
 async def test_call_agent_returns_post():
-    post = await transport().call_agent("defender", turn(3))
-    assert isinstance(post, StancePost) and (post.agent, post.round) == ("defender", 3)
+    post = await transport().call_agent("counsel", turn(3))
+    assert isinstance(post, StancePost) and (post.agent, post.round) == ("counsel", 3)
 
 
 # ---------------- registry ----------------

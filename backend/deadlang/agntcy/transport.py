@@ -338,5 +338,5 @@ def _build_local() -> LocalTransport:
         log.warning("marketplace client is not available yet; specialists get no market")
         market = None
     specialists = {s.name: s for s in build_specialists(market)}
-    agents = {a: DeliberatingAgent(a) for a in ("buyer", "defender", "caseload")}
+    agents = {a: DeliberatingAgent(a) for a in ("undercover", "counsel", "case_officer")}
     return LocalTransport(specialists, agents, discovery=get_discovery())

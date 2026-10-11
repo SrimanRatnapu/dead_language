@@ -1,12 +1,15 @@
 import type { AgentName, Capability, Outcome, Stance, StopReason } from "./types";
 
 // Fixed across UI, slides and diagram. Class strings are literal so Tailwind sees them.
+// The only place the product name lives (working name; not trademark- or domain-checked).
+export const APP_NAME = "Dead Language";
+
 export const AGENTS: Record<AgentName, { label: string; goal: string; text: string; tint: string; dot: string; ring: string; cssVar: string }> = {
-  buyer: { label: "Buyer", goal: "Reads like a buyer", text: "text-amber-ink", tint: "bg-amber-tint", dot: "bg-amber", ring: "border-amber", cssVar: "var(--amber)" },
-  defender: { label: "Defender", goal: "Defends the seller", text: "text-teal-ink", tint: "bg-teal-tint", dot: "bg-teal", ring: "border-teal", cssVar: "var(--teal)" },
-  caseload: { label: "Caseload", goal: "Guards investigator time", text: "text-violet-ink", tint: "bg-violet-tint", dot: "bg-violet", ring: "border-violet", cssVar: "var(--violet)" },
+  undercover: { label: "Undercover", goal: "Reads like a buyer", text: "text-amber-ink", tint: "bg-amber-tint", dot: "bg-amber", ring: "border-amber", cssVar: "var(--amber)" },
+  counsel: { label: "Counsel", goal: "Defends the seller", text: "text-teal-ink", tint: "bg-teal-tint", dot: "bg-teal", ring: "border-teal", cssVar: "var(--teal)" },
+  case_officer: { label: "Case Officer", goal: "Guards investigator time", text: "text-violet-ink", tint: "bg-violet-tint", dot: "bg-violet", ring: "border-violet", cssVar: "var(--violet)" },
 };
-export const AGENT_ORDER: AgentName[] = ["buyer", "defender", "caseload"];
+export const AGENT_ORDER: AgentName[] = ["undercover", "counsel", "case_officer"];
 
 export const STANCE_LABEL: Record<Stance, string> = { file: "File", dismiss: "Dismiss", need_more: "Needs more" };
 

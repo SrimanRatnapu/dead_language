@@ -16,8 +16,8 @@ Pages: `/` listings, `/listing/[id]`, `/replays`, `/replay/[name]`, `/results`, 
 
 ## Tasks
 
-### D1. Build against fakes first (P0)
-C ships a **fake worker** for the batch API (`"mode": "fake"` in responses) on day one. Until then, add a local fake in `frontend/src/lib/stubs.ts` that mimics the shapes in file 00 §4.2 and §4.6 so you are never blocked. The existing `withFallback` pattern in `lib/stubs.ts` is the model.
+### D1. Build against the real batch API (P0)
+C's batch API is live (`POST /api/batches` and its SSE stream) and runs real cases, so there is no fake mode. For anything C hasn't shipped yet (metrics, strike, refresh), add a local fake in `frontend/src/lib/stubs.ts` that mimics the shapes in file 00 §4.2 and §4.6 so you are never blocked. The existing `withFallback` pattern in `lib/stubs.ts` is the model.
 
 ### D2. Queue view (P0/P1)
 New page `frontend/src/app/queue/page.tsx` (primary nav item "Queue"; the listings page can link to it).
@@ -29,7 +29,7 @@ New page `frontend/src/app/queue/page.tsx` (primary nav item "Queue"; the listin
 - Rows with agents running show who is currently speaking (reuse the seat colors), but keep it compact.
 - Clicking a done row opens the existing case view (live case or its replay).
 - A thin summary strip above the list: counts by mark and elapsed time, updating live.
-- Honesty: live-lane rows say "flagged for human review", never "illegal". If the connector returned recorded data, show a small "recorded" label (A's response metadata).
+- Honesty: live-lane rows say "flagged for human review", never "illegal". If `source_mode` in the POST response is `"recorded"`, show a small "recorded" label. The cap input maxes at 50.
 
 ### D3. Metrics page (P1)
 New page `frontend/src/app/metrics/page.tsx` reading `GET /api/metrics` (shape in file 00 §4.6). Not the same as `/results` (evaluations).

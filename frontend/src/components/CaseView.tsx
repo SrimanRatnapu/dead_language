@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useCaseEvents, type CaseSource, type Speed } from "@/lib/useCaseEvents";
 import { CaseFileDrawer } from "./CaseFileDrawer";
 import { DecodedListing } from "./DecodedListing";
@@ -24,6 +24,8 @@ export function CaseView({ target }: { target: CaseTarget }) {
   const [stage, setStage] = useState<"examine" | "agents">("examine");
   const ready = events.held || state.rounds.length > 0;
   const handOff = () => { events.release(); setStage("agents"); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { if (new URLSearchParams(location.search).get("stage") === "agents") handOff(); }, []);
   // scripts/record_scripted_demo.py stamps its runs with a "DEMO-" case id; recorded live runs are "C-0001".
   const scripted = Object.values(state.evidence)[0]?.case_id.startsWith("DEMO-") ?? false;
 

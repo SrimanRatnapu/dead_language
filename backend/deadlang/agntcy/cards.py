@@ -76,13 +76,13 @@ def _specs() -> dict[str, CardSpec]:
             "that could meet it.",
             "Call when an exemption might apply. Takes a listing ID and the legal evidence; returns which "
             "exemptions could apply and what proof each would need."),
-        "deadlang-buyer": CardSpec(
+        "deadlang-undercover": CardSpec(
             "deliberate", "preferred", "model", strong,
             "Reviews a case as an experienced buyer who knows prices and materials.", deliberator),
-        "deadlang-defender": CardSpec(
+        "deadlang-counsel": CardSpec(
             "deliberate", "preferred", "model", strong,
             "Reviews a case looking for the innocent explanation of a listing.", deliberator),
-        "deadlang-caseload": CardSpec(
+        "deadlang-case_officer": CardSpec(
             "deliberate", "preferred", "model", strong,
             "Reviews a case for whether it is worth an investigator's limited time.", deliberator),
     }
@@ -96,7 +96,7 @@ SPECIALIST_NAMES: list[str] = [
 # an agent that does not exist yet. Add a name to it when its owner has built the agent.
 SITUATIONAL_NAMES: list[str] = ["deadlang-photo-reuse", "deadlang-provenance", "deadlang-exemption-reviewer"]
 DELIBERATOR_NAMES: dict[AgentName, str] = {
-    "buyer": "deadlang-buyer", "defender": "deadlang-defender", "caseload": "deadlang-caseload",
+    "undercover": "deadlang-undercover", "counsel": "deadlang-counsel", "case_officer": "deadlang-case_officer",
 }
 ALL_AGENT_NAMES: list[str] = SPECIALIST_NAMES + list(DELIBERATOR_NAMES.values())
 

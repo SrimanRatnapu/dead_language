@@ -13,8 +13,8 @@ def posted(agent, cites):
 
 
 def test_stance_change_counts_only_evidence_added_after_the_agents_previous_post():
-    events = [ev("E0"), posted("buyer", []), ev("E1"), posted("buyer", ["E1"]), posted("buyer", ["E1"]),
-              posted("defender", ["E0"])]
+    events = [ev("E0"), posted("undercover", []), ev("E1"), posted("undercover", ["E1"]), posted("undercover", ["E1"]),
+              posted("counsel", ["E0"])]
     # buyer r2 cites E1 (new since r1) -> counts; buyer r3 cites E1 (old) -> no; defender's first post cites E0 -> no
     assert stance_changes_after_new_evidence(events) == 2   # defender has no previous post, so E0 counts as new
 
@@ -41,7 +41,7 @@ async def test_run_listing_all_modes_reuses_intake(monkeypatch):
         return {"decision": "file", "confidence": 0.9, "reason": "r", "claims": []}
     monkeypatch.setattr(llm, "call_json", fake_call_json, raising=False)
     monkeypatch.setattr(llm, "usage_snapshot", lambda cid=None: {"input_tokens": 1, "output_tokens": 2, "calls": 1}, raising=False)
-    t = FakeTransport(posts={(a, 1): post(a, 1, "file") for a in ("buyer", "defender", "caseload")})
+    t = FakeTransport(posts={(a, 1): post(a, 1, "file") for a in ("undercover", "counsel", "case_officer")})
     fac = Facilitator(FakeMarket(), t, FakeDiscovery(), CollectBus())
     row = await run_listing(fac, "L0101", {"A", "B", "C"})
     assert [row[m]["decision"] for m in "ABC"] == ["FILE", "FILE", "FILE"]

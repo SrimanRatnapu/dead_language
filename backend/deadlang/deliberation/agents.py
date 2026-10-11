@@ -26,7 +26,7 @@ def post_schema() -> dict:
 
 
 def render_post(p: StancePost) -> str:
-    lines = [f"- {p.agent.capitalize()} (round {p.round}): stance={p.stance}, confidence={p.confidence}"
+    lines = [f"- {p.agent.replace("_", " ").title()} (round {p.round}): stance={p.stance}, confidence={p.confidence}"
              + (", ready_to_close" if p.ready_to_close else "")]
     lines += [f"    claim: {c.text} [{', '.join(c.evidence_ids)}]" for c in p.claims]
     if p.rebuttal:
@@ -57,7 +57,7 @@ def build_user_message(turn: DeliberationTurn) -> str:
         + ("\n".join(render_post(p) for p in turn.transcript) or "Nothing yet. You are speaking first."),
     ]
     if turn.questions_for_you:
-        parts.append("# Questions for you\n" + "\n".join(f"- {q.asker.capitalize()} asks: {q.question}"
+        parts.append("# Questions for you\n" + "\n".join(f"- {q.asker.replace("_", " ").title()} asks: {q.question}"
                                                          for q in turn.questions_for_you))
     parts.append("# Your previous post\n" + (render_post(turn.your_previous) if turn.your_previous else "None."))
     parts.append(f"# This round\nRound {turn.round} of {turn.max_rounds}. Post your position.")
