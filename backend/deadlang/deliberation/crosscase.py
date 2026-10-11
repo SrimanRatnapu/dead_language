@@ -1,18 +1,23 @@
-"""Is there anything for Caseload to compare this listing with? Read from the evidence board, no model involved.
+"""Is there anything for the Case Officer to compare this listing with? Read from the evidence board, no model involved.
 
-Caseload's job is cross-case: a seller with many items, linked sellers, reused photos. If the board shows none
-of that, an empty Caseload would just drag the outcome toward WATCHLIST, so the Facilitator lets it sit out and
+The Case Officer's job is cross-case: a seller with many items, linked sellers, reused photos. If the board shows
+none of that, an empty Case Officer would just drag the outcome toward WATCHLIST, so the Facilitator lets it sit out and
 says so ("No other cases to compare"). It sits out only when the board POSITIVELY shows nothing: a check that
-failed to run, or evidence we cannot read, leaves the question open and Caseload speaks.
+failed to run, or evidence we cannot read, leaves the question open and the Case Officer speaks.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
 
 from deadlang.evidence.board import EvidenceBoard
+from deadlang.schemas import AgentName
+
+# The role that sits out when there is nothing to compare. Typed as AgentName so a rename of the roster is caught
+# by the type checker, and tests/test_roster_drift.py fails if this ever stops naming a real agent.
+CROSS_CASE_ROLE: AgentName = "case_officer"
 
 # What counts as something to compare. Price comparables are deliberately NOT a source: almost every listing has
-# them (490 of 498 in the first dataset), so counting them would almost never let Caseload sit out. They are still
+# them (490 of 498 in the first dataset), so counting them would almost never let the Case Officer sit out. They are still
 # read from the board (CrossCase.price_comparables); add "price_comparables" here to count them.
 CROSS_CASE_SOURCES = ("seller_other_listings", "linked_sellers", "photo_reuse")
 

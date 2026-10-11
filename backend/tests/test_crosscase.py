@@ -2,10 +2,12 @@
 import pytest
 
 from deadlang.deliberation import crosscase, rules
-from deadlang.deliberation.facilitator import CaseState, Facilitator
+from deadlang.deliberation.facilitator import AGENTS, CaseState, Facilitator
 from deadlang.evidence.board import EvidenceBoard
 from deadlang.schemas import Challenge, EvidenceDraft, Rebuttal, StancePost
 from tests.fakes import FakeDiscovery, FakeMarket, FakeTransport, make_listing
+
+UNDERCOVER, COUNSEL, OFFICER = AGENTS                       # taken from the roster, not typed
 
 
 def ev(capability, data, board=None, **kw):
@@ -93,7 +95,7 @@ def test_a_missing_price_check_does_not_matter_unless_price_comparables_are_a_so
 ])
 def test_when_a_check_is_missing_or_unreadable_the_question_is_open_not_empty(drafts):
     cc = crosscase.assess(board_with(*drafts))
-    assert cc.unknown and not cc.nothing_to_compare                # never skip Caseload on a guess
+    assert cc.unknown and not cc.nothing_to_compare                # never skip the Case Officer on a guess
 
 
 def test_available_material_wins_over_a_missing_check():
@@ -118,7 +120,7 @@ def test_the_message_for_the_ui():
 # ---------------- readiness ----------------
 
 def post(stance="file", conf=0.7, **kw):
-    return StancePost(agent="buyer", round=2, stance=stance, confidence=conf, claims=[], **kw)
+    return StancePost(agent=UNDERCOVER, round=2, stance=stance, confidence=conf, claims=[], **kw)
 
 
 def test_the_agents_own_ready_flag_still_counts_exactly_as_before():
@@ -147,14 +149,14 @@ def test_open_requests_challenges_and_questions_block_the_new_clauses():
     from deadlang.schemas import SpecialistRequest
     req = SpecialistRequest(capability="seller_inventory", question="q", reason="r")
     assert not rules.is_ready(post(conf=0.99, requests=[req]), unseen_evidence=0, tools_left=0)
-    assert not rules.is_ready(post(conf=0.99, challenge=Challenge(target_agent="defender", question="?")),
+    assert not rules.is_ready(post(conf=0.99, challenge=Challenge(target_agent=COUNSEL, question="?")),
                               unseen_evidence=0, tools_left=0)
     assert not rules.is_ready(post(conf=0.99), unseen_evidence=0, tools_left=0, questions_pending=True)
 
 
 # ---------------- stop rule with an agent sitting out ----------------
 
-A = ("buyer", "defender", "caseload")
+A = AGENTS
 
 
 def two(stances=("file", "dismiss"), conf=0.9, **kw):
@@ -168,15 +170,15 @@ def test_two_participants_are_unanimous_when_expected_is_two():
 
 
 def test_ready_to_close_uses_the_ready_map_when_given():
-    ready = {"buyer": True, "defender": True}
+    ready = {UNDERCOVER: True, COUNSEL: True}
     assert rules.stop_reason(2, 4, two(), None, 0, expected=2, ready=ready) == "ready_to_close"
     assert rules.stop_reason(1, 4, two(), None, 0, expected=2, ready=ready) is None   # still not before round 2
-    assert rules.stop_reason(2, 4, two(), None, 0, expected=2, ready={"buyer": True, "defender": False}) is None
+    assert rules.stop_reason(2, 4, two(), None, 0, expected=2, ready={UNDERCOVER: True, COUNSEL: False}) is None
 
 
 def test_the_ready_map_replaces_the_posts_own_flags():
     flagged = two(ready_to_close=True)
-    assert rules.stop_reason(2, 4, flagged, None, 0, expected=2, ready={"buyer": True, "defender": False}) is None
+    assert rules.stop_reason(2, 4, flagged, None, 0, expected=2, ready={UNDERCOVER: True, COUNSEL: False}) is None
 
 
 @pytest.mark.parametrize("stances,expected", [
@@ -186,20 +188,20 @@ def test_the_ready_map_replaces_the_posts_own_flags():
     (("file", "need_more"), "WATCHLIST"),
     (("need_more", "need_more"), "WATCHLIST"),
 ])
-def test_a_listing_with_nothing_to_compare_resolves_from_buyer_and_defender(stances, expected):
+def test_a_listing_with_nothing_to_compare_resolves_from_undercover_and_counsel(stances, expected):
     assert rules.outcome(dict(zip(A[:2], stances))) == expected
 
 
 # ---------------- who is woken in later rounds ----------------
 
-def case_state(buyer_post, n_evidence=3, seen=None):
+def case_state(undercover_post, n_evidence=3, seen=None):
     listing = make_listing()
     board = EvidenceBoard("C-1")
     for i in range(n_evidence):
         board.add(ev("price_check" if i else "listing_snapshot", E0), "intake")
     st = CaseState("C-1", listing, FakeMarket(listing).seller, board)
     st.attempted = {"price_check", "seller_inventory", "linked_sellers", "legal_lookup", "material_exam"}
-    st.current = {"buyer": buyer_post}
+    st.current = {UNDERCOVER: undercover_post}
     st.seen = seen if seen is not None else {a: n_evidence for a in A}
     return st
 
@@ -214,30 +216,30 @@ def rebut(target):
 
 def test_an_agent_with_nothing_left_is_not_woken_by_a_rebuttal_alone():
     st = case_state(post(conf=0.9))
-    st.last_round_posts = [StancePost(agent="defender", round=1, stance="dismiss", confidence=0.6, claims=[],
-                                      rebuttal=rebut("buyer"))]
-    assert "buyer" not in facilitator()._active(st, 2)
+    st.last_round_posts = [StancePost(agent=COUNSEL, round=1, stance="dismiss", confidence=0.6, claims=[],
+                                      rebuttal=rebut(UNDERCOVER))]
+    assert UNDERCOVER not in facilitator()._active(st, 2)
 
 
 def test_but_an_agent_that_is_not_ready_is_still_woken_by_a_rebuttal():
     st = case_state(post(conf=0.5).model_copy(update={"requests": []}), n_evidence=3)
     st.attempted = {"price_check"}                                      # tools it could still use: not ready
-    st.last_round_posts = [StancePost(agent="defender", round=1, stance="dismiss", confidence=0.6, claims=[],
-                                      rebuttal=rebut("buyer"))]
-    assert "buyer" in facilitator()._active(st, 2)
+    st.last_round_posts = [StancePost(agent=COUNSEL, round=1, stance="dismiss", confidence=0.6, claims=[],
+                                      rebuttal=rebut(UNDERCOVER))]
+    assert UNDERCOVER in facilitator()._active(st, 2)
 
 
 def test_new_evidence_it_has_not_seen_always_wakes_an_agent():
-    st = case_state(post(conf=0.9), n_evidence=4, seen={"buyer": 3, "defender": 4, "caseload": 4})
-    assert facilitator()._active(st, 2) == ["buyer"]
+    st = case_state(post(conf=0.9), n_evidence=4, seen={UNDERCOVER: 3, COUNSEL: 4, OFFICER: 4})
+    assert facilitator()._active(st, 2) == [UNDERCOVER]
 
 
 def test_a_direct_question_always_wakes_an_agent():
     st = case_state(post(conf=0.9))
-    st.last_round_posts = [StancePost(agent="defender", round=1, stance="dismiss", confidence=0.6, claims=[],
-                                      challenge=Challenge(target_agent="buyer", question="why?"))]
-    assert "buyer" in facilitator()._active(st, 2)
+    st.last_round_posts = [StancePost(agent=COUNSEL, round=1, stance="dismiss", confidence=0.6, claims=[],
+                                      challenge=Challenge(target_agent=UNDERCOVER, question="why?"))]
+    assert UNDERCOVER in facilitator()._active(st, 2)
 
 
 def test_round_one_still_calls_everyone_who_is_not_sitting_out():
-    assert facilitator()._active(case_state(post()), 1) == ["buyer", "defender", "caseload"]
+    assert facilitator()._active(case_state(post()), 1) == [UNDERCOVER, COUNSEL, OFFICER]

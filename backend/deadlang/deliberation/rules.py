@@ -37,7 +37,7 @@ def stop_reason(round_no: int, max_rounds: int,
                 expected: int = 3,
                 ready: dict[AgentName, bool] | None = None) -> str | None:
     """this_round / prev_round hold the CURRENT posts (carried-forward ones included) of the agents taking part:
-    all three, or two when Caseload sits out (then pass expected=2). `ready` says who is ready to close; without
+    all three, or two when the Case Officer sits out (then pass expected=2). `ready` says who is ready to close; without
     it each post's own ready_to_close flag is used.
     Returns "unanimous" | "ready_to_close" | "no_movement" | "max_rounds" | None. Budget is the Facilitator's."""
     stances = {p.stance for p in this_round.values()}

@@ -122,7 +122,7 @@ class StancePost(BaseModel):
     challenge: Optional[Challenge] = None         # max 1; target must answer it (with cited claims) in its next post
     ready_to_close: bool = False                  # True = "I have nothing more to add"
     take: str = ""                                # 1-2 sentences, first person, in character; shown as the headline in the UI. Not fact-checked, so no figures.
-    abstained: bool = False                       # Caseload sat out because there are no other cases to compare; set by the Facilitator, never by a model; excluded from the outcome rule
+    abstained: bool = False                       # the Case Officer sat out because there are no other cases to compare; set by the Facilitator, never by a model; excluded from the outcome rule
 
 class DeliberationTurn(BaseModel):    # body sent to a deliberating agent
     case_id: str
