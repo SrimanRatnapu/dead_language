@@ -2,13 +2,14 @@
 from __future__ import annotations
 
 
-from deadlang import config, llm
+from deadlang import config, llm, untrusted
 from deadlang.deliberation.validator import validate_post
 from deadlang.evidence.board import EvidenceBoard, render_evidence
 from deadlang.schemas import Listing, StancePost
 
 SYSTEM = ("You review one marketplace listing for possible disguised elephant ivory. "
-          "Decide whether to file it for human investigation or dismiss it. Keep the reason to one sentence.")
+          "Decide whether to file it for human investigation or dismiss it. Keep the reason to one sentence. "
+          + untrusted.RULE)
 
 _DECISION = {"decision": {"type": "string", "enum": ["file", "dismiss"]},
              "confidence": {"type": "number", "minimum": 0, "maximum": 1},
@@ -25,8 +26,9 @@ def _model() -> str:
 
 
 async def listing_only(listing: Listing, case_id: str | None = None) -> dict:
-    user = (f'Title: {listing.title}\nPrice: ${listing.price_usd:,.0f}\nStated material: {listing.stated_material}\n'
-            f"Ships from: {listing.ship_from}\nDescription: {listing.description}")
+    user = (f"Price: ${listing.price_usd:,.0f}\nStated material: {listing.stated_material}\n"
+            f"Ships from: {listing.ship_from}\n\n"
+            + untrusted.wrap(f"Title: {listing.title}\nDescription: {listing.description}", marker=untrusted.boundary()))
     return await llm.call_json(model=_model(), system=SYSTEM, user=user, schema_name="report_decision",
                                schema=SCHEMA, case_id=case_id, max_tokens=1000)
 
@@ -37,7 +39,8 @@ async def single_agent_with_evidence(board: EvidenceBoard, listing_text: str,
     system = (SYSTEM + " Cite evidence ids (E0, E1, ...) for every claim; every number and quoted phrase "
               "must appear in the cited evidence. Never invent facts.")
     out = await llm.call_json(model=_model(), system=system,
-                              user="# Evidence board\n" + render_evidence(board.all()),
+                              user="# Evidence board\n" + untrusted.wrap(render_evidence(board.all()), marker=untrusted.boundary(),
+                                                                       label="EVIDENCE"),
                               schema_name="report_decision", schema=SCHEMA_CLAIMS, case_id=case_id, max_tokens=1500)
     as_post = StancePost(agent="undercover", round=1, stance=out["decision"], confidence=out["confidence"],
                          claims=out.get("claims", []))

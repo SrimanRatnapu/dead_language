@@ -50,7 +50,7 @@ def new_run_id() -> str:
 # tool call, none of which is in our prompt text. Measured on real examiner calls: 1,452 (Opus 5.5) and ~1,500
 # (two earlier 80-call runs) input tokens per call, against 915 counted from prompt, schema and photo. So
 # estimates add this to prompt + schema + photo.
-TOOL_USE_OVERHEAD_TOKENS = 450
+TOOL_USE_OVERHEAD_TOKENS = llm.TOOL_USE_OVERHEAD_TOKENS
 
 
 def price_for(model: str) -> tuple[float, float] | None:
@@ -69,6 +69,7 @@ class Batch:
     max_output_tokens: int      # the max_tokens the call sets
     calls_per_case: int | None = None    # calls that share one case id (and so one per-case cap)
     concurrency: int | None = None       # calls in flight at once, each reserving max_output_tokens
+    cached_prefix_tokens: int = 0        # per call, the part of the prompt that is cached (llm.cached_prefix_tokens)
 
 
 @dataclass(frozen=True)
@@ -81,9 +82,31 @@ class Estimate:
     worst_dollars: float | None
 
 
+def batch_input_tokens(b: Batch) -> int:
+    """Input tokens as billed. With a cached prefix, the first call writes it (1.25x) and the rest read it (0.1x)."""
+    if b.cached_prefix_tokens <= 0 or b.calls < 1:
+        return b.calls * b.input_tokens
+    prefix = min(b.cached_prefix_tokens, b.input_tokens)
+    return b.calls * (b.input_tokens - prefix) + round(prefix * (llm.CACHE_WRITE_FACTOR + llm.CACHE_READ_FACTOR * (b.calls - 1)))
+
+
+def call_cost_usd(model: str, input_tokens: int, output_tokens: int, cache_read: int = 0, cache_write: int = 0) -> float | None:
+    """Dollars for one call or one usage row: cache writes at 1.25x the input price, reads at 0.1x. None: price unknown."""
+    p = price_for(model)
+    if p is None:
+        return None
+    billed_in = input_tokens + cache_write * llm.CACHE_WRITE_FACTOR + cache_read * llm.CACHE_READ_FACTOR
+    return (billed_in * p[0] + output_tokens * p[1]) / 1e6
+
+
+def usage_cost_usd(model: str, row: dict) -> float | None:
+    return call_cost_usd(model, row.get("input_tokens", 0), row.get("output_tokens", 0),
+                         row.get("cache_read_tokens", 0), row.get("cache_write_tokens", 0))
+
+
 def estimate(batches: list[Batch]) -> Estimate:
     calls = sum(b.calls for b in batches)
-    tin = sum(b.calls * b.input_tokens for b in batches)
+    tin = sum(batch_input_tokens(b) for b in batches)
     tout = sum(b.calls * b.output_tokens for b in batches)
     worst = sum(b.calls * b.max_output_tokens for b in batches)
     dollars: float | None = 0.0
@@ -93,8 +116,8 @@ def estimate(batches: list[Batch]) -> Estimate:
         if p is None:
             dollars = worst_dollars = None
             break
-        dollars += (b.calls * b.input_tokens * p[0] + b.calls * b.output_tokens * p[1]) / 1e6
-        worst_dollars += (b.calls * b.input_tokens * p[0] + b.calls * b.max_output_tokens * p[1]) / 1e6
+        dollars += (batch_input_tokens(b) * p[0] + b.calls * b.output_tokens * p[1]) / 1e6
+        worst_dollars += (batch_input_tokens(b) * p[0] + b.calls * b.max_output_tokens * p[1]) / 1e6
     return Estimate(calls, tin, tout, worst, dollars, worst_dollars)
 
 
@@ -113,7 +136,7 @@ def report(batches: list[Batch]) -> str:
                      "at list prices; your rates may differ.")
 
     spent = llm.usage_snapshot()
-    in_left = config.MAX_INPUT_TOKENS - spent["input_tokens"]
+    in_left = config.MAX_INPUT_TOKENS - llm.effective_input(spent)
     out_left = config.MAX_OUTPUT_TOKENS - spent["output_tokens"]
     lines.append(f"Spend caps: this uses {est.input_tokens / config.MAX_INPUT_TOKENS:.1%} of the global input cap "
                  f"and ~{est.output_tokens / config.MAX_OUTPUT_TOKENS:.1%} of the output cap "
@@ -128,6 +151,10 @@ def report(batches: list[Batch]) -> str:
     elif est.worst_output_tokens > out_left:
         lines.append(f"Note: the worst case (every call writes its full max_tokens, {est.worst_output_tokens:,}) "
                      "would pass the global output cap. The cap counts what calls actually write, so this is unlikely.")
+    for b in batches:
+        if b.cached_prefix_tokens > 0:
+            lines.append(f"Prompt cache: {b.label} reuses ~{b.cached_prefix_tokens:,} tokens per call (one write at "
+                         f"{llm.CACHE_WRITE_FACTOR}x, then reads at {llm.CACHE_READ_FACTOR}x), already counted above.")
     cap_in, cap_out = config.CASE_MAX_INPUT_TOKENS, config.CASE_MAX_OUTPUT_TOKENS
     for b in batches:
         if not (b.calls_per_case and b.concurrency):

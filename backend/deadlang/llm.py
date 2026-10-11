@@ -36,6 +36,18 @@ log = logging.getLogger("deadlang.llm")
 
 MAX_IMAGE_SIDE = 1568
 TOKENS_PER_IMAGE = 1600
+# The API adds a hidden tool-use system prompt (about 300-350 tokens) and formats the tool definition on every tool
+# call, none of which is in our prompt text. Measured on real examiner calls: 1,452 (Opus 5.5) and ~1,500 (two earlier
+# 80-call runs) input tokens per call, against 915 counted from prompt, schema and photo.
+TOOL_USE_OVERHEAD_TOKENS = 450
+# Prompt caching bills a 5-minute cache write at 1.25x the input price and a read at 0.1x.
+CACHE_WRITE_FACTOR = 1.25
+CACHE_READ_FACTOR = 0.1
+# Smallest prefix (tools + system) the API will cache, by model-name prefix; the longest match wins. Shorter prefixes
+# are silently not cached. Haiku is never cached here. Anything not listed needs 1,024.
+_CACHE_MIN_TOKENS = (("claude-opus-4-5", 4096), ("claude-opus-4-6", 4096), ("claude-opus-4-7", 2048),
+                     ("claude-opus-4", 1024), ("claude-sonnet-4", 1024), ("claude-sonnet-5", 1024),
+                     ("claude-sonnet-5-5", 512), ("claude-opus-5", 512), ("claude-fable", 512), ("claude-mythos", 512))
 CHARS_PER_TOKEN = 3.5
 RETRY_STATUSES = {429, 500, 529}
 RETRY_SLEEP = 3.0
@@ -82,6 +94,14 @@ def _empty() -> dict:
     return {"input_tokens": 0, "output_tokens": 0, "calls": 0}
 
 
+def effective_input(row: dict) -> int:
+    """Input tokens as the bill counts them: what the API reports as input, plus cache writes at 1.25x and cache reads
+    at 0.1x. Rows only have the cache keys once a call used the cache, so older rows work unchanged. The caps count
+    this, because they guard spend."""
+    return round(row.get("input_tokens", 0) + row.get("cache_write_tokens", 0) * CACHE_WRITE_FACTOR
+                 + row.get("cache_read_tokens", 0) * CACHE_READ_FACTOR)
+
+
 def _load_usage() -> dict:
     try:
         data = json.loads(Path(config.USAGE_FILE).read_text())
@@ -117,16 +137,16 @@ def _check_budget(case_id: str | None, est_in: int, max_out: int) -> None:
     """Raise BudgetExceeded if this call, on top of usage so far and calls in flight, would pass a cap."""
     data = _load_usage()
     g = data["global"]
-    if g["input_tokens"] + _pending["in"] + est_in > config.MAX_INPUT_TOKENS:
-        raise BudgetExceeded(_over("global", "input", config.MAX_INPUT_TOKENS, g["input_tokens"], _pending["in"], est_in))
+    if effective_input(g) + _pending["in"] + est_in > config.MAX_INPUT_TOKENS:
+        raise BudgetExceeded(_over("global", "input", config.MAX_INPUT_TOKENS, effective_input(g), _pending["in"], est_in))
     if g["output_tokens"] + _pending["out"] + max_out > config.MAX_OUTPUT_TOKENS:
         raise BudgetExceeded(_over("global", "output", config.MAX_OUTPUT_TOKENS, g["output_tokens"], _pending["out"], max_out))
     if case_id is None:
         return
     c = data["cases"].get(case_id, _empty())
     p_in, p_out = _pending["cases"].get(case_id, (0, 0))
-    if c["input_tokens"] + p_in + est_in > config.CASE_MAX_INPUT_TOKENS:
-        raise BudgetExceeded(_over(f"case {case_id}", "input", config.CASE_MAX_INPUT_TOKENS, c["input_tokens"], p_in, est_in))
+    if effective_input(c) + p_in + est_in > config.CASE_MAX_INPUT_TOKENS:
+        raise BudgetExceeded(_over(f"case {case_id}", "input", config.CASE_MAX_INPUT_TOKENS, effective_input(c), p_in, est_in))
     if c["output_tokens"] + p_out + max_out > config.CASE_MAX_OUTPUT_TOKENS:
         raise BudgetExceeded(_over(f"case {case_id}", "output", config.CASE_MAX_OUTPUT_TOKENS, c["output_tokens"], p_out, max_out))
 
@@ -165,21 +185,26 @@ def _release(res: _Reservation) -> None:
             _pending["cases"][res.case_id] = left
 
 
-def _record_now(res: _Reservation, tokens_in: int, tokens_out: int) -> None:
-    """Add usage to the file and release the reservation. Never awaits, so nothing can interleave with it."""
+def _record_now(res: _Reservation, tokens_in: int, tokens_out: int, cache_read: int = 0, cache_write: int = 0) -> None:
+    """Add usage to the file and release the reservation. Never awaits, so nothing can interleave with it.
+    `tokens_in` is the uncached input the API reports; cached tokens go in their own keys, written only when non-zero."""
     data = _load_usage()   # re-read every time so other processes' usage is kept
     rows = [data["global"]] + ([data["cases"].setdefault(res.case_id, _empty())] if res.case_id else [])
     for row in rows:
         row["input_tokens"] += tokens_in
         row["output_tokens"] += tokens_out
         row["calls"] += 1
+        if cache_read:
+            row["cache_read_tokens"] = row.get("cache_read_tokens", 0) + cache_read
+        if cache_write:
+            row["cache_write_tokens"] = row.get("cache_write_tokens", 0) + cache_write
     _write_usage(data)
     _release(res)
 
 
-async def _record(res: _Reservation, tokens_in: int, tokens_out: int) -> None:
+async def _record(res: _Reservation, tokens_in: int, tokens_out: int, cache_read: int = 0, cache_write: int = 0) -> None:
     async with _get_lock():
-        _record_now(res, tokens_in, tokens_out)
+        _record_now(res, tokens_in, tokens_out, cache_read, cache_write)
 
 
 # ---------------- request building ----------------
@@ -216,17 +241,43 @@ def _is_legacy(model: str) -> bool:
     return model.startswith(_LEGACY_PREFIXES)
 
 
+def cache_min_tokens(model: str) -> int | None:
+    """Smallest prefix this model will cache, or None when we never cache it (Haiku)."""
+    if "haiku" in model:
+        return None
+    matches = [(prefix, n) for prefix, n in _CACHE_MIN_TOKENS if model.startswith(prefix)]
+    return max(matches, key=lambda m: len(m[0]))[1] if matches else 1024
+
+
+def _full_system(model: str, system: str, schema_name: str) -> str:
+    if _is_legacy(model):
+        return system
+    return f"{system}\n\nReturn your answer by calling the `{schema_name}` tool exactly once."
+
+
+def cached_prefix_tokens(model: str, system: str, schema: dict, schema_name: str) -> int:
+    """Tokens of tools + system that will be cached for this request, or 0 if it is too short, or Haiku."""
+    minimum = cache_min_tokens(model)
+    prefix = estimate_input_tokens(_full_system(model, system, schema_name), "", schema=schema) + TOOL_USE_OVERHEAD_TOKENS
+    return prefix if minimum is not None and prefix >= minimum else 0
+
+
 def _request(model: str, system: str, content: Any, schema_name: str, schema: dict,
              max_tokens: int, temperature: float) -> dict:
     tool = {"name": schema_name, "description": "Return your answer by calling this tool.",
             "input_schema": schema}
     req: dict[str, Any] = {"model": model, "max_tokens": max_tokens, "tools": [tool],
                            "messages": [{"role": "user", "content": content}]}
+    full = _full_system(model, system, schema_name)
+    # Tools render before system, so one breakpoint at the end of the system block caches both. The block is the same
+    # for every call with this prompt (the seller's text and the random marker live in the user message), so it can hit.
+    if cached_prefix_tokens(model, system, schema, schema_name):
+        req["system"] = [{"type": "text", "text": full, "cache_control": {"type": "ephemeral"}}]
+    else:
+        req["system"] = full
     if _is_legacy(model):
-        req.update(system=system,   # anthropic SDK 1.x has no temperature argument
-                   tool_choice={"type": "tool", "name": schema_name})
+        req["tool_choice"] = {"type": "tool", "name": schema_name}   # anthropic SDK 1.x has no temperature argument
         return req
-    req["system"] = f"{system}\n\nReturn your answer by calling the `{schema_name}` tool exactly once."
     req["tool_choice"] = {"type": "auto", "disable_parallel_tool_use": True}
     if model.startswith("claude-sonnet-5-5"):
         req["thinking"] = {"type": "between_tools"}
@@ -290,6 +341,13 @@ async def _create(req: dict, schema_name: str) -> Any:
         return await client.messages.create(**req)
 
 
+def _usage_of(resp: Any) -> tuple[int, int, int, int]:
+    """(uncached input, output, cache read, cache write) tokens of a response; cache fields may be missing or None."""
+    u = resp.usage
+    return (u.input_tokens, u.output_tokens, getattr(u, "cache_read_input_tokens", 0) or 0,
+            getattr(u, "cache_creation_input_tokens", 0) or 0)
+
+
 async def _attempt(req: dict, schema_name: str, case_id: str | None, est_in: int) -> tuple[dict | None, Any]:
     """One request, budget-reserved and recorded. Returns (tool input or None, the response)."""
     res = await _reserve(case_id, est_in, req["max_tokens"])
@@ -298,14 +356,14 @@ async def _attempt(req: dict, schema_name: str, case_id: str | None, est_in: int
         start = time.perf_counter()
         resp = await _create(req, schema_name)
         ms = (time.perf_counter() - start) * 1000
-        tokens_in, tokens_out = resp.usage.input_tokens, resp.usage.output_tokens
-        await _record(res, tokens_in, tokens_out)
+        tokens_in, tokens_out, cache_read, cache_write = _usage_of(resp)
+        await _record(res, tokens_in, tokens_out, cache_read, cache_write)
     except (asyncio.CancelledError, anthropic.APITimeoutError):
         # The request was (or may have been) sent and then cut off, e.g. by the transport's timeout. It may
         # still be billed, so count it as spent rather than letting it vanish: the real usage if the response
         # had already arrived, otherwise the reserved estimate (conservative).
         if res.active:
-            spent = (resp.usage.input_tokens, resp.usage.output_tokens) if resp is not None                 else (res.tokens_in, res.tokens_out)
+            spent = _usage_of(resp) if resp is not None else (res.tokens_in, res.tokens_out, 0, 0)
             try:
                 _record_now(res, *spent)
             except OSError:
@@ -313,10 +371,12 @@ async def _attempt(req: dict, schema_name: str, case_id: str | None, est_in: int
         raise
     finally:
         _release(res)                                   # no-op once recorded; covers every other error
-    log.info("llm model=%s schema=%s case=%s in=%d out=%d ms=%.0f",
-             req["model"], schema_name, case_id, tokens_in, tokens_out, ms)
+    billed_in = effective_input({"input_tokens": tokens_in, "cache_read_tokens": cache_read, "cache_write_tokens": cache_write})
+    log.info("llm model=%s schema=%s case=%s in=%d cache_read=%d cache_write=%d out=%d ms=%.0f",
+             req["model"], schema_name, case_id, tokens_in, cache_read, cache_write, tokens_out, ms)
     if usage_hook:
-        usage_hook(req["model"], schema_name, case_id, tokens_in, tokens_out, ms)
+        # cost-equivalent input, so a hook that prices tokens at the input rate (runs.usd) is right with caching on
+        usage_hook(req["model"], schema_name, case_id, billed_in, tokens_out, ms)
     for block in resp.content:
         if block.type == "tool_use" and block.name == schema_name:
             return _unstringify(dict(block.input)), resp

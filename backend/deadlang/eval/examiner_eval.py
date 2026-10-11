@@ -174,7 +174,9 @@ def plan(mode: str, examiner, items: list[Item], concurrency: int = DEFAULT_CONC
     looks = CALLS_PER_PHOTO[mode]
     return costs.Batch(f"examiner {mode} ({len(items)} photos)", examiner.model, len(items) * looks, per_call_in,
                        costs.expected_output_tokens(examiner.model, EXPECTED_OUTPUT_TOKENS), MAX_TOKENS,
-                       calls_per_case=SHARD * looks, concurrency=concurrency * looks)
+                       calls_per_case=SHARD * looks, concurrency=concurrency * looks,
+                       cached_prefix_tokens=llm.cached_prefix_tokens(examiner.model, examiner.system, material.SCHEMA,
+                                                                      material.SCHEMA_NAME))
 
 
 # ---------------- files ----------------
