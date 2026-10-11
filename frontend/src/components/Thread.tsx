@@ -88,7 +88,7 @@ export function Thread({ state, onOpen, children }: { state: CaseState; onOpen: 
 
   return (
     <div ref={ref} onScroll={onScroll} className="relative h-full overflow-y-auto">
-      <div className="mx-auto flex max-w-[720px] flex-col gap-6 px-5 py-6 sm:px-8">
+      <div className="mx-auto flex max-w-[720px] flex-col gap-5 px-6 py-5">
         {blocks.map((b, i) => b.kind === "post" ? <Message key={i} post={b.post} state={state} onOpen={onOpen} />
           : b.kind === "result" ? <Result key={i} id={b.id} state={state} />
           : <p key={i} className="rise bg-red-tint px-4 py-2 text-red">Seller removed the listing{b.relisted_as ? ` · relisted as ${b.relisted_as}` : ""}. The review continues from the saved snapshot.</p>)}

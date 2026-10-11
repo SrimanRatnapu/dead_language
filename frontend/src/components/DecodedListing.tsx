@@ -40,7 +40,7 @@ export function DecodedListing({ state, onOpenEvidence }: { state: CaseState; on
     ["Ships from", listing.ship_from],
     ["Listed", new Date(listing.posted_at).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })],
   ];
-  return <div className="relative px-4 py-4 sm:px-8">
+  return <div className="relative py-3">
     {removed && <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-bg/95 p-6 text-center"><p className="display text-3xl">Removed by seller</p><button onClick={() => onOpenEvidence(evidenceOrder[0])} className="press border border-line px-3 py-2 hover:border-cobalt">View snapshot</button></div>}
     <div className="mx-auto grid max-w-[1100px] gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
       {imgs.length > 0 && <div className="flex flex-col-reverse gap-3 sm:flex-row">

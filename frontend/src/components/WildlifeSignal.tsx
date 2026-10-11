@@ -5,10 +5,9 @@ export function WildlifeSignal({ compact = false }: { compact?: boolean }) {
       <span className="signal-orbit signal-orbit--inner" />
       <span className="signal-path signal-path--one" />
       <span className="signal-path signal-path--two" />
-      <span className="signal-leaf signal-leaf--one" />
-      <span className="signal-leaf signal-leaf--two" />
-      <span className="signal-leaf signal-leaf--three" />
-      <span className="signal-scan" aria-hidden /><span className="signal-core"><span /></span>
+
+
+      <span className="signal-core"><span /></span>
     </figure>
   );
 }

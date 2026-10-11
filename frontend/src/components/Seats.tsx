@@ -29,7 +29,7 @@ export function Standing({ state }: { state: CaseState }) {
     : counts.size === 1 && latest.length === 3 ? `All three say ${STANCE_LABEL[latest[0].stance].toLowerCase()}`
     : [...counts].sort((a, b) => b[1] - a[1]).map(([s, n]) => `${n} ${STANCE_LABEL[s].toLowerCase()}`).join(" · ");
   return (
-    <div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-b border-line px-5 py-3 sm:px-8" aria-live="polite">
+    <div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-b border-line py-3" aria-live="polite">
       <div className="flex h-2 w-28 shrink-0 gap-0.5" aria-hidden>
         {(["file", "need_more", "dismiss"] as Stance[]).map((s) => (counts.get(s) ?? 0) > 0 && <span key={s} className={`${STANCE_BAR[s]} transition-[flex-grow] duration-500`} style={{ flexGrow: counts.get(s) }} />)}
         {latest.length === 0 && <span className="grow bg-line" />}

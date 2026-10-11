@@ -12,15 +12,15 @@ const OUTCOMES = [
 export default function Landing() {
   return (
     <main className="h-[calc(100dvh-3.5rem)] overflow-y-auto">
-      <section className="mx-auto grid min-h-[calc(100dvh-3.5rem)] max-w-7xl items-center gap-10 px-5 py-10 sm:px-8 lg:grid-cols-[1fr_1.1fr]">
+      <section className="mx-auto grid min-h-[calc(100dvh-3.5rem)] max-w-7xl items-center gap-10 px-5 py-10 sm:px-8 lg:grid-cols-[1fr_1.2fr]">
         <div className="flex flex-col gap-7">
-          <h1 className="serif text-[clamp(3rem,6.5vw,6rem)] leading-[1.02] [text-wrap:balance]">
-            They hide the word. <span className="text-cobalt-ink">They can&apos;t hide the price.</span>
+          <h1 className="serif text-[clamp(2.5rem,5vw,4.5rem)] leading-[1.02] [text-wrap:balance]">
+            Coded ivory listings slip past word filters. <span className="text-cobalt-ink">The price and photos give them away.</span>
           </h1>
-          <p className="max-w-[40ch] text-xl text-muted">Three AI agents argue over every flagged listing. A person makes the final call.</p>
+          <p className="max-w-[52ch] text-xl text-muted">Specialists check each flagged listing&apos;s price, seller, photos and wording. Then three AI agents with opposing goals argue over the evidence, citing a source for every claim. A person approves before anything is reported.</p>
           <Link href="/desk" className="press inline-flex min-h-12 w-fit items-center bg-ink px-7 text-base font-semibold text-bg hover:bg-ink-2">Open the review desk</Link>
         </div>
-        <div className="relative w-full lg:justify-self-end">
+        <div className="relative w-full lg:-mr-24 lg:justify-self-end">
           <WildlifeSignal />
           <span className="tent lock absolute left-[8%] top-[22%]" style={{ animationDelay: "300ms" }}>Price</span>
           <span className="tent lock absolute right-[8%] top-[18%]" style={{ animationDelay: "600ms" }}>Photo</span>

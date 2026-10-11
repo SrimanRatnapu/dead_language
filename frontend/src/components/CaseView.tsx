@@ -38,7 +38,7 @@ export function CaseView({ target }: { target: CaseTarget }) {
     <main className="shell-grid flex h-[calc(100dvh-3.5rem)] flex-col overflow-hidden">
       {events.error && <p className="shrink-0 border-b border-red/30 bg-red-tint px-6 py-2 text-red">{events.error} <Link href="/desk" className="underline underline-offset-2">Back to the desk</Link></p>}
       <div className="mx-auto flex min-h-0 w-full max-w-[1600px] flex-1 flex-col px-4 py-3 sm:px-6 lg:px-8">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-line pb-2">
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2 border-b border-line pb-2">
           <div className="flex items-center gap-4">
             <Link href="/desk" className="press -ml-2 inline-flex min-h-11 items-center px-3 text-sm text-muted hover:text-cobalt-ink lg:min-h-0">← Review desk</Link>
             <nav aria-label="Pages" className="flex items-center gap-1 text-sm">
@@ -56,9 +56,11 @@ export function CaseView({ target }: { target: CaseTarget }) {
 
         <div className="flex min-h-0 flex-1 flex-col">
           {stage === "listing" && <>
-            <div className="min-h-0 flex-1 overflow-y-auto"><DecodedListing state={state} onOpenEvidence={setOpenEvidence} /></div>
-            <div className="flex shrink-0 items-center justify-end px-5 py-2 sm:px-8">
-              <button onClick={() => setStage("examiners")} className="press min-h-11 bg-ink px-5 py-2.5 font-semibold text-surface hover:bg-cobalt">See what the specialists found →</button>
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              <DecodedListing state={state} onOpenEvidence={setOpenEvidence} />
+              <div className="mx-auto flex max-w-[1100px] justify-end pb-6 pt-4">
+                <button onClick={() => setStage("examiners")} className="press min-h-11 bg-ink px-5 py-2.5 font-semibold text-surface hover:bg-cobalt">See what the specialists found →</button>
+              </div>
             </div>
           </>}
           {stage === "examiners" && <Examination state={state} ready={ready} onBack={() => setStage("listing")} onSend={toAgents} onOpen={setOpenEvidence} />}

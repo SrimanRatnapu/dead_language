@@ -32,7 +32,7 @@ export function Examination({ state, ready, onBack, onSend, onOpen }: { state: C
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto flex max-w-[620px] flex-col gap-4 px-5 py-4 sm:px-8">
+        <div className="mx-auto flex max-w-[620px] flex-col gap-4 py-4">
           <div>
             <h2 className="text-xl font-semibold tracking-tight">What the specialists found</h2>
             <div className="mt-4" aria-label="Which way the findings point">
@@ -68,16 +68,16 @@ export function Examination({ state, ready, onBack, onSend, onOpen }: { state: C
             })}
             {cards.length === 0 && <li className="flex items-center gap-2.5 text-muted" role="status"><span className="typing flex gap-1"><span /><span /><span /></span>Starting the specialists</li>}
           </ol>
-        </div>
-      </div>
-
-      <div className="flex shrink-0 items-center justify-between gap-4 px-5 py-2 sm:px-8">
-        <button onClick={onBack} className="press -ml-3 min-h-11 px-3 py-2.5 font-semibold text-muted hover:text-ink">← Read the listing</button>
+          <div className="mt-2 flex items-center justify-between gap-4 pb-6">
+            <button onClick={onBack} className="press -ml-3 min-h-11 px-3 py-2.5 font-semibold text-muted hover:text-ink">← Read the listing</button>
         <div className="flex items-center gap-4">
           {!ready && <p className="hidden whitespace-nowrap text-muted sm:block" aria-live="polite">{done} of {Math.max(cards.length, 5)} done</p>}
           <button onClick={onSend} disabled={!ready} className="press min-h-11 bg-ink px-5 py-2.5 font-semibold text-surface enabled:hover:bg-cobalt disabled:opacity-40">Go to the agents →</button>
         </div>
+          </div>
+        </div>
       </div>
+
     </div>
   );
 }
