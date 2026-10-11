@@ -19,7 +19,7 @@ function linkedDetails(e: CaseState["evidence"][string] | undefined) {
 }
 function annotate(description: string, marks: Mark[]): React.ReactNode[] {
   const lower = description.toLowerCase(); const found = marks.map((m) => ({ ...m, at: lower.indexOf(m.text.toLowerCase()) })).filter((m) => m.at >= 0).sort((a, b) => a.at - b.at); const out: React.ReactNode[] = []; let cursor = 0;
-  for (const m of found) { if (m.at < cursor) continue; out.push(description.slice(cursor, m.at)); out.push(<ruby key={`${m.text}-${m.at}`} className="decoded">{description.slice(m.at, m.at + m.text.length)}<rt>{m.gloss}</rt></ruby>); cursor = m.at + m.text.length; }
+  for (const m of found) { if (m.at < cursor) continue; out.push(description.slice(cursor, m.at)); out.push(<span key={`${m.text}-${m.at}`}><span className="decoded">{description.slice(m.at, m.at + m.text.length)}</span><span className="gloss mono mx-1 rounded-sm bg-amber-tint px-1.5 py-0.5 align-middle text-xs font-semibold text-amber-ink">{m.gloss}</span></span>); cursor = m.at + m.text.length; }
   out.push(description.slice(cursor)); return out;
 }
 

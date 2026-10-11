@@ -19,6 +19,8 @@ function reducer(state: CaseState, a: Action): CaseState {
 }
 
 const MAX_GAP_MS = 2500;
+// Everything from the first of these onward is the agents' stage. It is held back until release() is called.
+const AGENT_STAGE = new Set<string>(["round.started", "stance.posted", "claim.rejected", "case.ended", "budget.exceeded"]);
 
 export interface CaseEvents {
   state: CaseState;
@@ -26,6 +28,8 @@ export interface CaseEvents {
   error: string | null;
   offline: boolean;
   controllable: boolean; // replay/fixture only
+  held: boolean; // the examination is finished and the agents are waiting for release()
+  release: () => void;
   pause: () => void;
   play: () => void;
   skipToEnd: () => void;
@@ -36,6 +40,8 @@ export function useCaseEvents(source: CaseSource): CaseEvents {
   const [status, setStatus] = useState<CaseEvents["status"]>("loading");
   const [error, setError] = useState<string | null>(null);
   const [offline, setOffline] = useState(false);
+  const [held, setHeld] = useState(false);
+  const gate = useRef({ open: false, buffer: [] as Event[] });
 
   const speedRef = useRef<Speed>(1);
   const speed = source.kind === "live" ? 1 : (source.speed ?? 1);
@@ -53,6 +59,7 @@ export function useCaseEvents(source: CaseSource): CaseEvents {
       timer.current = undefined;
       const q = queue.current;
       if (pausedRef.current || q.i >= q.events.length) return;
+      if (!gate.current.open && AGENT_STAGE.has(q.events[q.i].type)) return setHeld(true);
       const e = q.events[q.i++];
       dispatch({ type: "event", event: e });
       if (q.i >= q.events.length) return setStatus("ended");
@@ -69,12 +76,16 @@ export function useCaseEvents(source: CaseSource): CaseEvents {
     // status/error start at "loading"/null; a new source remounts the page, so no synchronous reset here
     pausedRef.current = false;
     queue.current = { events: [], i: 0 };
+    gate.current = { open: false, buffer: [] };
+    setHeld(false);
 
     if (source.kind === "live") {
       es = new EventSource(`${API_BASE}/api/cases/${source.caseId}/events`);
       // status flips to "playing" on the first event
       const onMsg = (m: MessageEvent<string>) => {
         const event = JSON.parse(m.data) as Event;
+        const g = gate.current;
+        if (!g.open && (g.buffer.length > 0 || AGENT_STAGE.has(event.type))) { g.buffer.push(event); setHeld(true); setStatus("playing"); return; }
         dispatch({ type: "event", event });
         setStatus("playing");
         if (event.type === "case.ended") {
@@ -132,7 +143,18 @@ export function useCaseEvents(source: CaseSource): CaseEvents {
     tick();
   }, [tick]);
 
+  const release = useCallback(() => {
+    const g = gate.current;
+    if (g.open) return;
+    g.open = true;
+    if (g.buffer.length) dispatch({ type: "events", events: g.buffer.splice(0) });
+    setHeld(false);
+    tick();
+  }, [tick]);
+
   const skipToEnd = useCallback(() => {
+    gate.current.open = true;
+    setHeld(false);
     const q = queue.current;
     clearTimeout(timer.current);
     timer.current = undefined;
@@ -141,5 +163,5 @@ export function useCaseEvents(source: CaseSource): CaseEvents {
     setStatus("ended");
   }, []);
 
-  return { state, status, error, offline, controllable: source.kind !== "live", pause, play, skipToEnd };
+  return { state, status, error, offline, controllable: source.kind !== "live", held, release, pause, play, skipToEnd };
 }
