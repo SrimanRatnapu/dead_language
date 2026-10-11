@@ -364,7 +364,7 @@ def api(tmp_path, monkeypatch):
     transport = FakeTransport(posts={(a, 1): post(a, 1, "file") for a in ("undercover", "counsel", "case_officer")})
     calls: list[tuple[str, int, set]] = []
 
-    async def fake_fetch_live(query, cap):
+    async def fake_fetch_live(query, cap, sweep=None):
         return [(FakeMarket().listing.model_copy(update={"id": "LV0001", "origin": "live"}), None)], api_mode["mode"]
 
     async def fake_fetch_related(listing_id, limit=20, exclude=frozenset()):
@@ -374,7 +374,11 @@ def api(tmp_path, monkeypatch):
         return [], found
 
     api_mode = {"mode": "live"}
+    async def fake_rank(ids):
+        return [{"listing_id": i} for i in ids]
+
     monkeypatch.setattr(live, "fetch_live", fake_fetch_live)
+    monkeypatch.setattr(live, "rank_for_review", fake_rank)
     monkeypatch.setattr(live, "fetch_related", fake_fetch_related)
     monkeypatch.delenv("DL_FOLLOW_UP", raising=False)
     app = create_app(TwoListingMarket(), transport, FakeDiscovery(), EventBus(runs_dir=tmp_path / "runs"),

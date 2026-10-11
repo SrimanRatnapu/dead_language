@@ -16,6 +16,7 @@ not stored, logged or returned. Its limits are the FOLLOW_UP_* constants below.
 from __future__ import annotations
 
 import asyncio
+from itertools import zip_longest
 from concurrent.futures import ThreadPoolExecutor
 import hashlib
 import io
@@ -52,6 +53,15 @@ FOLLOW_UP_TERM_TRIES = 3         # word pairs tried to find those (one search re
 FOLLOW_UP_PER_TERM = 10          # listings kept per word pair
 FOLLOW_UP_MAX_TOTAL = 25         # a pair found in more titles than this, in that category, is ordinary wording: skipped
 FOLLOW_UP_COMMON_SHARE = 0.05    # a word used by more than this share of the listings we hold is too common to search on
+
+# Discovery sweeps: (eBay category id, price floor in USD). Search by where the item has to be listed and what it
+# costs, not by words. Floors are about 3x the stored median for the material; tune after real sweeps.
+SWEEPS: dict[str, list[tuple[str, int]]] = {
+    "netsuke":   [("37938", 300), ("29453", 300)],
+    "figures":   [("162973", 400), ("29445", 400), ("73466", 400)],
+    "bracelets": [("262003", 100)],
+}
+DEFAULT_SWEEP = "netsuke"
 
 _locks: "weakref.WeakKeyDictionary[asyncio.AbstractEventLoop, asyncio.Lock]" = weakref.WeakKeyDictionary()
 
@@ -174,26 +184,54 @@ def _make_record(lid: str, item_id: str, raw: dict, n: dict, bodies: list[bytes 
             "snapshot_sha256": hashlib.sha256(json.dumps(raw, sort_keys=True).encode()).hexdigest()}
 
 
-def _fetch_from_ebay(query: str, cap: int, known_items: set[str], next_number: int,
-                     fetched_before: dict[str, dict]) -> list[dict]:
-    """Blocking. Up to `cap` records for the query: items fetched before are reused as they are (no duplicate
-    is stored), items already in the stored dataset are skipped. Raises if the API cannot be used."""
+def _keyword_hits(ebay: Ebay, query: str) -> list[dict]:
+    """Blocking. eBay's relevance order for one keyword query, up to MAX_PAGES pages."""
+    hits: list[dict] = []
+    for page in range(MAX_PAGES):
+        got = ebay.search(query, limit=50, offset=page * 50)
+        hits += got
+        if len(got) < 50:
+            break
+    return hits
+
+
+def _sweep_hits(ebay: Ebay, entries: list[tuple[str, int]], cap: int) -> list[dict]:
+    """Blocking. Newest-first listings for each (category, price floor), no keyword, interleaved so every entry
+    gets an even share of the cap (an entry that runs dry hands its share to the others). Raises if nothing
+    came back at all: a failed search must not look like an empty marketplace."""
+    streams: list[list[dict]] = []
+    for category, floor in entries:
+        streams.append([])
+        for page in range(MAX_PAGES):
+            _, got = ebay.search_page(category_ids=category, filter=f"price:[{floor}..],priceCurrency:USD",
+                                      sort="newlyListed", offset=page * 50)
+            streams[-1] += got
+            if len(got) < 50 or len(streams[-1]) >= 2 * cap:     # spare hits cover items that turn out unusable
+                break
+    hits = [h for group in zip_longest(*streams) for h in group if h is not None]
+    if not hits:
+        raise RuntimeError("sweep search returned nothing")
+    return hits
+
+
+def _fetch_from_ebay(query: str | None, cap: int, known_items: set[str], next_number: int,
+                     fetched_before: dict[str, dict], sweep: list[tuple[str, int]] | None = None) -> list[dict]:
+    """Blocking. Up to `cap` records for the keyword query, or for a sweep (category + price floor, no keyword):
+    items fetched before are reused as they are (no duplicate is stored), items already in the stored dataset are
+    skipped. Raises if the API cannot be used."""
     ebay = Ebay()
     ebay._token()                                          # fail here, before any work, if the keys are bad
     records: list[dict] = []
     old_ids = {r["listing"]["id"] for r in fetched_before.values()}
     candidates: list[str] = []                             # new item ids, in search order
-    for page in range(MAX_PAGES):
-        hits = ebay.search(query, limit=50, offset=page * 50)
-        for hit in hits:
-            item_id = hit.get("itemId")
-            if item_id in fetched_before:
-                if fetched_before[item_id] not in records and len(records) < cap:
-                    records.append(fetched_before[item_id])
-            elif item_id and item_id not in known_items and item_id not in candidates:
-                candidates.append(item_id)                 # dedupe by item id against the stored dataset
-        if len(hits) < 50:
-            break
+    query = query or ""
+    for hit in _sweep_hits(ebay, sweep, cap) if sweep else _keyword_hits(ebay, query):
+        item_id = hit.get("itemId")
+        if item_id in fetched_before:
+            if fetched_before[item_id] not in records and len(records) < cap:
+                records.append(fetched_before[item_id])
+        elif item_id and item_id not in known_items and item_id not in candidates:
+            candidates.append(item_id)                     # dedupe by item id against the stored dataset
     with ThreadPoolExecutor(WORKERS) as pool:
         while candidates and len(records) < cap:
             batch, candidates = candidates[:cap - len(records)], candidates[cap - len(records):]
@@ -220,17 +258,24 @@ def _recorded(cap: int) -> list[dict]:
     return records
 
 
-async def fetch_live(query: str, cap: int = 25) -> tuple[list[tuple[Listing, Seller | None]], str]:
-    """Up to `cap` (max 50) listings for `query`, each already added to the marketplace store.
+async def fetch_live(query: str | None = None, cap: int = 25,
+                     sweep: str | None = None) -> tuple[list[tuple[Listing, Seller | None]], str]:
+    """Up to `cap` (max 50) listings, each already added to the marketplace store. `query`: a keyword search, as
+    always. `sweep`: a named category + price-floor sweep from SWEEPS, no keyword, newest first. Neither: the
+    default sweep. Both, or an unknown sweep name: ValueError.
 
     Returns (pairs, mode). mode is "live" when they came from the eBay API just now and "recorded" when the API
     could not be used (no credentials, or it failed) and the saved fetch was returned instead.
     """
+    if query and sweep:
+        raise ValueError("give a query or a sweep, not both")
+    if sweep is not None and sweep not in SWEEPS:
+        raise ValueError(f"unknown sweep {sweep!r}")
     async with _lock():
-        return await _fetch_live(query, cap)
+        return await _fetch_live(query, cap, SWEEPS[sweep or DEFAULT_SWEEP] if not query else None)
 
 
-async def _fetch_live(query: str, cap: int) -> tuple[list[tuple[Listing, Seller | None]], str]:
+async def _fetch_live(query: str | None, cap: int, sweep: list[tuple[str, int]] | None) -> tuple[list[tuple[Listing, Seller | None]], str]:
     cap = max(1, min(cap, MAX_CAP))
     market = get_marketplace_client()
     stored = purge_expired(load_records())
@@ -240,7 +285,7 @@ async def _fetch_live(query: str, cap: int) -> tuple[list[tuple[Listing, Seller 
         next_number = 1 + max((int(r["listing"]["id"][2:]) for r in stored), default=0)
         try:
             new = await asyncio.to_thread(_fetch_from_ebay, query, cap, await _dataset_item_ids(market), next_number,
-                                          fetched_before)
+                                          fetched_before, sweep)
             mode = "live"
         except (Exception, SystemExit) as exc:             # Ebay() exits on a rejected token
             log.warning("live fetch failed (%s); using the recorded fetch", exc.__class__.__name__)
@@ -251,7 +296,7 @@ async def _fetch_live(query: str, cap: int) -> tuple[list[tuple[Listing, Seller 
     else:
         _write_records(stored)
         records = _recorded(cap)
-    log.info("fetch_live query=%r cap=%d mode=%s returned=%d", query, cap, mode, len(records))
+    log.info("fetch_live query=%r sweep=%s cap=%d mode=%s returned=%d", query, sweep, cap, mode, len(records))
     pairs = []
     for r in records:
         listing, seller = Listing.model_validate(r["listing"]), Seller.model_validate(r["seller"])
@@ -470,3 +515,33 @@ async def fetch_related(listing_id: str, limit: int = 20,
                  sum(f["found_via"] == "seller" for f in found), sum(f["found_via"] == "keyword" for f in found),
                  sorted({f["term"] for f in found if f["term"]}))
         return pairs, found
+
+
+# ------------------------------------------------------------------ review order
+# Materials a disguised item would claim to be: only these can be "ivory sold as something cheaper".
+DISGUISE_MATERIALS = frozenset({"bone", "unknown", "ivory_color", "ivory_mentioned"})
+
+
+async def rank_for_review(listing_ids: list[str]) -> list[dict]:
+    """Order listings for triage, most suspicious first, from facts already computed for free (code, no model):
+    a stated material a disguised item would claim, then the Price Checker's ratio to the median for that
+    material. Returns [{"listing_id", "ratio", "stated_material", "reason"}] for every id, none dropped: dropping
+    is triage's job. Deterministic: ties keep id order."""
+    from deadlang.schemas import SpecialistCall
+    from deadlang.specialists.price import PriceChecker
+    market = get_marketplace_client()
+    checker, rows = PriceChecker(market), []
+    for lid in listing_ids:
+        listing = await market.get_listing_snapshot(lid)
+        reply = await checker.run(SpecialistCall(case_id="rank", listing_id=lid, capability="price_check"))
+        ratio = reply.drafts[0].data["ratio"] if reply.ok and reply.drafts else None
+        material = listing.stated_material
+        if material not in DISGUISE_MATERIALS:
+            reason = f"stated material {material} is not one a disguised item would claim"
+        elif ratio is None:
+            reason = f"stated material {material}; too few comparables to price it"
+        else:
+            reason = f"stated material {material}; {ratio}x the median"
+        rows.append({"listing_id": lid, "ratio": ratio, "stated_material": material, "reason": reason})
+    rows.sort(key=lambda r: (r["stated_material"] not in DISGUISE_MATERIALS, -(r["ratio"] or 0), r["listing_id"]))
+    return rows
