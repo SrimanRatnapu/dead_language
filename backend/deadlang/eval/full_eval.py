@@ -620,13 +620,24 @@ def plan_batches(items: list[Item], concurrency: int) -> list[costs.Batch]:
     return batches
 
 
-def _commands(run_id: str, args, n_label: str) -> list[str]:
-    flag = f"--stratified {args.stratified}" if args.stratified else (f"--limit {args.limit}" if args.limit else "")
-    base = f"uv run python -m deadlang.eval.run_eval {flag} --run-id {run_id} --max-usd 25".replace("  ", " ")
-    return [f"  PowerShell (from the backend folder):   {base}",
-            f"  bash (from the backend folder):         {base}",
-            f"  Resume after a stop (same id):          the same command again; finished listings are skipped",
-            f"  Rescore for free, no calls:             uv run python -m deadlang.eval.run_eval --run-id {run_id} --score-only"]
+def _commands(run_id: str, args, est: costs.Estimate | None) -> list[str]:
+    flag = f"--stratified {args.stratified} " if args.stratified else (f"--limit {args.limit} " if args.limit else "")
+    budget = max(5, -(-int((est.dollars or 0) * 1.3) // 5) * 5) if est else 25      # ~30% over the estimate, in $5 steps
+    base = f"uv run python -m deadlang.eval.run_eval {flag}--run-id {run_id} --max-usd {budget}"
+    ps, sh = base, base
+    if est:
+        in_cap = -(-int(est.input_tokens * 1.3) // 100_000) * 100_000
+        out_cap = -(-int(est.output_tokens * 1.3) // 100_000) * 100_000
+        left_in = config.MAX_INPUT_TOKENS - llm.effective_input(llm.usage_snapshot())
+        left_out = config.MAX_OUTPUT_TOKENS - llm.usage_snapshot()["output_tokens"]
+        if est.input_tokens > left_in or est.output_tokens > left_out:       # the global caps would stop it part way
+            ps = f"$env:DL_MAX_INPUT_TOKENS={max(in_cap, config.MAX_INPUT_TOKENS)}; $env:DL_MAX_OUTPUT_TOKENS={max(out_cap, config.MAX_OUTPUT_TOKENS)}; {base}"
+            sh = f"DL_MAX_INPUT_TOKENS={max(in_cap, config.MAX_INPUT_TOKENS)} DL_MAX_OUTPUT_TOKENS={max(out_cap, config.MAX_OUTPUT_TOKENS)} {base}"
+    return [f"  PowerShell (from the backend folder):  {ps}",
+            f"  bash (from the backend folder):        {sh}",
+            "  It prints the estimate and asks y/N; add --yes to skip the question.",
+            "  Resume after a stop: run the same command again (finished listings are skipped).",
+            f"  Rescore for free, no calls:            uv run python -m deadlang.eval.run_eval --run-id {run_id} --score-only"]
 
 
 async def main(args, ask: Callable[[str], str] = input, market: Any = None, out: Callable[[str], None] = print) -> int:
@@ -678,7 +689,7 @@ async def main(args, ask: Callable[[str], str] = input, market: Any = None, out:
             out(f"Per listing ~${per_listing:.3f}; the figures assume {AGENT_CALLS_PER_LISTING} agent calls and "
                 f"{PHOTOS_PER_LISTING} photos per listing (measured on earlier runs).")
         out("Dry run: no calls were made. To run it yourself:")
-        for line in _commands(run_id, args, ""):
+        for line in _commands(run_id, args, costs.estimate(batches) if batches else None):
             out(line)
         return 0
 
