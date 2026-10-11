@@ -62,7 +62,16 @@ def delete_user(username: str) -> int:
             csv.writer(f).writerow([record["source"], record["source_id"], "seller account deleted (eBay notice)"])
         path.unlink()
         removed += 1
-    return removed
+    from deadlang.marketplace import live
+    records = live.load_records()
+    name = "seller_" + hashlib.sha1((username + live.SALT).encode()).hexdigest()[:6]
+    mine = [r for r in records if r["seller"]["name"] == name]
+    for r in mine:
+        for rel in r["listing"]["image_paths"]:
+            (ROOT / "data" / rel).unlink(missing_ok=True)
+    if mine:
+        live._write_records([r for r in records if r not in mine])
+    return removed + len(mine)
 
 
 class Handler(BaseHTTPRequestHandler):

@@ -29,6 +29,7 @@ class PriceChecker:
         # Reconstructed listings are excluded so our planted cases cannot inflate the normal price.
         pool = [l for l in await self.market.all_active()
                 if l.id != target.id and not l.is_reconstructed and l.price_usd > 0
+                and l.origin == "demo"                     # the stored market is the reference, never live fetches
                 and l.stated_material == target.stated_material]
         comps = [l for l in pool if l.item_type == target.item_type]
         weak = len(comps) < MIN_COMPARABLES
@@ -39,7 +40,10 @@ class PriceChecker:
         data = {"listing_id": target.id, "price_usd": price, "stated_material": target.stated_material,
                 "item_type": target.item_type, "n": len(comps), "median_usd": None, "p25_usd": None,
                 "p75_usd": None, "ratio": None, "weak_comparison": weak,
-                "comparable_ids": [l.id for l in comps[:10]]}
+                "comparable_ids": [l.id for l in comps[:10]],
+                # The comparables nearest in price, for a "similar products" view.
+                "similar": [{"id": l.id, "title": l.title, "price_usd": l.price_usd, "category": l.category}
+                            for l in sorted(comps, key=lambda l: abs(l.price_usd - target.price_usd))[:5]]}
         if len(comps) < MIN_COMPARABLES:
             summary = (f"Only {len(comps)} comparable {target.stated_material} listings were found, too few to "
                        f"say whether this listing's price of ${price} is unusual.")

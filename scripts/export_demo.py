@@ -59,7 +59,7 @@ async def main() -> None:
         return {"score": round(min(f["ratio"] / 10, 1.0), 2), "reason": reason}
 
     # ---- browse list: the demo cases, every planted case, the priciest real listings, some ordinary ones
-    real = [l for l in active if l.id not in planted and facts[l.id]["ratio"] is not None and l.image_paths]
+    real = [l for l in active if not l.is_reconstructed and facts[l.id]["ratio"] is not None and l.image_paths]
     by_ratio = sorted(real, key=lambda l: -facts[l.id]["ratio"])
     ordinary = [l for l in real if 0.6 <= facts[l.id]["ratio"] <= 1.6 and l.stated_material in ("bone", "tagua", "resin")]
     chosen = {lid: None for lid in demo.values()}
@@ -81,7 +81,7 @@ async def main() -> None:
         shutil.copyfile(DATA / rel, PUBLIC / rel)
 
     # ---- measured signals
-    priced_real = [l for l in active if l.id not in planted and facts[l.id]["ratio"] is not None]
+    priced_real = [l for l in active if not l.is_reconstructed and facts[l.id]["ratio"] is not None]
     priced_planted = [l for l in active if l.id in planted and facts[l.id]["ratio"] is not None]
     all_real = [l for l in active if l.id not in planted and not l.is_reconstructed]
     # The designed linked network = active listings of the three "n1" sellers in data/seed/networks.yaml.

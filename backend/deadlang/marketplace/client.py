@@ -50,6 +50,8 @@ class MarketplaceClient(Protocol):
     async def all_active(self) -> list[Listing]: ...
     async def remove_listing(self, listing_id: str) -> str | None: ...      # returns revealed relist id
     async def reset_demo(self) -> None: ...
+    async def add_listing(self, listing: Listing, seller: Seller | None = None) -> None: ...   # runtime only (live lane)
+    async def market_stats(self) -> dict: ...
     def image_path(self, rel_path: str) -> Path: ...                        # absolute path on disk
 
 
@@ -84,6 +86,12 @@ class LocalMarketplaceClient:
 
     async def reset_demo(self) -> None:
         self.store.reset_demo_state(self._original)
+
+    async def add_listing(self, listing: Listing, seller: Seller | None = None) -> None:
+        self.store.add(listing.model_copy(), seller.model_copy() if seller else None)
+
+    async def market_stats(self) -> dict:
+        return self.store.market_stats()
 
     def image_path(self, rel_path: str) -> Path:
         return (self._data_dir or data_dir()) / rel_path
@@ -176,6 +184,13 @@ class McpMarketplaceClient:
 
     async def reset_demo(self) -> None:
         await self._call("admin_reset_demo")
+
+    async def add_listing(self, listing: Listing, seller: Seller | None = None) -> None:
+        await self._call("admin_add_listing", listing_json=listing.model_dump_json(),
+                         seller_json=seller.model_dump_json() if seller else "")
+
+    async def market_stats(self) -> dict:
+        return await self._call("market_stats")
 
     def image_path(self, rel_path: str) -> Path:
         return (self._data_dir or data_dir()) / rel_path

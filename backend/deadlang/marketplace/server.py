@@ -12,6 +12,7 @@ from pathlib import Path
 from mcp.server.fastmcp import FastMCP
 
 from deadlang.marketplace.store import ListingRemoved, MarketplaceStore
+from deadlang.schemas import Listing, Seller
 
 
 def _dump(models) -> str:
@@ -73,6 +74,17 @@ def build_server(store: MarketplaceStore, host: str = "127.0.0.1", port: int = 8
             return json.dumps({"removed": listing_id, "relisted_as": store.remove_listing(listing_id)})
         except KeyError:
             return not_found("listing", listing_id)
+
+    @mcp.tool()
+    def admin_add_listing(listing_json: str, seller_json: str = "") -> str:
+        """Live lane: add one fetched listing (and its seller) to the running store. Nothing is written to disk."""
+        store.add(Listing.model_validate_json(listing_json), Seller.model_validate_json(seller_json) if seller_json else None)
+        return json.dumps({"ok": True})
+
+    @mcp.tool()
+    def market_stats() -> str:
+        """Counts and median price of active listings by marketplace, country and stated material."""
+        return json.dumps(store.market_stats())
 
     @mcp.tool()
     def admin_reset_demo() -> str:

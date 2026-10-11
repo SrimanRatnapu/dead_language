@@ -1,9 +1,21 @@
 """In-memory marketplace: the fixed dataset plus the demo's remove/relist state."""
 from __future__ import annotations
 
+import json
+import statistics
+from collections import defaultdict
 from pathlib import Path
 
 from deadlang.schemas import Listing, Seller
+
+
+def load_demo_set(data_dir: Path | None = None) -> list[str]:
+    """Listing ids of the curated demo set (data/demo_set.json), in demo order. A pointer list: the rows
+    themselves stay in the dataset. Its designed outcomes are for people and evaluation code only."""
+    if data_dir is None:
+        from deadlang import config
+        data_dir = config.DATA_DIR
+    return [row["listing_id"] for row in json.loads((Path(data_dir) / "demo_set.json").read_text())]
 
 
 class ListingRemoved(Exception):
@@ -21,8 +33,32 @@ class MarketplaceStore:
     def from_dir(cls, data_dir: Path) -> MarketplaceStore:
         def rows(name: str) -> list[str]:
             return [line for line in (Path(data_dir) / name).read_text().splitlines() if line.strip()]
-        return cls([Listing.model_validate_json(r) for r in rows("listings.jsonl")],
-                   [Seller.model_validate_json(r) for r in rows("sellers.jsonl")])
+        store = cls([Listing.model_validate_json(r) for r in rows("listings.jsonl")],
+                    [Seller.model_validate_json(r) for r in rows("sellers.jsonl")])
+        # Demo-only listings that are not part of the labeled evaluation set (e.g. the injection attempt).
+        extra = Path(data_dir) / "extra" / "listings.jsonl"
+        if extra.exists():
+            for row in rows("extra/listings.jsonl"):
+                record = json.loads(row)
+                store.add(Listing.model_validate(record["listing"]), Seller.model_validate(record["seller"]))
+        return store
+
+    def add(self, listing: Listing, seller: Seller | None = None) -> None:
+        """Add (or replace) one listing at runtime, e.g. a live fetch. Stored files are not touched."""
+        if seller is not None:
+            self._sellers[seller.id] = seller
+        self._listings[listing.id] = listing
+
+    def market_stats(self) -> dict:
+        """Counts and median price of active listings by marketplace, country and stated material."""
+        groups: dict[str, dict[str, list[float]]] = {"by_marketplace": defaultdict(list), "by_country": defaultdict(list),
+                                                     "by_material": defaultdict(list)}
+        for l in self.active_listings():
+            groups["by_marketplace"][l.marketplace].append(l.price_usd)
+            groups["by_country"][l.ship_from.split("-")[0]].append(l.price_usd)
+            groups["by_material"][l.stated_material].append(l.price_usd)
+        return {name: {key: {"count": len(prices), "median_price_usd": round(statistics.median(prices), 2)}
+                       for key, prices in sorted(by.items())} for name, by in groups.items()}
 
     def get_listing(self, listing_id: str) -> Listing:
         listing = self._listings[listing_id]
