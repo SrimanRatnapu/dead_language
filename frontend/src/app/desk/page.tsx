@@ -94,7 +94,7 @@ export default function Cases() {
   const terminal = (i: BatchItem) => ["done", "screened_out", "error"].includes(i.status);
   const GROUPS: { key: string; title: string; hint: string; test: (i: BatchItem) => boolean }[] = [
     { key: "decide", title: "Waiting on you", hint: "Approve or decide before anything is sent.", test: (i) => i.status === "done" && (i.outcome === "FILE" || i.outcome === "CONTESTED") },
-    { key: "working", title: "In review", hint: "Agents are working. Rows move when they finish.", test: (i) => !terminal(i) },
+    { key: "working", title: "In review", hint: "", test: (i) => !terminal(i) },
     { key: "watch", title: "Watchlist", hint: "Not enough to file. Listed until something changes.", test: (i) => i.status === "done" && i.outcome === "WATCHLIST" },
     { key: "cleared", title: "Cleared", hint: "Looked legal. Logged, no action.", test: (i) => i.status === "screened_out" || (i.status === "done" && i.outcome === "DISMISS") },
     { key: "error", title: "Errors", hint: "These did not finish. Run them again.", test: (i) => i.status === "error" },
@@ -158,9 +158,9 @@ export default function Cases() {
               <div className="flex flex-wrap items-baseline gap-x-4 border-b border-ink pb-1.5">
                 <h2 id={`g-${g.key}`} className="serif text-xl font-bold">{g.title}</h2>
                 <span className="serial">{rows.length}</span>
-                <p className="text-sm text-muted">{g.hint}</p>
+                {g.hint && <p className="text-sm text-muted">{g.hint}</p>}
               </div>
-              <ul className="-mx-3 divide-y divide-line">{rows.map((i) => <li key={i.listing_id}><Row i={i} /></li>)}</ul>
+              <ul className="-mx-3 divide-y divide-line">{rows.map((i) => <li key={i.listing_id}>{Row({ i })}</li>)}</ul>
             </section>
           );
         })}
