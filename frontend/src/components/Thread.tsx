@@ -52,17 +52,17 @@ function Message({ post, state, onOpen }: { post: StancePost; state: CaseState; 
   );
 }
 
-function Result({ id, state, onOpen }: { id: string; state: CaseState; onOpen: Open }) {
+function Result({ id, state }: { id: string; state: CaseState }) {
   const ev = state.evidence[id];
   const by = AGENTS[ev.requested_by as keyof typeof AGENTS];
   return (
-    <button onClick={() => onOpen(id)} className="rise press grid grid-cols-[2.25rem_1fr] gap-x-3 border border-line bg-sunken p-3 text-left hover:border-ink">
+    <div className="rise grid grid-cols-[2.25rem_1fr] gap-x-3 border border-line bg-sunken p-3">
       <span className="grid size-9 place-items-center bg-surface text-cobalt-ink"><Icon name={ev.capability} size={18} /></span>
       <span className="min-w-0 leading-snug">
         <span className="font-semibold">{CAPABILITY_LABEL[ev.capability]}</span><span className="text-muted"> · asked by </span><b className={by.text}>{by.label}</b>
         <span className="mt-1 block [text-wrap:pretty]">{ev.summary}</span>
       </span>
-    </button>
+    </div>
   );
 }
 
@@ -87,7 +87,7 @@ export function Thread({ state, onOpen, children }: { state: CaseState; onOpen: 
     <div ref={ref} onScroll={onScroll} className="relative h-full overflow-y-auto">
       <div className="mx-auto flex max-w-[720px] flex-col gap-6 px-5 py-6 sm:px-8">
         {blocks.map((b, i) => b.kind === "post" ? <Message key={i} post={b.post} state={state} onOpen={onOpen} />
-          : b.kind === "result" ? <Result key={i} id={b.id} state={state} onOpen={onOpen} />
+          : b.kind === "result" ? <Result key={i} id={b.id} state={state} />
           : <p key={i} className="rise bg-red-tint px-4 py-2 text-red">Seller removed the listing{b.relisted_as ? ` · relisted as ${b.relisted_as}` : ""}. The review continues from the saved snapshot.</p>)}
         {blocks.length === 0 && !finished && <Pending>The agents are reading the evidence</Pending>}
         {waiting.map((a) => <Pending key={a}>{AGENTS[a].label} is thinking</Pending>)}

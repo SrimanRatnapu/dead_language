@@ -76,7 +76,7 @@ export function AgentRail({ state, onOpen }: { state: CaseState; onOpen: (id: st
         const by = AGENTS[s.requested_by as AgentName];
         return (
           <li key={i} className="rise border border-line bg-sunken p-3">
-            <button disabled={!ev} onClick={() => ev && onOpen(ev.id)} className="press flex w-full items-start gap-3 text-left">
+            <div className="flex w-full items-start gap-3">
               <span className="grid size-9 shrink-0 place-items-center bg-surface text-cobalt-ink"><Icon name={s.capability} size={18} /></span>
               <span className="min-w-0">
                 <span className="block truncate font-semibold leading-tight">{CAPABILITY_LABEL[s.capability]}</span>
@@ -86,7 +86,7 @@ export function AgentRail({ state, onOpen }: { state: CaseState; onOpen: (id: st
                     : <span className="typing flex gap-1" role="status" aria-label="Working"><span /><span /><span /></span>}
                 </span>
               </span>
-            </button>
+            </div>
           </li>
         );
       })}
