@@ -1,7 +1,6 @@
 export function WildlifeSignal({ compact = false }: { compact?: boolean }) {
   return (
     <figure className={`wildlife-signal ${compact ? "wildlife-signal--compact" : ""}`} aria-label="Abstract signal map showing a listing connected to shared price, image, and language evidence.">
-      <span className="lattice text-ink/[0.07]" aria-hidden />
       <span className="signal-orbit signal-orbit--outer" />
       <span className="signal-orbit signal-orbit--inner" />
       <span className="signal-path signal-path--one" />
