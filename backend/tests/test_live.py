@@ -45,6 +45,12 @@ class FakeEbay:
     def search(self, query, limit=50, offset=0):
         return [{"itemId": i["itemId"]} for i in self.items.values()] if offset == 0 else []
 
+    searches: list[dict] = []
+
+    def search_page(self, **params):                      # used by sweeps
+        FakeEbay.searches.append(params)
+        return len(self.items), list(self.items.values())
+
     def item_status(self, item_id):
         n = int(item_id.split("|")[1])
         return (200, self.items[n]) if n in self.items else (404, {})
@@ -65,6 +71,7 @@ def market(tmp_path, monkeypatch):
     monkeypatch.setattr(live, "Ebay", FakeEbay)
     monkeypatch.setattr(FakeEbay, "items", {n: item(n) for n in (1, 2, 3, 4)})
     monkeypatch.setattr(FakeEbay, "fail", False)
+    monkeypatch.setattr(FakeEbay, "searches", [])
     return m
 
 
@@ -153,3 +160,25 @@ def test_committed_demo_set_and_recorded_fixture():
     recorded = [json.loads(x) for x in live.RECORDED.read_text().splitlines()]
     assert recorded and all(r["listing"]["origin"] == "live" and r["seller"]["id"].startswith("S-live-") for r in recorded)
     assert all((live.RECORDED_IMAGES / Path(p).name).is_file() for r in recorded for p in r["listing"]["image_paths"])
+
+
+async def test_sweep_searches_by_category_and_price_without_a_keyword(market):
+    pairs, mode = await live.fetch_live(sweep="netsuke", cap=10)
+    assert mode == "live" and pairs
+    assert len(FakeEbay.searches) == len(live.SWEEPS["netsuke"])
+    for p, (category, floor) in zip(FakeEbay.searches, live.SWEEPS["netsuke"]):
+        assert "q" not in p and p["category_ids"] == category and p["sort"] == "newlyListed"
+        assert p["filter"].startswith(f"price:[{floor}..]")
+
+
+async def test_query_and_sweep_are_exclusive_and_names_are_checked(market):
+    with pytest.raises(ValueError):
+        await live.fetch_live("x", sweep="netsuke")
+    with pytest.raises(ValueError):
+        await live.fetch_live(sweep="nope")
+
+
+async def test_rank_for_review_puts_disguise_materials_first_and_drops_nothing(market):
+    ids = [l.id for l, _ in (await live.fetch_live(cap=4))[0]]
+    rows = await live.rank_for_review(ids)
+    assert sorted(r["listing_id"] for r in rows) == sorted(ids)

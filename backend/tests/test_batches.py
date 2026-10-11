@@ -138,9 +138,13 @@ def test_live_batch_reports_fetch_mode(client, monkeypatch):
     from deadlang.marketplace import live
     listing = FakeMarket().listing
 
-    async def fake_fetch(query, cap):
+    async def fake_fetch(query, cap, sweep=None):
         return [(listing, None)], "recorded"
+
+    async def fake_rank(ids):
+        return [{"listing_id": i} for i in ids]
     monkeypatch.setattr(live, "fetch_live", fake_fetch)
+    monkeypatch.setattr(live, "rank_for_review", fake_rank)
     r = client.post("/api/batches", json={"source": "live", "query": "x"})
     assert r.status_code == 202 and r.json()["source_mode"] == "recorded"
     assert [i["listing_id"] for i in r.json()["items"]] == [listing.id]

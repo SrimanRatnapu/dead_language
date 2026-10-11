@@ -13,7 +13,7 @@ from typing import Any, Literal
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from sse_starlette.sse import EventSourceResponse
 
 from deadlang import config, llm
@@ -50,7 +50,17 @@ class BatchRequest(BaseModel):
     source: Literal["demo", "live"]
     listing_ids: list[str] | None = None
     query: str | None = None
+    sweep: str | None = None            # a name from marketplace.live.SWEEPS; with neither, the default sweep
     cap: int = Field(25, ge=1, le=MAX_LIVE_CAP)
+
+    @model_validator(mode="after")
+    def _one_way_to_search(self):
+        from deadlang.marketplace.live import SWEEPS
+        if self.sweep is not None and self.sweep not in SWEEPS:
+            raise ValueError(f"unknown sweep {self.sweep!r}; one of {sorted(SWEEPS)}")
+        if self.query and self.sweep:
+            raise ValueError("give a query or a sweep, not both")
+        return self
 
 
 def demo_listing_ids(data_dir: Path) -> list[str]:
@@ -231,9 +241,9 @@ def create_app(market: Any = None, transport: Any = None, discovery: Any = None,
     async def create_batch(req: BatchRequest):
         mode = "demo"
         if req.source == "live":
-            from deadlang.marketplace.live import fetch_live
-            pairs, mode = await fetch_live(req.query or "bone netsuke", req.cap)   # "live" | "recorded"
-            ids = [l.id for l, _ in pairs]
+            from deadlang.marketplace.live import fetch_live, rank_for_review
+            pairs, mode = await fetch_live(req.query, req.cap, req.sweep)         # "live" | "recorded"
+            ids = [r["listing_id"] for r in await rank_for_review([l.id for l, _ in pairs])]   # most suspicious first
         else:
             ids = req.listing_ids or demo_listing_ids(data_dir)
         for lid in ids:
