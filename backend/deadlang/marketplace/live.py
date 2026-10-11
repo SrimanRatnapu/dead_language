@@ -19,6 +19,7 @@ import json
 import logging
 import re
 import shutil
+import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -81,15 +82,37 @@ def _language(text: str) -> str:
     return "en" if not letters or sum(c.isascii() for c in letters) / len(letters) > 0.8 else "und"
 
 
-def _save_photo(raw: bytes, dest: Path) -> bool:
+def _encode_photo(raw: bytes) -> bytes | None:
     try:
         img = Image.open(io.BytesIO(raw)).convert("RGB")
         img.thumbnail((800, 800))
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        img.save(dest, "JPEG", quality=85)
-        return True
+        out = io.BytesIO()
+        img.save(out, "JPEG", quality=85)
+        return out.getvalue()
     except Exception:
-        return False                                       # an unreadable photo is skipped, never fatal
+        return None                                        # an unreadable photo is skipped, never fatal
+
+
+WORKERS = 6     # parallel item/photo fetches: ~60 eBay calls/s is far under the Browse API's daily quota, and each call still sleeps 0.1 s
+
+
+def _load_item(ebay: Ebay, item_id: str, query: str) -> tuple[dict, dict, list[bytes | None]] | None:
+    """Blocking, runs in a worker thread: one item's details and photo bytes, or None if unusable."""
+    for attempt in range(3):
+        status, raw = ebay.item_status(item_id)
+        if status != 429:
+            break
+        time.sleep(2 ** attempt)                           # rate limited: back off and retry
+    n = normalize(raw, query) if status == 200 else None
+    if n is None:
+        return None                                        # gone, not priced in USD, or untitled
+
+    def download(url: str) -> bytes | None:
+        try:
+            return _encode_photo(ebay.http.get(re.sub(r"s-l\d+", "s-l800", url)).content)   # we shrink to 800 px anyway: smaller download
+        except Exception:
+            return None
+    return raw, n, [download(u) for u in n["image_urls"]]       # decoding and resizing happen here, off the main thread
 
 
 def _fetch_from_ebay(query: str, cap: int, known_items: set[str], next_number: int,
@@ -100,52 +123,47 @@ def _fetch_from_ebay(query: str, cap: int, known_items: set[str], next_number: i
     ebay._token()                                          # fail here, before any work, if the keys are bad
     records: list[dict] = []
     old_ids = {r["listing"]["id"] for r in fetched_before.values()}
+    candidates: list[str] = []                             # new item ids, in search order
     for page in range(MAX_PAGES):
         hits = ebay.search(query, limit=50, offset=page * 50)
         for hit in hits:
-            if len(records) >= cap:
-                return records
             item_id = hit.get("itemId")
             if item_id in fetched_before:
-                if fetched_before[item_id] not in records:
+                if fetched_before[item_id] not in records and len(records) < cap:
                     records.append(fetched_before[item_id])
-                continue
-            if not item_id or item_id in known_items:
-                continue                                   # dedupe by item id against the stored dataset
-            known_items.add(item_id)
-            status, raw = ebay.item_status(item_id)
-            n = normalize(raw, query) if status == 200 else None
-            if n is None:
-                continue                                   # gone, not priced in USD, or untitled
-            lid = f"LV{next_number + sum(r['listing']['id'] not in old_ids for r in records):04d}"
-            def download(url: str) -> bytes | None:
-                try:
-                    return ebay.http.get(url).content
-                except Exception:
-                    return None
-            with ThreadPoolExecutor(4) as pool:            # photos in parallel: they dominate the fetch time
-                bodies = list(pool.map(download, n["image_urls"]))
-            paths = []
-            for body in bodies:
-                rel = f"images/live/{lid}_{len(paths)}.jpg"
-                if body and _save_photo(body, data_dir() / rel):
-                    paths.append(rel)
-            username = n["seller_handle"] or f"unknown-{item_id}"
-            seller = _seller(username, n["seller_feedback"], n["seller_location"])
-            for field in ("title", "description"):         # sellers often name their own shop in the text
-                n[field] = re.sub(rf"(?<![A-Za-z0-9]){re.escape(username)}(?![A-Za-z0-9])", seller.name, n[field], flags=re.I)
-            listing = Listing(
-                id=lid, marketplace="ebay", seller_id=seller.id, title=n["title"], description=n["description"],
-                price_usd=round(n["price_usd"], 2), category=n["category"],
-                stated_material=stated_material(n["title"], n["description"]),
-                item_type=item_type(n["title"], n["description"]), ship_from=n["ship_from"],
-                language=_language(n["title"] + " " + n["description"]), image_paths=paths,
-                posted_at=n["posted_at"] or now_iso(), source_url=n["source_url"], origin="live")
-            records.append({"listing": listing.model_dump(mode="json"), "seller": seller.model_dump(mode="json"),
-                            "source_item_id": item_id, "fetched_at": now_iso(),
-                            "snapshot_sha256": hashlib.sha256(json.dumps(raw, sort_keys=True).encode()).hexdigest()})
+            elif item_id and item_id not in known_items and item_id not in candidates:
+                candidates.append(item_id)                 # dedupe by item id against the stored dataset
         if len(hits) < 50:
             break
+    with ThreadPoolExecutor(WORKERS) as pool:
+        while candidates and len(records) < cap:
+            batch, candidates = candidates[:cap - len(records)], candidates[cap - len(records):]
+            for item_id, loaded in zip(batch, pool.map(lambda i: _load_item(ebay, i, query), batch)):
+                if loaded is None:
+                    continue
+                raw, n, bodies = loaded
+                lid = f"LV{next_number + sum(r['listing']['id'] not in old_ids for r in records):04d}"
+                paths = []
+                for body in bodies:
+                    rel = f"images/live/{lid}_{len(paths)}.jpg"
+                    if body:
+                        (data_dir() / rel).parent.mkdir(parents=True, exist_ok=True)
+                        (data_dir() / rel).write_bytes(body)
+                        paths.append(rel)
+                username = n["seller_handle"] or f"unknown-{item_id}"
+                seller = _seller(username, n["seller_feedback"], n["seller_location"])
+                for field in ("title", "description"):         # sellers often name their own shop in the text
+                    n[field] = re.sub(rf"(?<![A-Za-z0-9]){re.escape(username)}(?![A-Za-z0-9])", seller.name, n[field], flags=re.I)
+                listing = Listing(
+                    id=lid, marketplace="ebay", seller_id=seller.id, title=n["title"], description=n["description"],
+                    price_usd=round(n["price_usd"], 2), category=n["category"],
+                    stated_material=stated_material(n["title"], n["description"]),
+                    item_type=item_type(n["title"], n["description"]), ship_from=n["ship_from"],
+                    language=_language(n["title"] + " " + n["description"]), image_paths=paths,
+                    posted_at=n["posted_at"] or now_iso(), source_url=n["source_url"], origin="live")
+                records.append({"listing": listing.model_dump(mode="json"), "seller": seller.model_dump(mode="json"),
+                                "source_item_id": item_id, "fetched_at": now_iso(),
+                                "snapshot_sha256": hashlib.sha256(json.dumps(raw, sort_keys=True).encode()).hexdigest()})
     return records
 
 
