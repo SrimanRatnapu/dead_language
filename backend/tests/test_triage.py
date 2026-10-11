@@ -120,9 +120,9 @@ async def test_compute_scores_every_listing_and_shards_case_ids(monkeypatch):
     fake = FakeJson()
     monkeypatch.setattr(llm, "call_json", fake)
     monkeypatch.setattr(triage, "SHARD", 2)
-    result = await triage.compute(listings(5), FakeRatio(), concurrency=1)
+    result = await triage.compute(listings(5), FakeRatio(), concurrency=1, run_id="t1")
     assert sorted(result.scores) == [f"L{i:04d}" for i in range(5)]
-    assert [c["case_id"] for c in fake.calls] == ["triage-0", "triage-0", "triage-1", "triage-1", "triage-2"]
+    assert [c["case_id"] for c in fake.calls] == ["triage-t1-0", "triage-t1-0", "triage-t1-1", "triage-t1-1", "triage-t1-2"]
     assert result.stopped is None and result.failed == 0
 
 
@@ -237,3 +237,23 @@ def test_missing_marketplace_data_is_a_clear_message_not_a_traceback(monkeypatch
     out = capsys.readouterr().out
     assert code == 2 and fake.calls == []
     assert "data/listings.jsonl" in out and "build" in out.lower()
+
+
+async def test_each_triage_run_uses_fresh_case_ids(monkeypatch):
+    fake = FakeJson()
+    monkeypatch.setattr(llm, "call_json", fake)
+    await triage.compute(listings(2), FakeRatio(), concurrency=1)
+    await triage.compute(listings(2), FakeRatio(), concurrency=1)
+    assert len({c["case_id"] for c in fake.calls}) == 2                  # a rerun does not inherit the last run's usage
+
+
+async def test_a_triage_budget_stop_keeps_the_reason(monkeypatch):
+    fake = FakeJson(fail_after=1, error=BudgetExceeded("case triage-x-0 output cap 30,000: used 29,900 + 0 in flight + 200 for this call"))
+    monkeypatch.setattr(llm, "call_json", fake)
+    result = await triage.compute(listings(4), FakeRatio(), concurrency=1)
+    assert result.stopped == "budget" and "output cap 30,000" in result.last_error
+
+
+def test_the_triage_plan_has_per_case_numbers():
+    b = triage.plan(listings(3), concurrency=4)[0]
+    assert b.calls_per_case == triage.SHARD and b.concurrency == 4

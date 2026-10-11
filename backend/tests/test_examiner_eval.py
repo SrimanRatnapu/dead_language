@@ -5,7 +5,7 @@ from collections import defaultdict
 
 import pytest
 
-from deadlang import config, llm
+from deadlang import config, costs, llm
 from deadlang.eval import examiner_eval as ev
 from deadlang.llm import BudgetExceeded
 from deadlang.specialists import material
@@ -124,10 +124,10 @@ async def test_quick_mode_one_call_per_image_with_sharded_case_ids(world, monkey
     monkeypatch.setattr(ev, "SHARD", 4)
     items, _ = ev.load_items(config.DATA_DIR / "museum" / "museum_labels.csv")
 
-    result = await ev.evaluate("quick", QuickExaminer(None), items, done=set(), concurrency=1)
+    result = await ev.evaluate("quick", QuickExaminer(None), items, done=set(), concurrency=1, run_id="r1")
 
     assert len(fake.calls) == 6 and all(c["model"] == config.MODEL_FAST for c in fake.calls)
-    assert [c["case_id"] for c in fake.calls] == ["examiner_eval-quick-0"] * 4 + ["examiner_eval-quick-1"] * 2
+    assert [c["case_id"] for c in fake.calls] == ["examiner_eval-quick-r1-0"] * 4 + ["examiner_eval-quick-r1-1"] * 2
     assert all(c["user"] == material.USER_MESSAGE for c in fake.calls)       # only the photo, never the labels
     assert {r["object_id"]: r["predicted"] for r in result.rows} == QUICK
     assert all(r["mode"] == "quick" and r["truth"] for r in result.rows)
@@ -291,3 +291,125 @@ def test_the_saved_rows_file_contains_the_new_fields(world, monkeypatch):
     assert all("visible_features" in r and "best_region" in r and len(r["looks"]) == 2 for r in saved)
     metrics = json.loads((config.REPO_ROOT / "results" / "examiner_eval.json").read_text())
     assert metrics["thorough"]["accuracy_on_decisive"] == 1.0          # the numbers themselves are unchanged
+
+
+# ---------------- accounting: per-run case ids, a heavy-output model, honest reasons, a model-aware plan ----------------
+
+class UsageClient:
+    """Stands in for the Anthropic client under the real llm.py, so the real accounting runs."""
+
+    def __init__(self, tokens_in=1450, tokens_out=310):
+        from types import SimpleNamespace as NS
+        self.messages, self.NS = self, NS
+        self.tokens = (tokens_in, tokens_out)
+        self.calls, self.inflight, self.peak = 0, 0, 0
+
+    async def create(self, **req):
+        self.calls += 1
+        self.inflight += 1
+        self.peak = max(self.peak, self.inflight)
+        await asyncio.sleep(0.005)
+        self.inflight -= 1
+        n = sum(1 for b in req["messages"][0]["content"] if b.get("type") == "image")
+        out = {"photos": [{"index": i, "material": "bone", "confidence": 0.7, "visible_features": ["grain"],
+                           "best_region": "base"} for i in range(n)]}
+        return self.NS(content=[self.NS(type="tool_use", name="report_material", input=out)],
+                       usage=self.NS(input_tokens=self.tokens[0], output_tokens=self.tokens[1]))
+
+
+def many_photos(world, count=41):
+    museum = config.DATA_DIR / "museum"
+    from PIL import Image
+    rows = ["object_id,label,medium,title,object_url,image_path"]
+    for i in range(count):
+        Image.new("RGB", (600, 400), "white").save(museum / f"p{i}.jpg")
+        rows.append(f"p{i},{'elephant_ivory' if i % 2 else 'bone'},m,t,u,museum/p{i}.jpg")
+    path = museum / "many.csv"
+    path.write_text("\n".join(rows))
+    return path
+
+
+async def test_a_full_thorough_run_finishes_under_the_default_caps_even_when_the_model_writes_a_lot(world, monkeypatch):
+    csv_path = many_photos(world)
+    items, _ = ev.load_items(csv_path)
+    client = UsageClient()
+    llm.set_client_for_tests(client)
+    try:
+        for attempt in range(3):                       # three runs in a row: the first used to eat the next one's cap
+            result = await ev.evaluate("thorough", ThoroughExaminer(None), items, done=set(), concurrency=3)
+            assert len(result.rows) == 41 and result.stopped is None, f"run {attempt + 1}: {result.last_error}"
+    finally:
+        llm.set_client_for_tests(None)
+    assert client.peak >= 2                            # the two looks (and several photos) really overlap
+    assert llm._pending == {"in": 0, "out": 0, "cases": {}}
+
+
+async def test_case_ids_carry_the_run_id_so_one_run_cannot_use_up_the_next_ones_cap(world, monkeypatch):
+    items, _ = ev.load_items(config.DATA_DIR / "museum" / "museum_labels.csv")
+    fake = FakeVision()
+    monkeypatch.setattr(llm, "call_vision_json", fake)
+    monkeypatch.setattr(ev, "SHARD", 4)
+    await ev.evaluate("quick", QuickExaminer(None), items, done=set(), concurrency=1, run_id="r1")
+    await ev.evaluate("quick", QuickExaminer(None), items, done=set(), concurrency=1, run_id="r2")
+    ids = [c["case_id"] for c in fake.calls]
+    assert ids[:6] == ["examiner_eval-quick-r1-0"] * 4 + ["examiner_eval-quick-r1-1"] * 2
+    assert ids[6:] == ["examiner_eval-quick-r2-0"] * 4 + ["examiner_eval-quick-r2-1"] * 2
+
+
+async def test_a_budget_stop_says_which_cap_tripped(world, monkeypatch):
+    monkeypatch.setattr(config, "CASE_MAX_OUTPUT_TOKENS", 3_000)
+    csv_path = many_photos(world, 10)
+    items, _ = ev.load_items(csv_path)
+    llm.set_client_for_tests(UsageClient())
+    try:
+        result = await ev.evaluate("thorough", ThoroughExaminer(None), items, done=set(), concurrency=3)
+    finally:
+        llm.set_client_for_tests(None)
+    assert result.stopped == "budget"
+    assert "output cap 3,000" in result.last_error and "in flight" in result.last_error
+
+
+def test_the_stop_message_in_the_command_names_the_reason(world, monkeypatch, capsys):
+    monkeypatch.setattr(config, "CASE_MAX_OUTPUT_TOKENS", 1_000)
+    fake = FakeVision(fail_after=2, error=BudgetExceeded("case X output cap 1,000: used 900 + 0 in flight + 150 for this call"))
+    code, _ = run_main(monkeypatch, ["--yes", "--modes", "quick", "--concurrency", "1"], fake=fake)
+    assert code == 2
+    assert "case X output cap 1,000" in capsys.readouterr().out
+
+
+def test_the_plan_counts_thinking_real_photo_size_and_per_case_load(world):
+    from PIL import Image
+    items, _ = ev.load_items(config.DATA_DIR / "museum" / "museum_labels.csv")
+    for item in items:
+        Image.new("RGB", (600, 400), "white").save(item.path, "JPEG")      # real photos, so they can be measured
+    opus = ThoroughExaminer(None)
+    opus.model = "claude-opus-5-5"
+    b = ev.plan("thorough", opus, items, concurrency=3)
+    assert b.output_tokens == 315                                  # 150 x 2.1 for a model that thinks
+    assert b.calls == 2 * len(items)
+    assert b.calls_per_case == ev.SHARD * 2 and b.concurrency == 3 * 2     # two looks per photo run together
+    expected = llm.estimate_input_tokens(opus.system, material.USER_MESSAGE, images=1, schema=material.SCHEMA,
+                                         image_tokens=320) + costs.TOOL_USE_OVERHEAD_TOKENS
+    assert b.input_tokens == expected                              # photo at its measured 320 tokens, schema and tool overhead counted
+    flat_photo = llm.estimate_input_tokens(opus.system, material.USER_MESSAGE, images=1, schema=material.SCHEMA)
+    assert b.input_tokens == flat_photo + costs.TOOL_USE_OVERHEAD_TOKENS - (llm.TOKENS_PER_IMAGE - 320)
+    haiku = QuickExaminer(None)
+    haiku.model = "claude-haiku-4-5-20251001"
+    assert ev.plan("quick", haiku, items, concurrency=3).output_tokens == 150
+
+
+def test_the_dry_run_shows_the_per_case_line(world, monkeypatch, capsys):
+    code, _ = run_main(monkeypatch, ["--dry-run", "--modes", "thorough"])
+    out = capsys.readouterr().out
+    assert code == 0 and "Per case id" in out and "calls in flight" in out
+
+
+def test_the_per_call_input_estimate_matches_what_real_examiner_calls_measured(world):
+    """Real runs measured 1,452 (Opus 5.5) to ~1,500 input tokens per call on the 600-pixel Met photos. The estimate
+    for those photos must land within 15% of that, or the dry-run is lying again."""
+    from PIL import Image
+    items, _ = ev.load_items(config.DATA_DIR / "museum" / "museum_labels.csv")
+    for item in items:
+        Image.new("RGB", (600, 414), "white").save(item.path, "JPEG")
+    per_call = ev.plan("thorough", ThoroughExaminer(None), items, concurrency=3).input_tokens
+    assert 1_450 * 0.85 <= per_call <= 1_500 * 1.15, per_call
