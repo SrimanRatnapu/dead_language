@@ -25,13 +25,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))   # so `python scripts/...` finds deadlang
 
-from deadlang import config, costs, fileio, llm  # noqa: E402
+from deadlang import config, costs, fileio, llm, triage  # noqa: E402
 from deadlang.llm import BudgetExceeded  # noqa: E402
 from deadlang.schemas import Listing, SpecialistCall  # noqa: E402
 
-SYSTEM = ("You screen marketplace listings for possible disguised elephant ivory. Read it as an experienced "
-          "collector would: does anything about the price, wording, or details only make sense if the item "
-          "were ivory? Most listings are innocent; give low scores unless something specific stands out.")
+SYSTEM = triage.SYSTEM            # the same collector prompt and untrusted-text rule that triage.screen() uses
 SCHEMA_NAME = "report_triage"
 SCHEMA = {"type": "object",
           "properties": {"text_suspicion": {"type": "number", "minimum": 0, "maximum": 1},
@@ -46,8 +44,9 @@ MAX_TOKENS = 200
 
 
 def listing_text(listing: Listing) -> str:
-    return (f"Title: {listing.title}\nDescription: {listing.description}\nPrice: ${listing.price_usd:,.0f}\n"
-            f"Stated material: {listing.stated_material}\nItem type: {listing.item_type}")
+    """Text only, as triage.screen() sends it (seller words in a delimited untrusted block). No price ratio here:
+    the score below adds the price ratio itself, so the model must not see it too."""
+    return triage.build_user_message(listing)
 
 
 def combine(text_suspicion: float, price_ratio: float) -> float:
@@ -64,7 +63,7 @@ async def price_ratio_for(price_checker, listing: Listing, case_id: str) -> floa
 
 
 async def score_listing(listing: Listing, price_checker, case_id: str) -> dict:
-    out = await llm.call_json(model=config.MODEL_FAST, system=SYSTEM, user=listing_text(listing),
+    out = await llm.call_json(model=config.MODEL_TRIAGE, system=SYSTEM, user=listing_text(listing),
                               schema_name=SCHEMA_NAME, schema=SCHEMA, case_id=case_id, max_tokens=MAX_TOKENS)
     suspicion = min(max(float(out["text_suspicion"]), 0.0), 1.0)
     ratio = await price_ratio_for(price_checker, listing, case_id)
@@ -115,8 +114,8 @@ def pending(active: list[Listing], existing: dict, limit: int | None, force: boo
 
 def plan(todo: list[Listing], concurrency: int = DEFAULT_CONCURRENCY) -> list[costs.Batch]:
     avg_in = round(sum(llm.estimate_input_tokens(SYSTEM, listing_text(l), schema=SCHEMA) for l in todo) / len(todo))
-    return [costs.Batch("triage (text only)", config.MODEL_FAST, len(todo), avg_in + costs.TOOL_USE_OVERHEAD_TOKENS,
-                        costs.expected_output_tokens(config.MODEL_FAST, EXPECTED_OUTPUT_TOKENS), MAX_TOKENS,
+    return [costs.Batch("triage (text only)", config.MODEL_TRIAGE, len(todo), avg_in + costs.TOOL_USE_OVERHEAD_TOKENS,
+                        costs.expected_output_tokens(config.MODEL_TRIAGE, EXPECTED_OUTPUT_TOKENS), MAX_TOKENS,
                         calls_per_case=SHARD, concurrency=concurrency)]
 
 

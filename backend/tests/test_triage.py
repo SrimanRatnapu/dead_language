@@ -90,7 +90,7 @@ async def test_score_listing_combines_the_model_read_with_the_price_ratio(monkey
     row = await triage.score_listing(make_listing(id="L1"), FakeRatio({"L1": 12.3}), "triage-0")
     assert row == {"score": 0.8, "reason": "Price is far above bone.", "price_ratio": 12.3}
     call = fake.calls[0]
-    assert call["model"] == config.MODEL_FAST and call["case_id"] == "triage-0"
+    assert call["model"] == config.MODEL_TRIAGE and call["case_id"] == "triage-0"
     assert call["schema_name"] == "report_triage" and "image_paths" not in call
     assert "most listings are innocent" in call["system"].lower()
 
