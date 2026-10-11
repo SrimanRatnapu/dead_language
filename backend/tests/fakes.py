@@ -131,7 +131,8 @@ class FakeTriage:
         self.calls: list[dict] = []
 
     async def screen(self, listing: Listing, seller: Seller | None = None, *, price_ratio: float | None = None,
-                     seller_listing_count: int | None = None, case_id: str | None = None) -> TriageResult:
+                     seller_listing_count: int | None = None, case_id: str | None = None,
+                     threshold: float | None = None) -> TriageResult:
         self.calls.append({"listing_id": listing.id, "seller": seller, "price_ratio": price_ratio,
                            "seller_listing_count": seller_listing_count, "case_id": case_id})
         if self.delay:
@@ -141,6 +142,6 @@ class FakeTriage:
             raise self.raises[listing.id]
         score = self.scores.get(listing.id, self.default)
         return TriageResult(score=score, reason=f"Fake triage gave this listing {score:.2f}.",
-                            suspicious=score >= self.threshold)
+                            suspicious=score >= (self.threshold if threshold is None else threshold))
 
     __call__ = screen

@@ -47,3 +47,9 @@ async def test_it_can_be_slow_so_a_worker_can_be_tested_with_concurrency():
     start = time.perf_counter()
     await asyncio.gather(*[fake.screen(make_listing(id=f"L{i}")) for i in range(4)])
     assert time.perf_counter() - start < 0.15                                      # ran together, not one after another
+
+
+async def test_it_accepts_the_same_threshold_override_as_the_real_one():
+    fake = FakeTriage(default=0.3, threshold=0.2)
+    assert (await fake.screen(make_listing(), threshold=0.5)).suspicious is False
+    assert (await fake.screen(make_listing())).suspicious is True
