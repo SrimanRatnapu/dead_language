@@ -178,6 +178,10 @@ export interface EvalResults {
 }
 
 export type BatchStatus = "queued" | "triaging" | "screened_out" | "deliberating" | "done" | "error";
+// Follow-up fetch: when a live listing is flagged, the same seller's other listings ("seller") and listings whose
+// titles share its distinctive words ("keyword", with `term`) are added to the batch; `parent` is the flagged one.
+export type FoundVia = "seller" | "keyword";
+export interface FollowUp { state: "searching" | "done"; added: number }
 export interface BatchItem {
   listing_id: string;
   case_id: string | null;
@@ -185,9 +189,13 @@ export interface BatchItem {
   triage: { score: number; reason: string } | null;
   outcome: Outcome | null;
   error: string | null;
+  found_via?: FoundVia | null;
+  term?: string | null;
+  parent?: string | null;
+  follow_up?: FollowUp | null; // on the flagged listing itself: the search for related listings
 }
 export interface BatchStart { batch_id: string; source_mode: "demo" | "live" | "recorded"; items: BatchItem[] }
-export interface BatchEvent { type: "batch.item"; listing_id: string; case_id: string | null; status: BatchStatus; outcome?: Outcome; at: string }
+export interface BatchEvent { type: "batch.item"; listing_id: string; case_id: string | null; status: BatchStatus; outcome?: Outcome; at: string; found_via?: FoundVia | null; term?: string | null; parent?: string | null; follow_up?: FollowUp | null }
 
 export type StrikeStatus = "none" | "pending_review" | "approved" | "submitted_simulated" | "observed_removed";
 export interface Strike { status: StrikeStatus; approved_by: string | null; notice_draft: string | null; history: { status: string; at: string; by: string }[] }

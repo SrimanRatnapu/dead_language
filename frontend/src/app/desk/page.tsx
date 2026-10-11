@@ -22,6 +22,14 @@ function markFor(i: BatchItem): Mark | null {
   return { icon: "check", label: "Dismissed", tone: "text-green" };
 }
 const WORKING: Partial<Record<BatchItem["status"], string>> = { queued: "Queued", triaging: "Checking", deliberating: "Agents working" };
+// Why a row is on the desk when nobody searched for it, or what a flagged row set in motion.
+function followUpNote(i: BatchItem): string | null {
+  if (i.found_via === "seller") return "Same seller as a flagged listing";
+  if (i.found_via === "keyword") return `Title shares \u201c${i.term}\u201d with a flagged listing`;
+  if (i.follow_up?.state === "searching") return "Finding related listings\u2026";
+  if (i.follow_up?.state === "done" && i.follow_up.added > 0) return `${i.follow_up.added} related ${i.follow_up.added === 1 ? "listing" : "listings"} added to the desk`;
+  return null;
+}
 
 export default function Cases() {
   const [items, setItems] = useState<BatchItem[]>([]);
@@ -41,6 +49,15 @@ export default function Cases() {
   const batchId = useRef<string | null>(null);
   const itemsRef = useRef<BatchItem[]>([]);
   useEffect(() => { itemsRef.current = items; }, [items]);
+  // Rows can join a batch after it starts (follow-up listings): load any listing a row still lacks.
+  const asked = useRef(new Set<string>());
+  useEffect(() => {
+    items.forEach((i) => {
+      if (listings[i.listing_id] || asked.current.has(i.listing_id)) return;
+      asked.current.add(i.listing_id);
+      getListing(i.listing_id).then((r) => setListings((l) => ({ ...l, [r.listing.id]: r.listing }))).catch(() => { asked.current.delete(i.listing_id); });
+    });
+  }, [items, listings]);
 
   useEffect(() => {
     // Coming back from another page: reload the batch that was running or finished.
@@ -49,7 +66,6 @@ export default function Cases() {
       const { id, mode: m, startedAt: t } = JSON.parse(saved);
       getBatch(id).then((b) => {
         batchId.current = id; setItems(b.items); setMode(m); setStartedAt(t); setNow(Date.now());
-        b.items.forEach((i) => getListing(i.listing_id).then((r) => setListings((l) => ({ ...l, [r.listing.id]: r.listing }))).catch(() => {}));
       }).catch(() => sessionStorage.removeItem("dl_batch"));
     }
     loadListings().then(({ data }) => { setRows(data); setListings(Object.fromEntries(data.map((x) => [x.listing.id, x.listing]))); }).catch(() => setRows([]));
@@ -57,7 +73,8 @@ export default function Cases() {
     getHealth().then((h) => setProblems(h.problems)).catch(() => {});
     return () => es.current?.close();
   }, []);
-  const running = items.some((i) => !["done", "screened_out", "error"].includes(i.status));
+  const searching = items.some((i) => i.follow_up?.state === "searching"); // a flagged listing's related listings are still being fetched
+  const running = searching || items.some((i) => !["done", "screened_out", "error"].includes(i.status));
   useEffect(() => {
     if (!running) return;
     const t = setInterval(() => setNow(Date.now()), 500);
@@ -76,12 +93,14 @@ export default function Cases() {
     try {
       const b = await startBatch(source === "live" ? { source, query, cap } : { source });
       batchId.current = b.batch_id; sessionStorage.setItem("dl_batch", JSON.stringify({ id: b.batch_id, mode: b.source_mode, startedAt: Date.now() })); setItems(b.items); setMode(b.source_mode); setStartedAt(Date.now()); setNow(Date.now());
-      b.items.forEach((i) => getListing(i.listing_id).then((r) => setListings((l) => ({ ...l, [r.listing.id]: r.listing }))).catch(() => {}));
       const src = new EventSource(batchEventsUrl(b.batch_id));
       es.current = src;
       src.addEventListener("batch.item", (m) => {
         const e: BatchEvent = JSON.parse((m as MessageEvent).data);
-        setItems((cur) => cur.map((i) => i.listing_id === e.listing_id ? { ...i, status: e.status, case_id: e.case_id, outcome: e.outcome ?? i.outcome } : i));
+        setItems((cur) => cur.some((i) => i.listing_id === e.listing_id)
+          ? cur.map((i) => i.listing_id === e.listing_id ? { ...i, status: e.status, case_id: e.case_id, outcome: e.outcome ?? i.outcome, follow_up: e.follow_up ?? i.follow_up } : i)
+          // A listing the batch did not start with: a follow-up fetch added it. Give it a row.
+          : [...cur, { listing_id: e.listing_id, case_id: e.case_id, status: e.status, triage: null, outcome: e.outcome ?? null, error: null, found_via: e.found_via ?? null, term: e.term ?? null, parent: e.parent ?? null, follow_up: null }]);
         setNow(Date.now());
       });
       src.onerror = () => src.close(); // server ends the stream when every item is finished
@@ -104,11 +123,12 @@ export default function Cases() {
   const waiting = count(GROUPS[0].test);
 
   const Row = ({ i }: { i: BatchItem }) => {
-    const l = listings[i.listing_id]; const m = markFor(i);
+    const l = listings[i.listing_id]; const m = markFor(i); const note = followUpNote(i);
     const body = <>
       <Photo src={imageUrl(l?.image_paths[0] ?? "")} label={l?.title ?? i.listing_id} className="size-14 w-full" />
       <span className="min-w-0"><span className="block line-clamp-2 font-semibold">{l?.title ?? i.listing_id}</span>
-        <span className="block text-sm text-muted">{l ? `$${l.price_usd.toLocaleString()} · ` : ""}{l?.origin === "live" ? "Live listing" : "Demo listing"}</span></span>
+        <span className="block text-sm text-muted">{l ? `$${l.price_usd.toLocaleString()} · ` : ""}{l?.origin === "live" || i.found_via ? "Live listing" : "Demo listing"}</span>
+        {note && <span className="block text-sm text-cobalt-ink">{note}</span>}</span>
       <span className={`inline-flex items-center justify-end gap-2 text-sm font-semibold ${m?.tone ?? "text-muted"}`}>
         {m ? <><Icon name={m.icon} size={18} />{m.label}</>
            : <><span className="typing flex gap-1" aria-hidden><span /><span /><span /></span>{WORKING[i.status]}{i.status === "deliberating" && secs > 0 ? ` · ${secs}s` : ""}</>}
@@ -126,7 +146,7 @@ export default function Cases() {
           <div>
             <h1 className="serif text-4xl leading-none">Review desk</h1>
             <p className="mt-2 text-muted" aria-live="polite">
-              {items.length === 0 ? "No cases yet." : waiting > 0 ? `${waiting} ${waiting === 1 ? "case needs" : "cases need"} your decision.` : running ? "Agents are working." : "Nothing waiting on you."}
+              {items.length === 0 ? "No cases yet." : waiting > 0 ? `${waiting} ${waiting === 1 ? "case needs" : "cases need"} your decision.` : searching ? "Looking for related listings." : running ? "Agents are working." : "Nothing waiting on you."}
             </p>
             {m && m.funnel.deliberated > 0 && <p className="serial mt-1">{m.funnel.deliberated} cases reviewed so far, {Math.round(m.latency_ms.case.p50 / 1000)}s and ${m.cost.usd_per_case.toFixed(2)} each</p>}
           </div>
