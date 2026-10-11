@@ -40,7 +40,7 @@ async def single_agent_with_evidence(board: EvidenceBoard, listing_text: str,
     out = await llm.call_json(model=_model(), system=system,
                               user="# Evidence board\n" + render_evidence(board.all()),
                               schema_name="report_decision", schema=SCHEMA_CLAIMS, case_id=case_id, max_tokens=1500)
-    as_post = StancePost(agent="buyer", round=1, stance=out["decision"], confidence=out["confidence"],
+    as_post = StancePost(agent="undercover", round=1, stance=out["decision"], confidence=out["confidence"],
                          claims=out.get("claims", []))
     cleaned, rejections, _ = validate_post(as_post, board, listing_text, None, 1, [])
     return {**out, "claims": [c.model_dump() for c in cleaned.claims]}, len(rejections)

@@ -44,7 +44,7 @@ Two data lanes, never mixed silently:
 | Old | New (`AgentName`) | UI label | Owns the question |
 |---|---|---|---|
 | buyer | `undercover` | Undercover | "What is really being sold, and who is it for?" |
-| defender | `provenance` | Provenance | "Is there a lawful origin: antique, pre-ban, legal material?" |
+| defender | `counsel` | Counsel | "Is there a lawful origin: antique, pre-ban, legal material?" |
 | caseload | `case_officer` | Case Officer | "Would this hold up, and is it worth a human's week?" |
 
 **App name:** working name **Plainsight**. It lives in exactly one place in the frontend (`APP_NAME` constant in `frontend/src/lib/agents.ts`) and in the README/Devpost. Do not hard-code it elsewhere. It is not trademark- or domain-checked.

@@ -27,8 +27,8 @@ def test_every_contract_specialist_has_a_card_with_parsable_tags():
 
 
 def test_deliberator_cards():
-    assert DELIBERATOR_NAMES == {"buyer": "deadlang-buyer", "defender": "deadlang-defender",
-                                 "caseload": "deadlang-caseload"}
+    assert DELIBERATOR_NAMES == {"undercover": "deadlang-undercover", "counsel": "deadlang-counsel",
+                                 "case_officer": "deadlang-case_officer"}
     for name in DELIBERATOR_NAMES.values():
         assert card_tags(card_for(name))["capability"] == "deliberate"
     assert len(ALL_AGENT_NAMES) == 10

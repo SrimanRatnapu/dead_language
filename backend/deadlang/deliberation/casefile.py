@@ -4,7 +4,7 @@ from __future__ import annotations
 from deadlang.evidence.board import EvidenceBoard
 from deadlang.schemas import CaseFile, Listing, Outcome, Seller, StancePost
 
-ORDER = ("buyer", "defender", "caseload")
+ORDER = ("undercover", "counsel", "case_officer")
 
 
 def _linked(board: EvidenceBoard) -> list[tuple[str, str]]:
@@ -37,7 +37,7 @@ def build_case_file(case_id: str, listing: Listing, seller: Seller, outcome: Out
             "Key evidence:", *key_lines,
             "Linked sellers: " + (", ".join(f"{n} ({i})" for i, n in linked) or "none found"),
             "Legal basis: " + (" ".join(legal) or "none on the board"),
-            "Positions: " + ", ".join(f"{p.agent.capitalize()} {p.stance} ({p.confidence:.2f})" for p in ordered),
+            "Positions: " + ", ".join(f"{p.agent.replace("_", " ").title()} {p.stance} ({p.confidence:.2f})" for p in ordered),
         ])
     return CaseFile(case_id=case_id, listing_id=listing.id, seller_id=seller.id, outcome=outcome,
                     rounds_used=rounds_used, stop_reason=stop_reason, final_positions=ordered,

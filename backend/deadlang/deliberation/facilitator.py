@@ -18,7 +18,7 @@ from deadlang.llm import BudgetExceeded
 from deadlang.schemas import (AgentName, Capability, CaseFile, DeliberationTurn, EvidenceDraft, Listing,
                               PeerQuestion, Requester, Seller, SpecialistCall, StancePost)
 
-AGENTS: tuple[AgentName, ...] = ("buyer", "defender", "caseload")
+AGENTS: tuple[AgentName, ...] = ("undercover", "counsel", "case_officer")
 MAX_CALLS_PER_ROUND = 3
 MAX_CALLS_PER_CASE = 6
 

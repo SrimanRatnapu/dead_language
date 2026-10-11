@@ -3,7 +3,7 @@ import pytest
 from deadlang.deliberation.rules import outcome, stop_reason
 from deadlang.schemas import StancePost
 
-A = ("buyer", "defender", "caseload")
+A = ("undercover", "counsel", "case_officer")
 
 
 def posts(stances, conf=0.7, ready=False):
@@ -33,7 +33,7 @@ def test_ready_to_close_needs_round_2_and_all_three():
     split = ("file", "dismiss", "need_more")
     assert stop_reason(1, 4, posts(split, ready=True), None, 1) is None       # round 1 never closes early
     assert stop_reason(2, 4, posts(split, ready=True), posts(split, conf=0.3), 1) == "ready_to_close"
-    mixed = posts(split, ready=True); mixed["buyer"] = mixed["buyer"].model_copy(update={"ready_to_close": False})
+    mixed = posts(split, ready=True); mixed["undercover"] = mixed["undercover"].model_copy(update={"ready_to_close": False})
     assert stop_reason(2, 4, mixed, posts(split, conf=0.3), 1) is None
 
 

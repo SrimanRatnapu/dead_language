@@ -15,7 +15,7 @@ def make_board():
     return b
 
 
-def post(claims, round_=1, stance="file", agent="buyer", **kw):
+def post(claims, round_=1, stance="file", agent="undercover", **kw):
     return StancePost(agent=agent, round=round_, stance=stance, confidence=0.7,
                       claims=[Claim(text=t, evidence_ids=i) for t, i in claims], **kw)
 
@@ -62,30 +62,30 @@ def test_missing_or_absent_ids():
 def test_stance_change_needs_evidence():
     prev = post([("x", ["E0"])], stance="dismiss")
     cur = post([("Price is $1,450.", ["E0"])], round_=2, stance="file", rebuttal=Rebuttal(
-        target_agent="defender", target_claim="x", response="r"))
-    _, _, probs = validate_post(cur, make_board(), LISTING, prev, 2, [post([("x", ["E0"])], agent="defender")])
+        target_agent="counsel", target_claim="x", response="r"))
+    _, _, probs = validate_post(cur, make_board(), LISTING, prev, 2, [post([("x", ["E0"])], agent="counsel")])
     assert "stance changed without citing the evidence that changed it" in probs
     cur = cur.model_copy(update={"changed_because": "new fact", "changed_because_evidence": ["E1"]})
-    _, _, probs = validate_post(cur, make_board(), LISTING, prev, 2, [post([("x", ["E0"])], agent="defender")])
+    _, _, probs = validate_post(cur, make_board(), LISTING, prev, 2, [post([("x", ["E0"])], agent="counsel")])
     assert not probs
 
 
 def test_round2_rebuttal_rules():
-    opp = [post([("The examiner could not tell the material", ["E0"])], agent="defender")]
+    opp = [post([("The examiner could not tell the material", ["E0"])], agent="counsel")]
     cur = post([("Price is $1,450.", ["E0"])], round_=2)
     _, _, probs = validate_post(cur, make_board(), LISTING, None, 2, opp)
     assert probs == ["round 2+ requires a rebuttal of the strongest opposing claim"]
-    good = cur.model_copy(update={"rebuttal": Rebuttal(target_agent="defender",
+    good = cur.model_copy(update={"rebuttal": Rebuttal(target_agent="counsel",
                                   target_claim="examiner could not tell the material", response="r")})
     assert validate_post(good, make_board(), LISTING, None, 2, opp)[2] == []
-    bad = cur.model_copy(update={"rebuttal": Rebuttal(target_agent="defender",
+    bad = cur.model_copy(update={"rebuttal": Rebuttal(target_agent="counsel",
                                  target_claim="totally unrelated words here", response="r")})
     assert validate_post(bad, make_board(), LISTING, None, 2, opp)[2] == ["rebuttal target claim not found"]
 
 
 def test_request_cap_and_self_challenge():
     reqs = [SpecialistRequest(capability="price_check", question="q", reason="r") for _ in range(3)]
-    p = post([("Price is $1,450.", ["E0"])], requests=reqs, challenge=Challenge(target_agent="buyer", question="why?"))
+    p = post([("Price is $1,450.", ["E0"])], requests=reqs, challenge=Challenge(target_agent="undercover", question="why?"))
     cleaned, _, probs = validate_post(p, make_board(), LISTING, None, 1, [])
     assert len(cleaned.requests) == 2 and cleaned.challenge is None
     assert probs == ["max 2 requests", "cannot challenge yourself"]
@@ -104,8 +104,8 @@ def test_numbers_up_to_three_are_not_checked():
 
 
 def test_rebuttal_must_cite_existing_evidence():
-    prev = post([("Priced at $1,450.", ["E0"])], agent="defender")
-    reb = Rebuttal(target_agent="defender", target_claim="Priced at $1,450.", response="So what.", evidence_ids=["E9"])
+    prev = post([("Priced at $1,450.", ["E0"])], agent="counsel")
+    reb = Rebuttal(target_agent="counsel", target_claim="Priced at $1,450.", response="So what.", evidence_ids=["E9"])
     p = post([("Priced at $1,450.", ["E0"])], round_=2, rebuttal=reb)
     _, _, probs = validate_post(p, make_board(), LISTING, None, 2, [prev])
     assert any("evidence" in x for x in probs)
@@ -115,4 +115,4 @@ def test_confidence_outside_0_1_is_rejected_by_schema():
     import pytest
     from pydantic import ValidationError
     with pytest.raises(ValidationError):
-        StancePost(agent="buyer", round=1, stance="file", confidence=1.2, claims=[])
+        StancePost(agent="undercover", round=1, stance="file", confidence=1.2, claims=[])

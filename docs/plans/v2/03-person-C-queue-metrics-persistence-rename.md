@@ -18,10 +18,10 @@ Triage and eval code (B), data and refresh detection (A), UI (D).
 
 ### C1. Rename and `origin` field (P0, do first, one commit)
 1. Post in team chat that you are about to rename. Then in one commit:
-   - `AgentName` -> `Literal["undercover", "provenance", "case_officer"]`; update `Requester`.
-   - Prompt files in `deliberation/prompts/`, `AGENT_ORDER`/`AGENTS` in `frontend/src/lib/agents.ts` (labels: Undercover, Provenance, Case Officer; keep goals as short phrases of the question each owns: see file 00 §3), replay fixtures in `fixtures/replays/` and `frontend/public/replays/`, `scripts/record_scripted_demo.py`, `tests/`.
+   - `AgentName` -> `Literal["undercover", "counsel", "case_officer"]`; update `Requester`.
+   - Prompt files in `deliberation/prompts/`, `AGENT_ORDER`/`AGENTS` in `frontend/src/lib/agents.ts` (labels: Undercover, Counsel, Case Officer; keep goals as short phrases of the question each owns: see file 00 §3), replay fixtures in `fixtures/replays/` and `frontend/public/replays/`, `scripts/record_scripted_demo.py`, `tests/`.
    - Add `origin: Literal["demo", "live"] = "demo"` to `Listing`.
-   - Add `APP_NAME` constant in `frontend/src/lib/agents.ts` (working name Plainsight) and use it where the header says "Dead Language".
+   - Add `APP_NAME` constant in `frontend/src/lib/agents.ts` once the team picks the app name (undecided; do not hard-code it elsewhere).
 2. Replay fixtures contain hand-written `take` text that names roles. Update wording where an old name appears in prose.
 3. Run backend tests and `npx tsc --noEmit && npm run build`. Push, announce, everyone pulls.
 

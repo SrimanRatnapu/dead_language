@@ -38,7 +38,7 @@ export interface Seller {
 export type Capability =
   | "listing_snapshot" | "price_check" | "seller_inventory" | "linked_sellers"
   | "legal_lookup" | "material_exam" | "translation" | "system_notice";
-export type AgentName = "buyer" | "defender" | "caseload";
+export type AgentName = "undercover" | "counsel" | "case_officer";
 export type Requester = "intake" | AgentName | "system";
 
 export interface Evidence {

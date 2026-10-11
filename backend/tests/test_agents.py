@@ -27,8 +27,8 @@ def fake_llm(monkeypatch):
 
 
 async def test_agent_and_round_are_filled_and_schema_has_no_agent_round(fake_llm):
-    post = await DeliberatingAgent("defender").handle(turn())
-    assert (post.agent, post.round, post.stance) == ("defender", 2, "file")
+    post = await DeliberatingAgent("counsel").handle(turn())
+    assert (post.agent, post.round, post.stance) == ("counsel", 2, "file")
     schema = fake_llm[0]["schema"]
     assert "agent" not in schema["properties"] and "round" not in schema["properties"]
     assert "agent" not in schema["required"] and "round" not in schema["required"]
@@ -36,18 +36,18 @@ async def test_agent_and_round_are_filled_and_schema_has_no_agent_round(fake_llm
 
 
 async def test_system_prompt_is_role_plus_shared_rules(fake_llm):
-    await DeliberatingAgent("buyer").handle(turn())
+    await DeliberatingAgent("undercover").handle(turn())
     s = fake_llm[0]["system"]
-    assert s.startswith("You are the Buyer") and "ready_to_close" in s
+    assert s.startswith("You are Undercover") and "ready_to_close" in s
 
 
 async def test_repair_feedback_and_questions_reach_the_prompt(fake_llm):
     t = turn(repair_feedback=["number 1000 not found in cited evidence E1"],
-             questions_for_you=[PeerQuestion(asker="buyer", question="Is price alone enough?")])
-    await DeliberatingAgent("defender").handle(t)
+             questions_for_you=[PeerQuestion(asker="undercover", question="Is price alone enough?")])
+    await DeliberatingAgent("counsel").handle(t)
     u = fake_llm[0]["user"]
     assert "# Fix these problems" in u and "number 1000 not found" in u and "Repost your full position" in u
-    assert "Buyer asks: Is price alone enough?" in u
+    assert "Undercover asks: Is price alone enough?" in u
     assert "Round 2 of 4" in u and "Old bone netsuke" in u
 
 
@@ -63,4 +63,4 @@ async def test_bad_model_output_raises(monkeypatch):
 
     monkeypatch.setattr(llm, "call_json", bad, raising=False)
     with pytest.raises(ValidationError):
-        await DeliberatingAgent("buyer").handle(turn())
+        await DeliberatingAgent("undercover").handle(turn())

@@ -76,19 +76,19 @@ async def test_point_to_point_call_to_a_specialist():
 
 
 async def test_broadcast_reaches_only_the_named_agents():
-    agents = {a: StubAgent(a) for a in ("buyer", "defender", "caseload")}
+    agents = {a: StubAgent(a) for a in ("undercover", "counsel", "case_officer")}
     session = await serve.start({f"deadlang-{a}": serve.deliberator_handler(a, agent) for a, agent in agents.items()})
     try:
         await asyncio.sleep(1)
         t = AgntcyTransport()
-        results = await t.broadcast_turns({"buyer": turn(2), "caseload": turn(2)}, timeout=30)
-        assert set(results) == {"buyer", "caseload"}
+        results = await t.broadcast_turns({"undercover": turn(2), "case_officer": turn(2)}, timeout=30)
+        assert set(results) == {"undercover", "case_officer"}
         assert all(isinstance(p, StancePost) and p.agent == a for a, p in results.items()), results
-        assert agents["defender"].turns == []
+        assert agents["counsel"].turns == []
         three = await t.broadcast_turns({a: turn(3) for a in agents}, timeout=30)
         assert all(isinstance(p, StancePost) for p in three.values()), three
-        repair = await t.call_agent("defender", turn(3), timeout=20)
-        assert isinstance(repair, StancePost) and repair.agent == "defender"
+        repair = await t.call_agent("counsel", turn(3), timeout=20)
+        assert isinstance(repair, StancePost) and repair.agent == "counsel"
     finally:
         await session.stop_all_sessions()
 

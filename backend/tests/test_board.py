@@ -12,7 +12,7 @@ def make_board():
     b.add(draft("price_check", "Median $95; this listing is 15.3x that.", {"median_usd": 95, "n": 38}), "intake")
     b.add(draft("linked_sellers", "Two sellers share a phrase.",
                 {"shared_phrases": ["Ships discreetly from our family collection"], "nested": {"deep": ["Rare Phrase", 7.5]}},
-                confidence=0.8), "caseload")
+                confidence=0.8), "case_officer")
     return b
 
 

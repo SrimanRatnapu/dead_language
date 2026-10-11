@@ -136,7 +136,7 @@ def turn(r=1, case_id="C-1"):
 
 
 def three_agents(**behaviors):
-    return {a: FakeAgent(a, behaviors.get(a, "ok")) for a in ("buyer", "defender", "caseload")}
+    return {a: FakeAgent(a, behaviors.get(a, "ok")) for a in ("undercover", "counsel", "case_officer")}
 
 
 class FakeDiscovery:
@@ -155,7 +155,7 @@ def test_request_message_is_an_a2a_message_send_with_one_text_part():
     assert rpc["jsonrpc"] == "2.0" and rpc["method"] == "message/send"
     assert rpc["params"]["message"]["role"] == "user"
     assert sent_text(msg) == '{"x": 1}'
-    assert slim_name("deadlang-buyer") == "default/default/deadlang-buyer"
+    assert slim_name("deadlang-undercover") == "default/default/deadlang-undercover"
 
 
 def test_reply_text_reads_a_message_result_and_raises_on_errors():
@@ -203,24 +203,24 @@ async def test_specialist_handler_rejects_a_bad_request():
 
 
 async def test_deliberator_handler_answers_a_direct_turn_and_its_own_entry_of_a_broadcast():
-    agent = FakeAgent("defender")
-    handle = serve.deliberator_handler("defender", agent)
+    agent = FakeAgent("counsel")
+    handle = serve.deliberator_handler("counsel", agent)
     direct = StancePost.model_validate_json(await handle(turn(2).model_dump_json()))
-    assert (direct.agent, direct.round) == ("defender", 2)
-    payload = json.dumps({"kind": "turns", "turns": {"buyer": json.loads(turn(3, "C-B").model_dump_json()),
-                                                      "defender": json.loads(turn(3, "C-D").model_dump_json())}})
+    assert (direct.agent, direct.round) == ("counsel", 2)
+    payload = json.dumps({"kind": "turns", "turns": {"undercover": json.loads(turn(3, "C-B").model_dump_json()),
+                                                      "counsel": json.loads(turn(3, "C-D").model_dump_json())}})
     post = StancePost.model_validate_json(await handle(payload))
     assert post.round == 3 and agent.turns[-1].case_id == "C-D"          # picked its own entry
 
 
 async def test_deliberator_handler_errors_carry_the_agent_name():
-    handle = serve.deliberator_handler("caseload", FakeAgent("caseload"))
+    handle = serve.deliberator_handler("case_officer", FakeAgent("case_officer"))
     missing = json.loads(await handle(json.dumps({"kind": "turns", "turns": {}})))
-    assert missing["agent"] == "caseload" and "no turn" in missing["error"]
-    broken = json.loads(await serve.deliberator_handler("buyer", FakeAgent("buyer", "raise"))(turn().model_dump_json()))
-    assert broken == {"agent": "buyer", "error": "model said no"}
-    over = json.loads(await serve.deliberator_handler("buyer", FakeAgent("buyer", "budget"))(turn().model_dump_json()))
-    assert over["agent"] == "buyer" and over["budget"] is True
+    assert missing["agent"] == "case_officer" and "no turn" in missing["error"]
+    broken = json.loads(await serve.deliberator_handler("undercover", FakeAgent("undercover", "raise"))(turn().model_dump_json()))
+    assert broken == {"agent": "undercover", "error": "model said no"}
+    over = json.loads(await serve.deliberator_handler("undercover", FakeAgent("undercover", "budget"))(turn().model_dump_json()))
+    assert over["agent"] == "undercover" and over["budget"] is True
 
 
 async def test_build_app_serves_the_agent_card():
@@ -299,13 +299,13 @@ async def test_slim_that_never_answers_becomes_a_connect_error_not_a_hang(monkey
     t = AgntcyTransport(factory=Factory())
     reply = await asyncio.wait_for(t.call_specialist("deadlang-legal-table", CALL), 2)
     assert not reply.ok and "connect" in reply.error and "did not answer" in reply.error
-    assert "connect" in await asyncio.wait_for(t.call_agent("buyer", turn()), 2)
-    assert all("connect" in v for v in (await asyncio.wait_for(t.broadcast_turns({"buyer": turn()}), 2)).values())
+    assert "connect" in await asyncio.wait_for(t.call_agent("undercover", turn()), 2)
+    assert all("connect" in v for v in (await asyncio.wait_for(t.broadcast_turns({"undercover": turn()}), 2)).values())
 
 
 # ---------------------------------------------------------------- AgntcyTransport: deliberators
 
-@pytest.mark.parametrize("called", [["buyer"], ["buyer", "caseload"], ["buyer", "defender", "caseload"]])
+@pytest.mark.parametrize("called", [["undercover"], ["undercover", "case_officer"], ["undercover", "counsel", "case_officer"]])
 async def test_broadcast_goes_only_to_the_agents_named_in_turns(called):
     agents = three_agents()
     slim = await network(agents=agents)
@@ -331,63 +331,63 @@ async def test_empty_turns_returns_an_empty_dict_without_sending():
 async def test_each_agent_gets_its_own_turn():
     agents = three_agents()
     slim = await network(agents=agents)
-    await AgntcyTransport(slim=slim).broadcast_turns({"buyer": turn(2, "C-buyer"), "defender": turn(2, "C-def")})
-    assert agents["buyer"].turns[0].case_id == "C-buyer" and agents["defender"].turns[0].case_id == "C-def"
+    await AgntcyTransport(slim=slim).broadcast_turns({"undercover": turn(2, "C-buyer"), "counsel": turn(2, "C-def")})
+    assert agents["undercover"].turns[0].case_id == "C-buyer" and agents["counsel"].turns[0].case_id == "C-def"
 
 
 async def test_broadcast_one_agent_failing_becomes_its_error_string():
-    slim = await network(agents=three_agents(defender="raise"))
-    results = await AgntcyTransport(slim=slim).broadcast_turns({a: turn() for a in ("buyer", "defender", "caseload")})
-    assert results["defender"] == "model said no"
-    assert isinstance(results["buyer"], StancePost) and isinstance(results["caseload"], StancePost)
+    slim = await network(agents=three_agents(counsel="raise"))
+    results = await AgntcyTransport(slim=slim).broadcast_turns({a: turn() for a in ("undercover", "counsel", "case_officer")})
+    assert results["counsel"] == "model said no"
+    assert isinstance(results["undercover"], StancePost) and isinstance(results["case_officer"], StancePost)
 
 
 async def test_broadcast_keeps_the_answers_that_arrived_when_one_agent_is_silent():
     slim = await network(agents=three_agents())
-    slim.silent.add(slim_name("deadlang-caseload"))
-    results = await AgntcyTransport(slim=slim).broadcast_turns({a: turn() for a in ("buyer", "caseload")}, timeout=0.2)
-    assert isinstance(results["buyer"], StancePost) and results["caseload"] == "timeout"
+    slim.silent.add(slim_name("deadlang-case_officer"))
+    results = await AgntcyTransport(slim=slim).broadcast_turns({a: turn() for a in ("undercover", "case_officer")}, timeout=0.2)
+    assert isinstance(results["undercover"], StancePost) and results["case_officer"] == "timeout"
 
 
 async def test_broadcast_raises_budget_exceeded_like_the_local_transport():
-    slim = await network(agents=three_agents(buyer="budget"))
+    slim = await network(agents=three_agents(undercover="budget"))
     with pytest.raises(BudgetExceeded):
-        await AgntcyTransport(slim=slim).broadcast_turns({a: turn() for a in ("buyer", "defender")})
+        await AgntcyTransport(slim=slim).broadcast_turns({a: turn() for a in ("undercover", "counsel")})
 
 
 async def test_broadcast_with_slim_down_gives_each_agent_an_error():
     slim = FakeSlim()
     slim.fail = ConnectionError("connection refused")
-    results = await AgntcyTransport(slim=slim).broadcast_turns({a: turn() for a in ("buyer", "defender")})
-    assert set(results) == {"buyer", "defender"} and all("connect" in v for v in results.values())
+    results = await AgntcyTransport(slim=slim).broadcast_turns({a: turn() for a in ("undercover", "counsel")})
+    assert set(results) == {"undercover", "counsel"} and all("connect" in v for v in results.values())
 
 
 async def test_point_to_point_mode_sends_one_request_per_agent():
     agents = three_agents()
     slim = await network(agents=agents)
     t = AgntcyTransport(slim=slim, broadcast=False)               # the fallback if broadcast misbehaves
-    results = await t.broadcast_turns({a: turn() for a in ("buyer", "caseload")})
-    assert set(results) == {"buyer", "caseload"} and slim.broadcasts == []
-    assert sorted(topic for topic, _ in slim.requests) == ["default/default/deadlang-buyer",
-                                                           "default/default/deadlang-caseload"]
+    results = await t.broadcast_turns({a: turn() for a in ("undercover", "case_officer")})
+    assert set(results) == {"undercover", "case_officer"} and slim.broadcasts == []
+    assert sorted(topic for topic, _ in slim.requests) == ["default/default/deadlang-case_officer",
+                                                           "default/default/deadlang-undercover"]
 
 
 async def test_call_agent_for_repairs():
-    agents = three_agents(caseload="raise")
+    agents = three_agents(case_officer="raise")
     slim = await network(agents=agents)
     t = AgntcyTransport(slim=slim)
-    post = await t.call_agent("defender", turn(3))
-    assert isinstance(post, StancePost) and (post.agent, post.round) == ("defender", 3)
-    assert await t.call_agent("caseload", turn(3)) == "model said no"
-    budget = await network(agents=three_agents(buyer="budget"))
+    post = await t.call_agent("counsel", turn(3))
+    assert isinstance(post, StancePost) and (post.agent, post.round) == ("counsel", 3)
+    assert await t.call_agent("case_officer", turn(3)) == "model said no"
+    budget = await network(agents=three_agents(undercover="budget"))
     with pytest.raises(BudgetExceeded):
-        await AgntcyTransport(slim=budget).call_agent("buyer", turn())
+        await AgntcyTransport(slim=budget).call_agent("undercover", turn())
 
 
 async def test_a_silent_agent_times_out_on_a_direct_call():
     slim = await network(agents=three_agents())
-    slim.silent.add(slim_name("deadlang-buyer"))
-    assert await AgntcyTransport(slim=slim).call_agent("buyer", turn(), timeout=0.05) == "timeout"
+    slim.silent.add(slim_name("deadlang-undercover"))
+    assert await AgntcyTransport(slim=slim).call_agent("undercover", turn(), timeout=0.05) == "timeout"
 
 
 # ---------------------------------------------------------------- AgntcyDirectoryDiscovery
@@ -515,7 +515,7 @@ async def test_register_raises_so_serve_can_report_it():
     d = FakeDirectory()
     d.fail = ConnectionError("down")
     with pytest.raises(ConnectionError):
-        await AgntcyDirectoryDiscovery(directory=d).register(["deadlang-buyer"])
+        await AgntcyDirectoryDiscovery(directory=d).register(["deadlang-undercover"])
 
 
 # ---------------------------------------------------------------- factories
