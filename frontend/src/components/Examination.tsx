@@ -1,47 +1,83 @@
 "use client";
 import { CAPABILITY_LABEL, prettyName } from "@/lib/agents";
 import type { CaseState } from "@/lib/caseState";
+import { LEAN_BAR, LEAN_LABEL, LEAN_STYLE, leanCounts, leanOf, type Lean } from "@/lib/lean";
 import type { Capability } from "@/lib/types";
 import { Icon } from "./Icon";
 
-const CAPS: Capability[] = ["price_check", "seller_inventory", "linked_sellers", "legal_lookup", "material_exam"];
+const WORKING: Partial<Record<Capability, string>> = {
+  price_check: "Comparing the price with similar listings",
+  seller_inventory: "Looking through the seller's other listings",
+  linked_sellers: "Looking for sellers who share wording or photos",
+  legal_lookup: "Finding the law that applies",
+  material_exam: "Studying the photos",
+  translation: "Translating the listing",
+};
 
-// Stage one: the helpers examine the listing. Nothing here involves the agents.
-export function Examination({ state, ready, onSend, onOpen }: { state: CaseState; ready: boolean; onSend: () => void; onOpen: (id: string) => void }) {
-  const caps = state.listing && state.listing.language !== "en" ? [...CAPS, "translation" as Capability] : CAPS;
-  const rows = caps.map((cap) => {
-    const ev = [...state.evidenceOrder].reverse().map((id) => state.evidence[id]).find((e) => e?.capability === cap);
-    const sel = [...state.selections].reverse().find((s) => s.capability === cap);
-    const fail = state.failures.find((f) => f.capability === cap);
-    return { cap, ev, sel, fail };
-  });
-  const done = rows.filter((r) => r.ev).length;
+// Page two: the specialists work one after another. Each card appears when its specialist starts, then fills in.
+export function Examination({ state, ready, onBack, onSend, onOpen }: { state: CaseState; ready: boolean; onBack: () => void; onSend: () => void; onOpen: (id: string) => void }) {
+  const caps = [...new Set([...state.selections.map((s) => s.capability), ...state.failures.map((f) => f.capability)])]
+    .filter((c) => c !== "listing_snapshot" && c !== "system_notice");
+  const cards = caps.map((cap) => ({
+    cap,
+    ev: [...state.evidenceOrder].reverse().map((id) => state.evidence[id]).find((e) => e?.capability === cap),
+    fail: state.failures.find((f) => f.capability === cap),
+  }));
+  const found = cards.flatMap((c) => c.ev ?? []);
+  const counts = leanCounts(found);
+  const scored = counts.concern + counts.unclear + counts.lawful;
+  const top: Lean | null = scored === 0 ? null : counts.concern > counts.lawful ? "concern" : counts.lawful > counts.concern ? "lawful" : "unclear";
+  const done = cards.filter((c) => c.ev || c.fail).length;
 
   return (
-    <div className="mx-auto flex max-w-[640px] flex-col gap-6 px-5 pb-0 pt-8 sm:px-8">
-      <h2 className="text-lg font-semibold tracking-tight">Examining the listing</h2>
-
-      <ol className="divide-y divide-line border-y border-line">
-        {rows.map(({ cap, ev, sel, fail }) => (
-          <li key={cap} className="grid grid-cols-[1.5rem_1fr_auto] items-start gap-x-4 py-4">
-            <Icon name={cap} size={18} className={ev ? "mt-0.5 text-cobalt-ink" : "mt-0.5 text-muted"} />
-            <div className="min-w-0">
-              <p className="font-semibold">{CAPABILITY_LABEL[cap]}</p>
-              {ev ? <button onClick={() => onOpen(ev.id)} className="press rise mt-1 text-left text-muted [text-wrap:pretty] hover:text-ink">{ev.summary}</button>
-                : fail ? <p className="mt-1 text-red">{prettyName(fail.specialist_name)} did not answer{fail.error === "budget" ? " (token cap reached)" : ""}{fail.fallback ? `. Trying ${prettyName(fail.fallback)}.` : ""}</p>
-                : null}
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="mx-auto flex max-w-[620px] flex-col gap-5 px-5 py-8 sm:px-8">
+          <div>
+            <h2 className="text-xl font-semibold tracking-tight">What the specialists found</h2>
+            <div className="mt-4" aria-label="Which way the findings point">
+              <div className="flex h-2 gap-0.5" aria-hidden>
+                {(["concern", "unclear", "lawful"] as Lean[]).map((l) => counts[l] > 0 && <span key={l} className={`${LEAN_BAR[l]} transition-[flex-grow] duration-500`} style={{ flexGrow: counts[l] }} />)}
+                {scored === 0 && <span className="grow bg-line" />}
+              </div>
+              <p className="mt-2 text-base" aria-live="polite">
+                {top ? <><b className={top === "concern" ? "text-red" : top === "lawful" ? "text-green" : ""}>{top === "concern" ? "Leaning toward concern" : top === "lawful" ? "Leaning lawful" : "Mixed so far"}</b>
+                  <span className="text-muted"> · {counts.concern} raise concern, {counts.unclear} unclear, {counts.lawful} look lawful</span></>
+                  : <span className="text-muted">Nothing in yet</span>}
+              </p>
             </div>
-            <div className="pt-0.5 text-right">
-              {ev ? <Icon name="check" size={16} className="text-green" />
-                : <span className="typing flex gap-1 text-muted" role="status" aria-label="In progress"><span /><span /><span /></span>}
-            </div>
-          </li>
-        ))}
-      </ol>
+          </div>
 
-      <div className="sticky bottom-0 -mx-5 flex items-center justify-between gap-4 border-t border-line bg-surface/95 px-5 py-3 sm:-mx-8 sm:px-8">
-        <p className="shrink-0 whitespace-nowrap text-muted" aria-live="polite">{ready ? "" : `${done} of ${rows.length} done`}</p>
-        <button onClick={onSend} disabled={!ready} className="press min-h-11 bg-ink px-5 py-2.5 font-semibold text-surface enabled:hover:bg-cobalt disabled:opacity-40">Hand findings to the agents →</button>
+          <ol className="flex flex-col gap-3">
+            {cards.map(({ cap, ev, fail }, i) => {
+              const lean = ev ? leanOf(ev) : null;
+              return (
+                <li key={cap} className="rise border border-line bg-surface" style={{ animationDelay: `${i * 90}ms` }}>
+                  <div className="grid grid-cols-[2rem_1fr_auto] items-center gap-x-3 px-4 py-3">
+                    <span className="mono grid size-8 place-items-center bg-sunken font-semibold text-muted">{i + 1}</span>
+                    <p className="flex min-w-0 items-center gap-2 font-semibold"><Icon name={cap} size={16} className={ev ? "text-cobalt-ink" : "text-muted"} />{CAPABILITY_LABEL[cap]}</p>
+                    {lean ? <span className={`px-2 py-0.5 text-base font-semibold ${LEAN_STYLE[lean]}`}>{LEAN_LABEL[lean]}</span>
+                      : !ev && !fail ? <span className="typing flex gap-1 text-muted" role="status" aria-label="In progress"><span /><span /><span /></span> : null}
+                  </div>
+                  <div className="border-t border-line px-4 py-3 pl-[3.75rem] [text-wrap:pretty]">
+                    {ev ? <button onClick={() => onOpen(ev.id)} className="press rise text-left leading-snug hover:text-cobalt-ink">{ev.summary}</button>
+                      : fail ? <p className="text-red">{prettyName(fail.specialist_name)} did not answer{fail.error === "budget" ? " (token cap reached)" : ""}{fail.fallback ? `. Trying ${prettyName(fail.fallback)}.` : ""}</p>
+                      : <p className="text-muted">{WORKING[cap] ?? "Working"}…</p>}
+                  </div>
+                </li>
+              );
+            })}
+            {cards.length === 0 && <li className="flex items-center gap-2.5 text-muted" role="status"><span className="typing flex gap-1"><span /><span /><span /></span>Starting the specialists</li>}
+          </ol>
+        </div>
+      </div>
+
+      <div className="flex shrink-0 items-center justify-between gap-4 border-t border-line bg-surface px-5 py-3 sm:px-8">
+        <button onClick={onBack} className="press min-h-11 border border-line px-4 py-2.5 font-semibold hover:border-ink">← Read the listing</button>
+        <div className="flex items-center gap-4">
+          {!ready && <p className="hidden whitespace-nowrap text-muted sm:block" aria-live="polite">{done} of {Math.max(cards.length, 5)} done</p>}
+          <button onClick={onSend} disabled={!ready} className="press min-h-11 bg-ink px-5 py-2.5 font-semibold text-surface enabled:hover:bg-cobalt disabled:opacity-40">Go to the agents →</button>
+        </div>
       </div>
     </div>
   );
