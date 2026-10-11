@@ -193,3 +193,11 @@ async def test_later_agents_read_earlier_posts_in_the_same_round():
     fac, _ = setup(t)
     await fac.run_case("C-1", "L0101")
     assert seen["undercover"] == [] and seen["counsel"] == ["undercover"] and seen["case_officer"] == ["undercover", "counsel"]
+
+
+async def test_a_case_where_no_agent_answers_is_an_error_not_a_watchlist():
+    import pytest
+    t = FakeTransport(posts={(a, 1): "Error code: 401 - invalid x-api-key" for a in ("undercover", "counsel", "case_officer")})
+    fac, _ = setup(t)
+    with pytest.raises(RuntimeError, match="no agent answered.*401"):
+        await fac.run_case("C-1", "L0101")

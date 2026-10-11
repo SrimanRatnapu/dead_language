@@ -200,11 +200,16 @@ class Facilitator:
         """Run one round for the active agents. Returns the number of evidence items added during it."""
         start_count = st.board.count()
         posts: list[StancePost] = []
+        first_round = not st.current
+        errors: list[str] = []
         for a in active:                                    # one at a time: each agent reads the posts made before it
             st.seen[a] = start_count
             turn = self._turn(st, a, r, posts)
             results = await self.transport.broadcast_turns({a: turn})
-            post, rejections = await self._resolve(st, a, turn, results.get(a, "no reply"), list(st.current.values()), r)
+            result = results.get(a, "no reply")
+            if not isinstance(result, StancePost):
+                errors.append(str(result))
+            post, rejections = await self._resolve(st, a, turn, result, list(st.current.values()), r)
             for rj in rejections:
                 self.bus.emit(st.case_id, "claim.rejected", {
                     "agent": rj.agent, "round": rj.round, "claim_text": rj.claim_text, "reasons": rj.reasons})
@@ -212,6 +217,10 @@ class Facilitator:
             posts.append(post)
             st.transcript.append(post)
             st.current[a] = post
+        if first_round and active and len(errors) == len(active):
+            # Nobody answered at all (bad API key, outage): an error, not a verdict. Empty "need more" posts would
+            # otherwise close as WATCHLIST and look like a real review.
+            raise RuntimeError(f"no agent answered: {errors[0][:300]}")
         st.last_round_posts = posts
 
         seen_keys: set[tuple[str, str]] = set()
