@@ -286,7 +286,7 @@ def create_app(market: Any = None, transport: Any = None, discovery: Any = None,
         ref = req.ref.strip()
         try:
             listing = await state["market"].get_listing_snapshot(ref)
-        except KeyError:
+        except Exception:           # not a known id (KeyError locally; the remote marketplace raises its own errors)
             from deadlang.marketplace.live import fetch_one
             try:
                 listing, _ = await fetch_one(ref)
@@ -296,6 +296,9 @@ def create_app(market: Any = None, transport: Any = None, discovery: Any = None,
                 raise HTTPException(404, "eBay has no usable listing there. It may be gone, not priced in USD, or untitled.")
             except RuntimeError as exc:
                 raise HTTPException(503, str(exc))
+            except Exception as exc:
+                log.exception("queue add failed for %r", ref)
+                raise HTTPException(502, f"Adding that listing failed ({exc.__class__.__name__}: {exc}).")
         return batches.add(listing.id, listing.origin, "live" if listing.origin == "live" else "demo")
 
     @app.get("/api/batches/{batch_id}")
