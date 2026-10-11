@@ -53,7 +53,13 @@ class Translator:
     async def run(self, call: SpecialistCall) -> SpecialistReply:
         listing = await self.market.get_listing_snapshot(call.listing_id)
         if listing.language == "en":
-            return SpecialistReply(ok=False, error="already_english")
+            # Answer rather than fail: an agent asked, and a bare "already_english" error reads as a broken specialist
+            # in the UI. No model call.
+            draft = EvidenceDraft(capability="translation", produced_by="code", specialist_name=self.name,
+                                  summary="The listing is already in English, so there is nothing to translate; "
+                                          "the listing text on the board is the seller's own words.",
+                                  data={"listing_id": listing.id, "language_code": "en", "already_english": True})
+            return SpecialistReply(ok=True, drafts=[draft])
         language = LANGUAGE_NAMES.get(listing.language, listing.language)
         user = (f"Listing language: {language}\n"
                 + untrusted.wrap(f"Title: {listing.title}\nDescription: {listing.description}", marker=untrusted.boundary()))

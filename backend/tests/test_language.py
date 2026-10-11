@@ -55,10 +55,13 @@ def test_identity_matches_the_contract():
     assert isinstance(t, Specialist)
 
 
-async def test_english_listing_is_refused_without_a_model_call(monkeypatch):
+async def test_an_english_listing_gets_a_plain_answer_without_a_model_call(monkeypatch):
     t, fake = setup(monkeypatch, language="en")
     reply = await t.run(call())
-    assert (reply.ok, reply.error, reply.drafts) == (False, "already_english", [])
+    assert reply.ok is True and reply.error is None and len(reply.drafts) == 1
+    d = reply.drafts[0]
+    assert d.capability == "translation" and d.produced_by == "code" and d.data["already_english"] is True
+    assert "already in English" in d.summary
     assert fake.calls == []
 
 
@@ -115,3 +118,36 @@ async def test_budget_exceeded_becomes_budget_error(monkeypatch):
     t, _ = setup(monkeypatch, BudgetExceeded("cap"))
     reply = await t.run(call())
     assert (reply.ok, reply.error) == (False, "budget")
+
+
+async def test_an_agent_asking_for_translation_on_an_english_listing_gets_evidence_not_a_failure(tmp_path):
+    """Through the real local stack: Facilitator, LocalTransport, discovery, the real Translator; stub agents."""
+    from deadlang.agntcy.cards import ALL_AGENT_NAMES, card_for
+    from deadlang.agntcy.discovery import LocalDiscovery
+    from deadlang.agntcy.transport import LocalTransport
+    from deadlang.deliberation.facilitator import Facilitator
+    from deadlang.eval.run_eval import CollectBus
+    from deadlang.marketplace.client import LocalMarketplaceClient
+    from deadlang.marketplace.store import MarketplaceStore
+    from deadlang.schemas import Claim, SpecialistRequest, StancePost
+    from tests.conftest import make_listing as listing, make_seller
+
+    class Asker:
+        def __init__(self, name, asks):
+            self.name, self.asks = name, asks
+
+        async def handle(self, turn):
+            reqs = [SpecialistRequest(capability=c, question="q", reason="r") for c in self.asks] if turn.round == 1 else []
+            return StancePost(agent=self.name, round=turn.round, stance="need_more", confidence=0.5, requests=reqs,
+                              claims=[Claim(text="The listing is on the board.", evidence_ids=["E0"])],
+                              ready_to_close=turn.round >= 2, take="t")
+
+    market = LocalMarketplaceClient(MarketplaceStore([listing("L1", "S1", "Carved bone figure", "old bone")], [make_seller("S1")]))
+    agents = {"undercover": Asker("undercover", []), "counsel": Asker("counsel", []), "case_officer": Asker("case_officer", ["translation"])}
+    disc = LocalDiscovery([card_for(n) for n in ALL_AGENT_NAMES])
+    bus = CollectBus()
+    fac = Facilitator(market, LocalTransport({"deadlang-translator": Translator(market)}, agents, discovery=disc), disc, bus, max_rounds=2)
+    await fac.run_case("tr-en", "L1")
+    translation = [p["evidence"] for t, p in bus.events if t == "evidence.added" and p["evidence"]["capability"] == "translation"]
+    failed = [p for t, p in bus.events if t == "specialist.failed" and p["capability"] == "translation"]
+    assert failed == [] and len(translation) == 1 and translation[0]["requested_by"] == "case_officer"
