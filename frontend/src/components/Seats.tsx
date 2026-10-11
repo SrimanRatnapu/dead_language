@@ -83,8 +83,8 @@ export function AgentRail({ state, onOpen }: { state: CaseState; onOpen: (id: st
                 <p className="truncate font-semibold leading-tight text-cobalt-ink">{CAPABILITY_LABEL[s.capability]}</p>
                 <div className="mt-1 flex min-h-6 items-center gap-2 text-muted">
                   {working ? <span className="typing flex gap-1" role="status" aria-label="Working"><span /><span /><span /></span>
-                    : fail ? <span className="text-red">Did not answer</span> : <span>Reported</span>}
-                  <span>· for <b className={by.text}>{by.label}</b></span>
+                    : fail ? <span className="text-red">Did not answer</span> : null}
+                  <span>{working || fail ? "· " : ""}for <b className={by.text}>{by.label}</b></span>
                 </div>
               </div>
             </div>
