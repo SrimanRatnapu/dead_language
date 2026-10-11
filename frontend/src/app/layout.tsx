@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { APP_NAME } from "@/lib/agents";
 import { Hanken_Grotesk, JetBrains_Mono, Newsreader } from "next/font/google";
 import Link from "next/link";
+import { NavLinks } from "@/components/NavLinks";
 import "./globals.css";
 
 const sans = Hanken_Grotesk({ variable: "--font-sans", subsets: ["latin"] });
@@ -22,10 +23,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <span className="grid size-7 place-items-center border border-cobalt/60 text-xs font-bold text-cobalt transition-transform duration-200 group-hover:rotate-12">DL</span>
             <span className="hidden font-semibold tracking-[-0.04em] sm:inline">{APP_NAME}</span>
           </Link>
-          <nav className="ml-auto flex items-center text-sm sm:gap-1" aria-label="Primary navigation">
-            <Link href="/" className="press rounded-md inline-flex min-h-11 items-center px-2 sm:px-3 text-muted hover:bg-surface hover:text-ink">Cases</Link>
-            <Link href="/results" className="press rounded-md inline-flex min-h-11 items-center px-2 sm:px-3 text-muted hover:bg-surface hover:text-ink">Results</Link>
-          </nav>
+          <NavLinks />
         </header>
         <div className="min-h-0 flex-1" role="presentation">{children}</div>
       </body>
