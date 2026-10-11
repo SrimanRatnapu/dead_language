@@ -195,11 +195,12 @@ export default function Cases() {
           <div>
             <h1 className="serif text-4xl leading-none">Review desk</h1>
             {(items.length === 0 || running) && <p className="mt-2 text-muted" aria-live="polite">
-              {items.length === 0 ? "No cases yet. Fetch live listings or add one by link." : "Agents are working."}
+              {items.length === 0 ? "No cases yet. Run the demo set or fetch live listings." : "Agents are working."}
             </p>}
           </div>
           <section aria-label="Load listings" className="flex flex-wrap items-end gap-x-4 gap-y-3">
             <AddListing onAdded={addedByHand} />
+            <button onClick={() => run("demo")} disabled={busy} className={`${btn} bg-ink text-surface hover:bg-ink-2`}>Run demo set</button>
             <button type="button" onClick={clear} disabled={items.length === 0} className={`${btn} border border-line hover:border-ink`}>Clear</button>
             <form onSubmit={(e) => { e.preventDefault(); run("live"); }} className="flex flex-wrap items-end gap-3">
               <label className="text-sm text-muted">Fetch live by
