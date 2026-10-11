@@ -103,8 +103,10 @@ function Facts({ rows, open, onOpen }: { rows: Row[]; open: boolean; onOpen: Ope
 function Message({ post, prev, wake, state, onOpen }: { post: StancePost; prev: Stance | null; wake: Wake[]; state: CaseState; onOpen: Open }) {
   const a = AGENTS[post.agent];
   const rejected = state.rounds.find((r) => r.round === post.round)?.rejected.filter((r) => r.agent === post.agent) ?? [];
-  const [head, ...rest] = post.claims;
-  const detail = rest.length + (post.rebuttal ? 1 : 0) + (rejected.length ? 1 : 0) + (head?.evidence_ids.length ? 1 : 0);
+  // New posts carry an in-character `take`; older recordings fall back to the first claim as the headline.
+  const head = post.take ? undefined : post.claims[0];
+  const rest = post.take ? post.claims : post.claims.slice(1);
+  const detail = rest.length + (post.rebuttal ? 1 : 0) + (rejected.length ? 1 : 0);
   return (
     <article className={`rise relative border border-line bg-surface/80 px-4 py-3.5 ${prev && prev !== post.stance ? "flash" : ""}`} style={{ boxShadow: `inset 3px 0 0 ${a.cssVar}` }}>
       <WakeLine wake={wake} />
@@ -116,15 +118,14 @@ function Message({ post, prev, wake, state, onOpen }: { post: StancePost; prev: 
         {post.ready_to_close && <span className="mono text-muted">· ready to close</span>}
       </header>
       {post.changed_because && <p className="mt-2.5 border-l-2 border-amber bg-amber-tint px-3 py-2 text-base leading-snug"><span className="font-semibold">Changed my mind: </span>{post.changed_because}</p>}
-      {head && <p className="mt-2.5 text-base leading-snug [text-wrap:pretty]">{head.text}</p>}
+      {(post.take || head) && <p className="mt-2.5 text-base leading-snug [text-wrap:pretty]">{post.take || head?.text}</p>}
       {post.challenge && <p className="mt-2.5 text-base leading-snug"><span className={`font-semibold ${AGENTS[post.challenge.target_agent].text}`}>Asks {AGENTS[post.challenge.target_agent].label}: </span>{post.challenge.question}</p>}
       {post.requests.length > 0 && <p className="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-base text-cobalt-ink">{post.requests.map((r, i) => <span key={i} className="inline-flex items-center gap-1.5"><Icon name={r.capability} size={14} />Asked for {CAPABILITY_LABEL[r.capability].toLowerCase()}</span>)}</p>}
       {detail > 0 && <details className="group mt-2.5 border-t border-line pt-1">
         <summary className="press flex min-h-9 cursor-pointer list-none items-center gap-2 text-base text-muted hover:text-ink"><span className="transition-transform duration-200 group-open:rotate-90"><Icon name="chevron" size={14} /></span>Reasoning and evidence{rejected.length > 0 && <span className="text-red"> · {rejected.length} removed</span>}</summary>
         <div className="space-y-2.5 pb-1 pt-1.5 text-base leading-snug">
           {post.changed_because && <p className="text-muted">Changed because<Chips ids={post.changed_because_evidence} state={state} onOpen={onOpen} /></p>}
-          {head && head.evidence_ids.length > 0 && <p className="text-muted">Based on<Chips ids={head.evidence_ids} state={state} onOpen={onOpen} /></p>}
-          {post.rebuttal && <p className="text-muted"><span className={`font-semibold ${AGENTS[post.rebuttal.target_agent].text}`}>↩ {AGENTS[post.rebuttal.target_agent].label}: </span>{post.rebuttal.response}<Chips ids={post.rebuttal.evidence_ids} state={state} onOpen={onOpen} /></p>}
+                    {post.rebuttal && <p className="text-muted"><span className={`font-semibold ${AGENTS[post.rebuttal.target_agent].text}`}>↩ {AGENTS[post.rebuttal.target_agent].label}: </span>{post.rebuttal.response}<Chips ids={post.rebuttal.evidence_ids} state={state} onOpen={onOpen} /></p>}
           {rest.length > 0 && <ul className="space-y-2">{rest.map((c, i) => <li key={i}>{c.text}<Chips ids={c.evidence_ids} state={state} onOpen={onOpen} /></li>)}</ul>}
           {rejected.length > 0 && <ul className="space-y-1.5 text-red">{rejected.map((r, i) => <li key={i}><s>{r.claim_text}</s><br /><span className="text-muted">Removed by the checker: {r.reasons.join(" · ")}</span></li>)}</ul>}
         </div>

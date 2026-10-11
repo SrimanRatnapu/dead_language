@@ -120,6 +120,7 @@ class StancePost(BaseModel):
     changed_because_evidence: list[str] = Field(default_factory=list)
     challenge: Optional[Challenge] = None         # max 1; target must answer it (with cited claims) in its next post
     ready_to_close: bool = False                  # True = "I have nothing more to add"
+    take: str = ""                                # 1-2 sentences, first person, in character; shown as the headline in the UI. Not fact-checked, so no figures.
 
 class DeliberationTurn(BaseModel):    # body sent to a deliberating agent
     case_id: str

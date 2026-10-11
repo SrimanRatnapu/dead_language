@@ -92,6 +92,7 @@ export interface StancePost {
   changed_because_evidence: string[];
   challenge: Challenge | null;
   ready_to_close: boolean;
+  take?: string;
 }
 
 export type Outcome = "FILE" | "DISMISS" | "CONTESTED" | "WATCHLIST";
