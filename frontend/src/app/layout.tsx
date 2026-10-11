@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
 import { APP_NAME } from "@/lib/agents";
-import { Bricolage_Grotesque, Geist, Geist_Mono } from "next/font/google";
+import { Instrument_Serif, Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
 import { Suspense } from "react";
 import { NavLinks } from "@/components/NavLinks";
 import "./globals.css";
 
 const sans = Geist({ variable: "--font-sans", subsets: ["latin"] });
-const display = Bricolage_Grotesque({ variable: "--font-display", subsets: ["latin"] });
+const display = Instrument_Serif({ variable: "--font-display", subsets: ["latin"], weight: "400", style: ["normal", "italic"] });
 const mono = Geist_Mono({ variable: "--font-mono", subsets: ["latin"] });
 
 export const metadata: Metadata = {
@@ -19,13 +19,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={`${sans.variable} ${mono.variable} ${display.variable} h-full`}>
       <body className="flex h-full flex-col">
-        <header className="glass sticky top-0 z-20 flex h-14 shrink-0 items-center px-5 sm:px-8">
-          <Link href="/" className="flex items-center gap-3" aria-label={`${APP_NAME} home`}>
-            <span className="tent">DL</span>
-            <span className="serif hidden text-lg font-bold sm:inline">{APP_NAME}</span>
-          </Link>
+        <header className="sticky top-0 z-20 flex h-14 shrink-0 items-center border-b border-line bg-bg px-5 sm:px-8">
+          <Link href="/" className="serif text-2xl leading-none" aria-label={`${APP_NAME} home`}>{APP_NAME}</Link>
           <Suspense fallback={null}><NavLinks /></Suspense>
-          <span className="lattice text-surface/30" style={{ inset: "auto 0 0 0", height: 6 }} aria-hidden />
         </header>
         <div className="min-h-0 flex-1" role="presentation">{children}</div>
       </body>

@@ -5,9 +5,9 @@ import { Icon, type IconName } from "@/components/Icon";
 import { Photo } from "@/components/Photo";
 import { ListingCard } from "@/components/ListingCard";
 import { DEMO_CASES } from "@/lib/demoCases";
-import { batchEventsUrl, getBatch, getCaseFile, getListing, getHealth, imageUrl, startBatch } from "@/lib/api";
+import { batchEventsUrl, getBatch, getCaseFile, getListing, getHealth, imageUrl, startBatch, getMetrics } from "@/lib/api";
 import { loadListings } from "@/lib/stubs";
-import type { BatchEvent, BatchItem, BatchStart, Listing, ListingRow } from "@/lib/types";
+import type { Metrics, BatchEvent, BatchItem, BatchStart, Listing, ListingRow } from "@/lib/types";
 
 const MAX_CAP = 50; // server rejects more (422); keep in sync with MAX_LIVE_CAP in api/server.py
 
@@ -36,6 +36,7 @@ export default function Cases() {
   const [startedAt, setStartedAt] = useState<number | null>(null);
   const [now, setNow] = useState(0);
   const [problems, setProblems] = useState<string[]>([]);
+  const [m, setM] = useState<Metrics | null>(null);
   const es = useRef<EventSource | null>(null);
   const batchId = useRef<string | null>(null);
   const itemsRef = useRef<BatchItem[]>([]);
@@ -52,6 +53,7 @@ export default function Cases() {
       }).catch(() => sessionStorage.removeItem("dl_batch"));
     }
     loadListings().then(({ data }) => { setRows(data); setListings(Object.fromEntries(data.map((x) => [x.listing.id, x.listing]))); }).catch(() => setRows([]));
+    getMetrics().then(setM).catch(() => {});
     getHealth().then((h) => setProblems(h.problems)).catch(() => {});
     return () => es.current?.close();
   }, []);
@@ -123,11 +125,12 @@ export default function Cases() {
       <div className="mx-auto max-w-7xl px-5 py-8 sm:px-8">
         <header className="flex flex-wrap items-end justify-between gap-x-8 gap-y-4 border-b border-ink pb-5">
           <div>
-            <h1 className="serif text-4xl font-extrabold leading-none tracking-[-0.03em]">Review desk</h1>
+            <h1 className="serif text-5xl leading-none">Review desk</h1>
             <p className="mt-2 text-muted" aria-live="polite">
               {items.length === 0 ? "Nothing loaded yet." : waiting > 0 ? `${waiting} ${waiting === 1 ? "case needs" : "cases need"} your decision.` : running ? "Agents are working." : "Nothing waiting on you."}
               {items.length > 0 && <span className="serial ml-3">{items.length} loaded · {secs}s{mode === "recorded" ? " · recorded data" : ""}</span>}
             </p>
+            {m && m.funnel.deliberated > 0 && <p className="serial mt-1">All runs · {m.funnel.deliberated} reviewed · {Math.round(m.latency_ms.case.p50 / 1000)}s median · ${m.cost.usd_per_case.toFixed(2)} per case</p>}
           </div>
           <section aria-label="Load listings" className="flex flex-wrap items-end gap-x-4 gap-y-3">
             <button onClick={() => run("demo")} disabled={busy || running} className={`${btn} bg-ink text-surface hover:bg-ink-2`}>Run demo set</button>

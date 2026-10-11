@@ -4,7 +4,6 @@ import { usePathname } from "next/navigation";
 
 const LINKS = [
   { href: "/desk", label: "Review desk", active: (p: string) => p.startsWith("/desk") || p.startsWith("/case") || p.startsWith("/listing") || p.startsWith("/replay") },
-  { href: "/results", label: "Audit", active: (p: string) => p.startsWith("/results") },
 ];
 
 export function NavLinks() {
@@ -15,7 +14,7 @@ export function NavLinks() {
         const on = l.active(path);
         return (
           <Link key={l.href} href={l.href} aria-current={on ? "page" : undefined}
-            className={`relative inline-flex items-center px-2 font-medium transition-colors after:absolute after:inset-x-2 after:bottom-1.5 after:h-0.5 after:transition-colors sm:px-3 ${on ? "text-surface after:bg-amber" : "text-surface/70 hover:text-surface hover:after:bg-surface/40"}`}>
+            className={`relative inline-flex items-center px-2 font-medium transition-colors after:absolute after:inset-x-2 after:bottom-1.5 after:h-0.5 after:transition-colors sm:px-3 ${on ? "text-ink after:bg-ink" : "text-muted hover:text-ink hover:after:bg-line"}`}>
             {l.label}
           </Link>
         );
