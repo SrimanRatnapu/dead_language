@@ -26,6 +26,9 @@ ROOT = Path(__file__).resolve().parents[3]
 CASE_RE = re.compile(r"C-(\d+)\.jsonl$")
 
 
+MAX_LIVE_CAP = 50   # hard ceiling for a live fetch; the UI shows the same number
+
+
 class CaseRequest(BaseModel):
     listing_id: str
 
@@ -38,7 +41,7 @@ class BatchRequest(BaseModel):
     source: Literal["demo", "live"]
     listing_ids: list[str] | None = None
     query: str | None = None
-    cap: int = Field(25, ge=1, le=200)
+    cap: int = Field(25, ge=1, le=MAX_LIVE_CAP)
 
 
 def demo_listing_ids(data_dir: Path) -> list[str]:
@@ -87,13 +90,15 @@ def create_app(market: Any = None, transport: Any = None, discovery: Any = None,
 
     # ------------------------------------------------------------------ listings
     @app.get("/api/listings")
-    async def listings(sort: str | None = None):
+    async def listings(sort: str | None = None, origin: Literal["demo", "live"] | None = None):
         market_ = state["market"]
         triage_file = data_dir / "triage.json"
         triage = json.loads(triage_file.read_text()) if triage_file.exists() else {}
         sellers: dict[str, Any] = {}
         rows = []
         for listing in await market_.all_active():
+            if origin and listing.origin != origin:
+                continue
             if listing.seller_id not in sellers:
                 sellers[listing.seller_id] = await market_.get_seller(listing.seller_id)
             t = triage.get(listing.id)
@@ -159,8 +164,8 @@ def create_app(market: Any = None, transport: Any = None, discovery: Any = None,
                 await state["market"].get_listing_snapshot(lid)
             except KeyError:
                 raise HTTPException(404, f"unknown listing {lid}")
-        b = batches.submit(req.source, ids)
-        return {"batch_id": b["batch_id"], "items": b["items"]}
+        b = batches.submit(req.source, ids, "demo")   # live: "live" | "recorded", reported by fetch_live
+        return {"batch_id": b["batch_id"], "source_mode": b["source_mode"], "items": b["items"]}
 
     @app.get("/api/batches/{batch_id}")
     async def get_batch(batch_id: str):

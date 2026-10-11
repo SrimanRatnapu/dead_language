@@ -22,7 +22,7 @@ async def test_one_bad_item_does_not_fail_batch_and_late_subscriber_sees_history
         set_status(status="done", outcome="FILE")
 
     b = Batches(worker, limit=1)
-    batch = b.submit("demo", ["L1", "BAD", "L2", "L1"])        # duplicate id is collapsed
+    batch = b.submit("demo", ["L1", "BAD", "L2", "L1"], "demo")        # duplicate id is collapsed
     assert [i["listing_id"] for i in batch["items"]] == ["L1", "BAD", "L2"]
     first = await collect(b, batch["batch_id"])                  # subscribes mid-run, ends when all terminal
     late = await collect(b, batch["batch_id"])                   # subscribes after the end: full replay
@@ -45,7 +45,7 @@ async def test_concurrency_limit_is_respected():
         set_status(status="done", outcome="DISMISS")
 
     b = Batches(worker, limit=2)
-    await collect(b, b.submit("demo", [f"L{i}" for i in range(6)])["batch_id"])
+    await collect(b, b.submit("demo", [f"L{i}" for i in range(6)], "demo")["batch_id"])
     assert peak == 2
 
 
@@ -64,7 +64,7 @@ def test_batch_api_runs_real_cases_and_streams_to_the_end(client):
     r = client.post("/api/batches", json={"source": "demo"})         # no ids: the demo set
     assert r.status_code == 202
     body = r.json()
-    assert [i["status"] for i in body["items"]] == ["queued", "queued"]
+    assert body["source_mode"] == "demo" and [i["status"] for i in body["items"]] == ["queued", "queued"]
     statuses = []
     with client.stream("GET", f"/api/batches/{body['batch_id']}/events") as s:
         for line in s.iter_lines():
@@ -79,5 +79,6 @@ def test_batch_api_runs_real_cases_and_streams_to_the_end(client):
 def test_batch_api_rejects_bad_requests(client):
     assert client.post("/api/batches", json={"source": "live", "query": "ivory"}).status_code == 501
     assert client.post("/api/batches", json={"source": "demo", "cap": 0}).status_code == 422
+    assert client.post("/api/batches", json={"source": "live", "query": "x", "cap": 51}).status_code == 422
     assert client.get("/api/batches/B-9999").status_code == 404
     assert client.get("/api/batches/B-9999/events").status_code == 404

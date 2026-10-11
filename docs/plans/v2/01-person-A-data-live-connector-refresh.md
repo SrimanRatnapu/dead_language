@@ -49,7 +49,7 @@ Rules:
 - **Official API only.** Use the eBay Browse API (needs credentials in `.env`: `EBAY_CLIENT_ID`, `EBAY_CLIENT_SECRET`). No scraping against terms of service. If no credentials are present, return the recorded fallback (A3) and log which mode ran. Never fake a live result.
 - Every fetched listing gets `origin="live"`, a fresh id (`LV0001...`), and `marketplace` set to the real source.
 - Download or reference the photos so the examiner can read them (store under `data/images/live/`), compute the perceptual hash, and store a **SHA-256 of the raw snapshot** alongside the listing (chain of custody; C records it in the audit log).
-- Hard cap on items and a polite request rate. Document the limits.
+- Return the mode (`"live"` or `"recorded"`) alongside the list, e.g. `-> tuple[list[...], str]`, because C puts it in `source_mode`. Add each fetched listing to the store (so `get_listing`, snapshot and images work for a case run) before returning. Hard cap on items and a polite request rate. Document the limits.
 - Seller identities are pseudonymized (`S-live-xxxx`) before they leave this module. Keep the raw name only if needed in the audit store, never in prompts.
 - Dedupe by listing id and by image hash against what is already stored.
 - Real listings will be messier than our dataset (odd photos, other languages, missing fields). Missing fields must degrade gracefully, never crash the case.

@@ -29,7 +29,7 @@ New page `frontend/src/app/queue/page.tsx` (primary nav item "Queue"; the listin
 - Rows with agents running show who is currently speaking (reuse the seat colors), but keep it compact.
 - Clicking a done row opens the existing case view (live case or its replay).
 - A thin summary strip above the list: counts by mark and elapsed time, updating live.
-- Honesty: live-lane rows say "flagged for human review", never "illegal". If the connector returned recorded data, show a small "recorded" label (A's response metadata).
+- Honesty: live-lane rows say "flagged for human review", never "illegal". If `source_mode` in the POST response is `"recorded"`, show a small "recorded" label. The cap input maxes at 50.
 
 ### D3. Metrics page (P1)
 New page `frontend/src/app/metrics/page.tsx` reading `GET /api/metrics` (shape in file 00 §4.6). Not the same as `/results` (evaluations).

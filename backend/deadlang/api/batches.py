@@ -24,11 +24,11 @@ class Batches:
         self._subs: dict[str, list[asyncio.Queue]] = {}
         self._tasks: set[asyncio.Task] = set()   # strong refs so running items are not garbage collected
 
-    def submit(self, source: str, listing_ids: list[str]) -> dict[str, Any]:
+    def submit(self, source: str, listing_ids: list[str], source_mode: str) -> dict[str, Any]:
         bid = f"B-{len(self._batches) + 1:04d}"
         items = [{"listing_id": i, "case_id": None, "status": "queued", "triage": None, "outcome": None, "error": None}
                  for i in dict.fromkeys(listing_ids)]
-        batch = {"batch_id": bid, "source": source, "created_at": now_iso(), "items": items,
+        batch = {"batch_id": bid, "source": source, "source_mode": source_mode, "created_at": now_iso(), "items": items,
                  "_events": [], "_finished": not items}
         self._batches[bid] = batch
         for it in items:

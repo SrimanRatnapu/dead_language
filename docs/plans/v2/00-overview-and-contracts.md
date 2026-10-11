@@ -73,6 +73,8 @@ BatchItem = {
   "error": str | null
 }
 ```
+**Live contract (A, C, D agree):** `POST` body for live is `{"source":"live","query":"...","cap":N}`, cap max 50 (server returns 422 above it; D shows 50 as the visible maximum). C calls A's `fetch_live(query, cap)`, which returns listings with `origin="live"`, ids `LV0001...`, pseudonymized sellers and stored photos. The POST response and batch carry `source_mode`: `"demo"`, `"live"` (real API) or `"recorded"` (fallback); D shows a "recorded" label whenever it is not `"live"`. `GET /api/listings?origin=live` lists live items so the queue rows can open them. fetch_live must persist each listing into the store before C enqueues it, since case runs read from the store.
+
 **As built (C):** every batch runs the Facilitator on each item (real model calls; there is no fake mode). Triage is skipped until B's `screen()` lands. With no `listing_ids`, `source: "demo"` uses `data/demo_set.json` if A has added it, else the four recorded demo cases. `source: "live"` returns 501 until A's `fetch_live` exists. Concurrency limit: `DL_MAX_CONCURRENT_CASES` (default 4). SSE events also carry `case_id`; the stream ends when every item is terminal, and late subscribers get the full history.
 
 `screened_out` means Haiku triage cleared it and no agents ran. UI marks (D): flag = FILE, check = DISMISS or screened_out, split mark = CONTESTED, clock = WATCHLIST, warning = error. Do **not** use an X for dismiss: X reads as failure.
