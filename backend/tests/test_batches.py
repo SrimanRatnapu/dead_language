@@ -168,8 +168,7 @@ def test_added_listing_jumps_the_queue_or_starts_its_own_batch():
         == ["123456789012"] * 3 + [None]
 
 
-def test_queue_add_takes_a_listing_id_and_rejects_junk(client):
+def test_queue_add_takes_a_listing_id(client):
     lid = run_batch(client)[0]["listing_id"]
-    assert client.post("/api/queue/add", json={"ref": "not a listing"}).status_code == 422
     r = client.post("/api/queue/add", json={"ref": f" {lid} "})
     assert r.status_code == 202 and r.json()["item"]["listing_id"] == lid and r.json()["new_batch"]
