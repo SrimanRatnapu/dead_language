@@ -37,26 +37,26 @@ export function Seats({ state }: { state: CaseState }) {
   else if (p?.rebuttal) note = <>{who(p.agent)} answered {who(p.rebuttal.target_agent)}.</>;
 
   return (
-    <div className="px-5 pb-3 pt-5 sm:px-8">
-      <div className="grid grid-cols-3 gap-3">
+    <div className="px-4 py-3 sm:px-6">
+      <div className="grid grid-cols-3 gap-2">
         {AGENT_ORDER.map((agent) => {
           const a = AGENTS[agent];
           const now = history(agent).at(-1);
           const busy = thinking === agent;
           return (
-            <div key={agent} title={a.goal} className={`relative border bg-surface px-3 py-3 text-center transition-colors duration-300 ${busy ? "border-ink" : "border-line"}`}>
-              <span className={`mx-auto grid size-10 place-items-center rounded-full text-lg font-semibold ${a.tint} ${a.text}`}>{a.label[0]}</span>
-              <p className={`mt-1.5 font-semibold ${a.text}`}>{a.label}</p>
-              <div className="mt-1.5 flex h-7 items-center justify-center gap-2">
+            <div key={agent} title={a.goal} className={`relative border bg-surface px-2 py-2 transition-colors sm:px-3 duration-300 ${busy ? "border-ink" : "border-line"}`}>
+              <div className="flex min-w-0 items-center gap-2.5"><span className={`grid size-8 shrink-0 place-items-center rounded-full font-semibold ${a.tint} ${a.text}`}>{a.label[0]}</span>
+              <div className="min-w-0"><p className={`truncate font-semibold leading-tight ${a.text}`}>{a.label}</p>
+              <div className="mt-0.5 flex h-6 items-center gap-2">
                 {busy ? <span className="typing flex gap-1 text-muted" role="status" aria-label={`${a.label} is thinking`}><span /><span /><span /></span>
                   : now ? <><StancePill stance={now.stance} /><span className="mono text-muted">{Math.round(now.confidence * 100)}%</span></>
                   : <span className="text-muted">listening</span>}
-              </div>
+              </div></div></div>
             </div>
           );
         })}
       </div>
-      <p key={state.feed.length} className="rise mt-3 min-h-6 font-medium text-ink [text-wrap:pretty]" aria-live="polite">{note}</p>
+      <p key={state.feed.length} className="rise mt-2 min-h-6 text-base font-medium text-ink [text-wrap:pretty]" aria-live="polite">{note}</p>
     </div>
   );
 }

@@ -5,7 +5,7 @@ import { Icon, type IconName } from "@/components/Icon";
 import { Photo } from "@/components/Photo";
 import { ListingCard } from "@/components/ListingCard";
 import { DEMO_CASES } from "@/lib/demoCases";
-import { batchEventsUrl, getListing, getHealth, imageUrl, startBatch } from "@/lib/api";
+import { batchEventsUrl, getBatch, getListing, getHealth, imageUrl, startBatch } from "@/lib/api";
 import { loadListings } from "@/lib/stubs";
 import type { BatchEvent, BatchItem, BatchStart, Listing, ListingRow } from "@/lib/types";
 
@@ -37,6 +37,7 @@ export default function Cases() {
   const [now, setNow] = useState(0);
   const [problems, setProblems] = useState<string[]>([]);
   const es = useRef<EventSource | null>(null);
+  const batchId = useRef<string | null>(null);
 
   useEffect(() => {
     loadListings().then(({ data }) => { setRows(data); setListings(Object.fromEntries(data.map((x) => [x.listing.id, x.listing]))); }).catch(() => setRows([]));
@@ -47,14 +48,16 @@ export default function Cases() {
   useEffect(() => {
     if (!running) return;
     const t = setInterval(() => setNow(Date.now()), 500);
-    return () => clearInterval(t);
+    // The event stream can drop (network blip, dev-server reload); re-read the batch so rows never stay on "Agents working".
+    const p = setInterval(() => { if (batchId.current) getBatch(batchId.current).then((b) => setItems(b.items)).catch(() => {}); }, 4000);
+    return () => { clearInterval(t); clearInterval(p); };
   }, [running]);
 
   async function run(source: "demo" | "live") {
     setBusy(true); setError(null); es.current?.close();
     try {
       const b = await startBatch(source === "live" ? { source, query, cap } : { source });
-      setItems(b.items); setMode(b.source_mode); setStartedAt(Date.now()); setNow(Date.now());
+      batchId.current = b.batch_id; setItems(b.items); setMode(b.source_mode); setStartedAt(Date.now()); setNow(Date.now());
       b.items.forEach((i) => getListing(i.listing_id).then((r) => setListings((l) => ({ ...l, [r.listing.id]: r.listing }))).catch(() => {}));
       const src = new EventSource(batchEventsUrl(b.batch_id));
       es.current = src;

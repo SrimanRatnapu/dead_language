@@ -26,6 +26,7 @@ export const resetDemo = () => post<{ ok: boolean }>("/api/demo/reset");
 export const getReplays = () => req<string[]>("/api/replays");
 export const getReplay = (name: string) => req<Event[]>(`/api/replays/${name}`);
 export const getEval = () => req<EvalResults>("/api/eval");
+export const getBatch = (id: string) => req<BatchStart>(`/api/batches/${id}`);
 export const startBatch = (body: { source: "demo" | "live"; query?: string; cap?: number }) =>
   post<BatchStart>("/api/batches", body);
 export const batchEventsUrl = (id: string) => `${API_BASE}/api/batches/${id}/events`;
