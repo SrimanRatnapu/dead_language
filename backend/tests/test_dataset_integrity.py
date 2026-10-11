@@ -117,7 +117,7 @@ def test_eval_set(listings, labels):
     hidden = next(l.id for l in listings if l.status == "hidden")
     assert hidden not in ids
     positives = {lid for lid, lab in labels.items() if lab.should_flag and lid != hidden}
-    assert positives <= set(ids) and 15 <= len(positives) <= 20
+    assert positives <= set(ids) and len(positives) == 27
     assert sum(not labels[i].should_flag for i in ids) == 40
 
 
@@ -146,7 +146,7 @@ def test_no_real_usernames_leak(listings, sellers):
 def test_mix_of_reconstructed_cases(listings, labels):
     positives = [l for l in listings if labels[l.id].should_flag and l.status != "hidden"]
     kinds = [l.item_type for l in positives]
-    assert (kinds.count("netsuke"), kinds.count("figurine"), kinds.count("jewelry")) == (10, 4, 3)
+    assert (kinds.count("netsuke"), kinds.count("figurine"), kinds.count("jewelry")) == (16, 6, 5)
     assert sum(l.language == "vi" for l in positives) == 2
     assert sum(labels[l.id].notes == "ambiguous by design" for l in positives) == 3
 

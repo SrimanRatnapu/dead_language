@@ -496,6 +496,351 @@
  },
  {
   "listing": {
+   "id": "L0323",
+   "marketplace": "reconstructed",
+   "seller_id": "S0265",
+   "title": "Antique bone netsuke, Hotei and a child with his treasure sack",
+   "description": "Hotei resting on his big sack while a child whispers in his ear. Antique bovine bone, mellow honey tone, glassy smooth from handling. 26 grams, which is a lot for a piece this size. The cord holes are worn soft. The sack side is in the third picture. From a retired dealer's stock; I do not ship this one overseas.",
+   "price_usd": 1140.0,
+   "category": "Antiques > Asian Antiques > Japan > Netsuke",
+   "stated_material": "bone",
+   "item_type": "netsuke",
+   "size_cm": 4.4,
+   "weight_g": 26.0,
+   "ship_from": "US-WA",
+   "language": "en",
+   "image_paths": [
+    "images/L0323_0.jpg",
+    "images/L0323_1.jpg",
+    "images/L0323_2.jpg"
+   ],
+   "posted_at": "2026-09-12T18:05:00+00:00",
+   "source_url": null,
+   "is_reconstructed": true,
+   "reconstruction_source": "Reconstructed listing, written by the team after published research (Kent 2021, Tropical Conservation Science)",
+   "status": "active",
+   "relist_of": null
+  },
+  "seller": {
+   "id": "S0265",
+   "name": "seller_1384a6",
+   "location": "Tacoma, Washington",
+   "joined": "2021-03-08T00:00:00+00:00",
+   "feedback_score": 742
+  },
+  "triage": {
+   "score": 1.0,
+   "reason": "Priced 11.0x the median for bone netsuke listings"
+  }
+ },
+ {
+  "listing": {
+   "id": "L0324",
+   "marketplace": "reconstructed",
+   "seller_id": "S0288",
+   "title": "Fine old bone netsuke of a hooded sage, superb colour",
+   "description": "Scowling sage wrapped in his hood and holding a fly whisk. Old bone with a deep butter-yellow colour and a faint grain you can see on the plain back, pictured. 44 grams. Bought at a country house sale in the 1980s. I will post within the UK only, signed for.",
+   "price_usd": 1660.0,
+   "category": "Antiques > Asian Antiques > Japan > Netsuke",
+   "stated_material": "bone",
+   "item_type": "netsuke",
+   "size_cm": 4.4,
+   "weight_g": 44.0,
+   "ship_from": "GB",
+   "language": "en",
+   "image_paths": [
+    "images/L0324_0.jpg",
+    "images/L0324_1.jpg",
+    "images/L0324_2.jpg"
+   ],
+   "posted_at": "2026-09-15T10:30:00+00:00",
+   "source_url": null,
+   "is_reconstructed": true,
+   "reconstruction_source": "Reconstructed listing, written by the team after published research (Kent 2021, Tropical Conservation Science)",
+   "status": "active",
+   "relist_of": null
+  },
+  "seller": {
+   "id": "S0288",
+   "name": "seller_2882b0",
+   "location": "Cheltenham, United Kingdom",
+   "joined": "2019-11-21T00:00:00+00:00",
+   "feedback_score": 1530
+  },
+  "triage": {
+   "score": 1.0,
+   "reason": "Priced 16.0x the median for bone netsuke listings"
+  }
+ },
+ {
+  "listing": {
+   "id": "L0351",
+   "marketplace": "reconstructed",
+   "seller_id": "S0217",
+   "title": "Old carved bone netsuke, long-haired fisher girl seated",
+   "description": "Seated fisher girl with hair down to her waist and a straw skirt carved strand by strand. Old bone, darkened with ink in the hair, soft polish on the skin. 30 grams, 4.8 cm. The second photo shows the back and the cord hole. One owner since the 1960s. Local pickup in Brooklyn preferred.",
+   "price_usd": 1350.0,
+   "category": "Antiques > Asian Antiques > Japan > Netsuke",
+   "stated_material": "bone",
+   "item_type": "netsuke",
+   "size_cm": 4.8,
+   "weight_g": 30.0,
+   "ship_from": "US-NY",
+   "language": "en",
+   "image_paths": [
+    "images/L0351_0.jpg",
+    "images/L0351_1.jpg"
+   ],
+   "posted_at": "2026-09-23T21:40:00+00:00",
+   "source_url": null,
+   "is_reconstructed": true,
+   "reconstruction_source": "Reconstructed listing, written by the team after published research (Kent 2021, Tropical Conservation Science)",
+   "status": "active",
+   "relist_of": null
+  },
+  "seller": {
+   "id": "S0217",
+   "name": "seller_831dd7",
+   "location": "Brooklyn, New York",
+   "joined": "2024-04-17T00:00:00+00:00",
+   "feedback_score": 38
+  },
+  "triage": {
+   "score": 1.0,
+   "reason": "Priced 13.0x the median for bone netsuke listings"
+  }
+ },
+ {
+  "listing": {
+   "id": "L0358",
+   "marketplace": "reconstructed",
+   "seller_id": "S0229",
+   "title": "Rare bone netsuke, laughing man beneath two monkeys, amber patina",
+   "description": "A laughing man crouches while two monkeys climb the arch over his head. Bone with a strong amber patina, darker in the recesses, pierced right through. 5.1 cm across, 33 g. The reverse is shown. Private sale from my late father's cabinet; offers are not entertained.",
+   "price_usd": 1865.0,
+   "category": "Antiques > Asian Antiques > Japan > Netsuke",
+   "stated_material": "bone",
+   "item_type": "netsuke",
+   "size_cm": 5.1,
+   "weight_g": 33.0,
+   "ship_from": "HK",
+   "language": "en",
+   "image_paths": [
+    "images/L0358_0.jpg",
+    "images/L0358_1.jpg"
+   ],
+   "posted_at": "2026-09-28T06:20:00+00:00",
+   "source_url": null,
+   "is_reconstructed": true,
+   "reconstruction_source": "Reconstructed listing, written by the team after published research (Kent 2021, Tropical Conservation Science)",
+   "status": "active",
+   "relist_of": null
+  },
+  "seller": {
+   "id": "S0229",
+   "name": "seller_27a42f",
+   "location": "Hong Kong",
+   "joined": "2026-07-30T00:00:00+00:00",
+   "feedback_score": 6
+  },
+  "triage": {
+   "score": 1.0,
+   "reason": "Priced 17.9x the median for bone netsuke listings"
+  }
+ },
+ {
+  "listing": {
+   "id": "L0375",
+   "marketplace": "reconstructed",
+   "seller_id": "S0229",
+   "title": "Bone manju netsuke with a lift-out stud, scrolling design",
+   "description": "Round manju with a dark scrolling ground and a raised central stud that lifts out, shown beside it. Bone, creamy rim, 5.7 cm wide, 41 g. From the same cabinet as my other piece.",
+   "price_usd": 1295.0,
+   "category": "Antiques > Asian Antiques > Japan > Netsuke",
+   "stated_material": "bone",
+   "item_type": "netsuke",
+   "size_cm": 5.7,
+   "weight_g": 41.0,
+   "ship_from": "HK",
+   "language": "en",
+   "image_paths": [
+    "images/L0375_0.jpg",
+    "images/L0375_1.jpg"
+   ],
+   "posted_at": "2026-09-28T06:45:00+00:00",
+   "source_url": null,
+   "is_reconstructed": true,
+   "reconstruction_source": "Reconstructed listing, written by the team after published research (Kent 2021, Tropical Conservation Science)",
+   "status": "active",
+   "relist_of": null
+  },
+  "seller": {
+   "id": "S0229",
+   "name": "seller_27a42f",
+   "location": "Hong Kong",
+   "joined": "2026-07-30T00:00:00+00:00",
+   "feedback_score": 6
+  },
+  "triage": {
+   "score": 1.0,
+   "reason": "Priced 12.5x the median for bone netsuke listings"
+  }
+ },
+ {
+  "listing": {
+   "id": "L0415",
+   "marketplace": "reconstructed",
+   "seller_id": "S0251",
+   "title": "Old bone carving of a woman in a straw hat with her child",
+   "description": "Standing woman in a wide straw hat, her child beside her holding a wooden pail. Carved from old bone with finely engraved kimono patterns and a warm cream colour. Two inches tall and 37 grams, so it is solid, not hollow. Three views shown. It came out of a house clearance in Evanston.",
+   "price_usd": 1315.0,
+   "category": "Antiques > Asian Antiques > Japan > Statues",
+   "stated_material": "bone",
+   "item_type": "figurine",
+   "size_cm": 5.1,
+   "weight_g": 37.0,
+   "ship_from": "US-IL",
+   "language": "en",
+   "image_paths": [
+    "images/L0415_0.jpg",
+    "images/L0415_1.jpg",
+    "images/L0415_2.jpg"
+   ],
+   "posted_at": "2026-10-01T15:00:00+00:00",
+   "source_url": null,
+   "is_reconstructed": true,
+   "reconstruction_source": "Reconstructed listing, written by the team after published research (Kent 2021, Tropical Conservation Science)",
+   "status": "active",
+   "relist_of": null
+  },
+  "seller": {
+   "id": "S0251",
+   "name": "seller_d87af9",
+   "location": "Evanston, Illinois",
+   "joined": "2022-02-11T00:00:00+00:00",
+   "feedback_score": 615
+  },
+  "triage": {
+   "score": 1.0,
+   "reason": "Priced 10.0x the median for bone figurine listings"
+  }
+ },
+ {
+  "listing": {
+   "id": "L0427",
+   "marketplace": "reconstructed",
+   "seller_id": "S0320",
+   "title": "Antique bone figure of a laughing man, tall and slender",
+   "description": "Tall slender figure of a laughing man lifting one foot, carved in the round from a single piece of old bone. 6.7 cm high, 29 grams. Even pale yellow tone with no stains. It belonged to my grandfather, who served in Japan after the war. Posting from Melbourne, registered.",
+   "price_usd": 1840.0,
+   "category": "Antiques > Asian Antiques > Japan > Statues",
+   "stated_material": "bone",
+   "item_type": "figurine",
+   "size_cm": 6.7,
+   "weight_g": 29.0,
+   "ship_from": "AU",
+   "language": "en",
+   "image_paths": [
+    "images/L0427_0.jpg"
+   ],
+   "posted_at": "2026-10-04T03:30:00+00:00",
+   "source_url": null,
+   "is_reconstructed": true,
+   "reconstruction_source": "Reconstructed listing, written by the team after published research (Kent 2021, Tropical Conservation Science)",
+   "status": "active",
+   "relist_of": null
+  },
+  "seller": {
+   "id": "S0320",
+   "name": "seller_8bab81",
+   "location": "Melbourne, Australia",
+   "joined": "2025-12-01T00:00:00+00:00",
+   "feedback_score": 12
+  },
+  "triage": {
+   "score": 1.0,
+   "reason": "Priced 13.9x the median for bone figurine listings"
+  }
+ },
+ {
+  "listing": {
+   "id": "L0444",
+   "marketplace": "reconstructed",
+   "seller_id": "S0290",
+   "title": "Old bone bangle with fine line carving, honey colour",
+   "description": "Solid bangle carved with fine parallel lines all the way round. The estate tag said old bone. Honey colour, and at 96 grams it is heavier than any bone bangle I have handled. Inner diameter 2 5/8 inches. Both faces shown. Sold as found.",
+   "price_usd": 455.0,
+   "category": "Jewelry & Watches > Vintage & Antique Jewelry > Bracelets",
+   "stated_material": "bone",
+   "item_type": "jewelry",
+   "size_cm": 7.7,
+   "weight_g": 96.0,
+   "ship_from": "US-OH",
+   "language": "en",
+   "image_paths": [
+    "images/L0444_0.jpg",
+    "images/L0444_1.jpg"
+   ],
+   "posted_at": "2026-10-05T19:10:00+00:00",
+   "source_url": null,
+   "is_reconstructed": true,
+   "reconstruction_source": "Reconstructed listing, written by the team after published research (Kent 2021, Tropical Conservation Science)",
+   "status": "active",
+   "relist_of": null
+  },
+  "seller": {
+   "id": "S0290",
+   "name": "seller_f5f443",
+   "location": "Dayton, Ohio",
+   "joined": "2018-08-25T00:00:00+00:00",
+   "feedback_score": 3120
+  },
+  "triage": {
+   "score": 1.0,
+   "reason": "Priced 11.4x the median for bone jewelry listings"
+  }
+ },
+ {
+  "listing": {
+   "id": "L0445",
+   "marketplace": "reconstructed",
+   "seller_id": "S0258",
+   "title": "Three old bone bangles, thick and heavy, sold together",
+   "description": "Lot of three thick bangles, described to me as old bone. Creamy with fine age lines, each cut from a single piece. Together they weigh 410 grams. The largest is 3 1/2 inches across. Brought back from East Africa by a missionary family before 1960, according to the note that came with them.",
+   "price_usd": 590.0,
+   "category": "Jewelry & Watches > Vintage & Antique Jewelry > Bracelets",
+   "stated_material": "bone",
+   "item_type": "jewelry",
+   "size_cm": 8.9,
+   "weight_g": 410.0,
+   "ship_from": "US-MA",
+   "language": "en",
+   "image_paths": [
+    "images/L0445_0.jpg",
+    "images/L0445_1.jpg",
+    "images/L0445_2.jpg"
+   ],
+   "posted_at": "2026-10-07T13:25:00+00:00",
+   "source_url": null,
+   "is_reconstructed": true,
+   "reconstruction_source": "Reconstructed listing, written by the team after published research (Kent 2021, Tropical Conservation Science)",
+   "status": "active",
+   "relist_of": null
+  },
+  "seller": {
+   "id": "S0258",
+   "name": "seller_671935",
+   "location": "Gloucester, Massachusetts",
+   "joined": "2023-10-09T00:00:00+00:00",
+   "feedback_score": 204
+  },
+  "triage": {
+   "score": 1.0,
+   "reason": "Priced 14.8x the median for bone jewelry listings"
+  }
+ },
+ {
+  "listing": {
    "id": "L0249",
    "marketplace": "ebay",
    "seller_id": "S0199",
@@ -802,6 +1147,45 @@
   "triage": {
    "score": 0.95,
    "reason": "Priced 9.5x the median for bone netsuke listings; 2 linked sellers"
+  }
+ },
+ {
+  "listing": {
+   "id": "L0331",
+   "marketplace": "reconstructed",
+   "seller_id": "S0222",
+   "title": "Bone netsuke, cooper making a tub, Meiji period, signed",
+   "description": "Craftsman seated on a round mat fitting hoops to a small tub, his tools beside him. Bone, pale cream, crisp work, signature under the base. Height 3.5 cm, weight 19 g. Kept in a kiri box for many years. Sent by EMS from Osaka with tracking.",
+   "price_usd": 985.0,
+   "category": "Antiques > Asian Antiques > Japan > Netsuke",
+   "stated_material": "bone",
+   "item_type": "netsuke",
+   "size_cm": 3.5,
+   "weight_g": 19.0,
+   "ship_from": "JP",
+   "language": "en",
+   "image_paths": [
+    "images/L0331_0.jpg",
+    "images/L0331_1.jpg",
+    "images/L0331_2.jpg"
+   ],
+   "posted_at": "2026-09-19T01:15:00+00:00",
+   "source_url": null,
+   "is_reconstructed": true,
+   "reconstruction_source": "Reconstructed listing, written by the team after published research (Kent 2021, Tropical Conservation Science)",
+   "status": "active",
+   "relist_of": null
+  },
+  "seller": {
+   "id": "S0222",
+   "name": "seller_ea4354",
+   "location": "Osaka, Japan",
+   "joined": "2020-06-02T00:00:00+00:00",
+   "feedback_score": 2210
+  },
+  "triage": {
+   "score": 0.95,
+   "reason": "Priced 9.5x the median for bone netsuke listings"
   }
  },
  {
