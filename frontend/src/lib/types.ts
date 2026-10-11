@@ -189,13 +189,15 @@ export interface BatchItem {
   triage: { score: number; reason: string } | null;
   outcome: Outcome | null;
   error: string | null;
+  started_at?: string | null; // when the review began
+  phase?: string | null; // "reading" | "examining:<capability>" | "thinking:<agent>" | "closing"
   found_via?: FoundVia | null;
   term?: string | null;
   parent?: string | null;
   follow_up?: FollowUp | null; // on the flagged listing itself: the search for related listings
 }
 export interface BatchStart { batch_id: string; source_mode: "demo" | "live" | "recorded"; items: BatchItem[] }
-export interface BatchEvent { type: "batch.item"; listing_id: string; case_id: string | null; status: BatchStatus; outcome?: Outcome; at: string; found_via?: FoundVia | null; term?: string | null; parent?: string | null; follow_up?: FollowUp | null }
+export interface BatchEvent { type: "batch.item"; listing_id: string; case_id: string | null; status: BatchStatus; outcome?: Outcome; at: string; started_at?: string | null; phase?: string | null; found_via?: FoundVia | null; term?: string | null; parent?: string | null; follow_up?: FollowUp | null }
 
 export type StrikeStatus = "none" | "pending_review" | "approved" | "submitted_simulated" | "observed_removed";
 export interface Strike { status: StrikeStatus; approved_by: string | null; notice_draft: string | null; history: { status: string; at: string; by: string }[] }

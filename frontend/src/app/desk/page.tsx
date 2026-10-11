@@ -7,7 +7,8 @@ import { ListingCard } from "@/components/ListingCard";
 import { DEMO_CASES } from "@/lib/demoCases";
 import { batchEventsUrl, getBatch, getCaseFile, getListing, getHealth, imageUrl, startBatch, getMetrics } from "@/lib/api";
 import { loadListings } from "@/lib/stubs";
-import type { Metrics, BatchEvent, BatchItem, BatchStart, Listing, ListingRow } from "@/lib/types";
+import type { Metrics, BatchEvent, BatchItem, BatchStart, Listing, ListingRow, AgentName, Capability } from "@/lib/types";
+import { AGENTS, CAPABILITY_LABEL } from "@/lib/agents";
 
 // Names match SWEEPS in backend marketplace/live.py: listings by eBay category and price floor, newest first, no keyword.
 const SWEEPS = [
@@ -26,6 +27,16 @@ function markFor(i: BatchItem): Mark | null {
   if (i.outcome === "CONTESTED") return { icon: "split", label: "Decide", tone: "text-amber-ink" };
   if (i.outcome === "WATCHLIST") return { icon: "clock", label: "Watching", tone: "text-cobalt-ink" };
   return { icon: "check", label: "Dismissed", tone: "text-green" };
+}
+function phaseLabel(i: BatchItem): string {
+  const [kind, arg] = (i.phase ?? "").split(":");
+  if (i.status === "deliberating") {
+    if (kind === "examining") return `Specialists: ${(CAPABILITY_LABEL[arg as Capability] ?? arg).toLowerCase()}`;
+    if (kind === "thinking") return `${AGENTS[arg as AgentName]?.label ?? arg} thinking`;
+    if (kind === "closing") return "Reaching a verdict";
+    return "Reading the listing";
+  }
+  return WORKING[i.status] ?? "";
 }
 const WORKING: Partial<Record<BatchItem["status"], string>> = { queued: "Queued", triaging: "Checking", deliberating: "Agents working" };
 // Why a row is on the desk when nobody searched for it, or what a flagged row set in motion.
@@ -108,7 +119,7 @@ export default function Cases() {
       src.addEventListener("batch.item", (m) => {
         const e: BatchEvent = JSON.parse((m as MessageEvent).data);
         setItems((cur) => cur.some((i) => i.listing_id === e.listing_id)
-          ? cur.map((i) => i.listing_id === e.listing_id ? { ...i, status: e.status, case_id: e.case_id, outcome: e.outcome ?? i.outcome, follow_up: e.follow_up ?? i.follow_up } : i)
+          ? cur.map((i) => i.listing_id === e.listing_id ? { ...i, status: e.status, case_id: e.case_id, started_at: e.started_at ?? i.started_at, phase: e.phase ?? i.phase, outcome: e.outcome ?? i.outcome, follow_up: e.follow_up ?? i.follow_up } : i)
           // A listing the batch did not start with: a follow-up fetch added it. Give it a row.
           : [...cur, { listing_id: e.listing_id, case_id: e.case_id, status: e.status, triage: null, outcome: e.outcome ?? null, error: null, found_via: e.found_via ?? null, term: e.term ?? null, parent: e.parent ?? null, follow_up: null }]);
         setNow(Date.now());
@@ -142,7 +153,7 @@ export default function Cases() {
         {note && <span className="block text-sm text-cobalt-ink">{i.found_via && <b className="mr-2 border border-cobalt-ink px-1.5 text-xs uppercase">Added</b>}{note}</span>}</span>
       <span className={`inline-flex items-center justify-end gap-2 text-sm font-semibold ${m?.tone ?? "text-muted"}`}>
         {m ? <><Icon name={m.icon} size={18} />{m.label}</>
-           : <><span className="typing flex gap-1" aria-hidden><span /><span /><span /></span>{WORKING[i.status]}{i.status === "deliberating" && secs > 0 ? ` · ${secs}s` : ""}</>}
+           : <><span className="typing flex gap-1" aria-hidden><span /><span /><span /></span>{phaseLabel(i)}{i.status === "deliberating" && i.started_at ? ` · ${Math.max(0, Math.round((now - Date.parse(i.started_at)) / 1000))}s` : ""}</>}
       </span></>;
     const row = `${m ? "" : "scan "}relative grid min-h-16 grid-cols-[3.5rem_1fr_auto] items-center gap-4 px-3 py-3`;
     return i.case_id

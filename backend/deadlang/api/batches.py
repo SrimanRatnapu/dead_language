@@ -60,6 +60,8 @@ class Batches:
             present.add(spec["listing_id"])
             item = {"listing_id": spec["listing_id"], "case_id": None, "status": "queued", "triage": None,
                     "outcome": None, "error": None,
+                    # started_at: when the review began; phase: what it is doing now ("examining:<capability>", "thinking:<agent>", ...)
+                    "started_at": None, "phase": None,
                     # Follow-up fields. found_via/term/parent: why a follow-up listing is in the batch.
                     # follow_up: on the item that triggered one, {"state": "searching" | "done", "added": n}.
                     "found_via": spec.get("found_via"), "term": spec.get("term"), "parent": spec.get("parent"),
@@ -82,6 +84,7 @@ class Batches:
     def _event(self, batch: dict, item: dict) -> None:
         e = {"type": "batch.item", "listing_id": item["listing_id"], "case_id": item["case_id"],
              "status": item["status"], "at": now_iso()}
+        e.update(started_at=item["started_at"], phase=item["phase"])
         if item["outcome"]:
             e["outcome"] = item["outcome"]
         if item["found_via"]:                     # a follow-up listing: the UI has no row for it yet, so say why it is here
