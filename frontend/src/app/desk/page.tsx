@@ -5,7 +5,8 @@ import { Icon, type IconName } from "@/components/Icon";
 import { Photo } from "@/components/Photo";
 import { ListingCard } from "@/components/ListingCard";
 import { DEMO_CASES } from "@/lib/demoCases";
-import { batchEventsUrl, getBatch, getCaseFile, getListing, getHealth, imageUrl, startBatch, getMetrics } from "@/lib/api";
+import { batchEventsUrl, getBatch, getCaseFile, getListing, getHealth, imageUrl, startBatch, getMetrics, type addToQueue } from "@/lib/api";
+import { AddListing } from "@/components/AddListing";
 import { loadListings } from "@/lib/stubs";
 import type { Metrics, BatchEvent, BatchItem, BatchStart, Listing, ListingRow, AgentName, Capability } from "@/lib/types";
 import { AGENTS, CAPABILITY_LABEL } from "@/lib/agents";
@@ -42,6 +43,12 @@ function phaseLabel(i: BatchItem): string {
 }
 const WORKING: Partial<Record<BatchItem["status"], string>> = { queued: "Queued", triaging: "Checking", deliberating: "Agents working" };
 // Why a row is on the desk when nobody searched for it, or what a flagged row set in motion.
+/** Rows of a polled batch replace the same listings; rows from earlier batches stay, new ones go on top. */
+const merge = (cur: BatchItem[], inc: BatchItem[]) => {
+  const by = new Map(inc.map((i) => [i.listing_id, i]));
+  return [...inc.filter((i) => !cur.some((c) => c.listing_id === i.listing_id)), ...cur.map((c) => by.get(c.listing_id) ?? c)];
+};
+
 function followUpNote(i: BatchItem): string | null {
   if (i.found_via === "seller") return "Seller flagged for related listings";
   if (i.found_via === "keyword") return "Title keywords flagged for related listings";
@@ -100,7 +107,7 @@ export default function Cases() {
     if (!running) return;
     const t = setInterval(() => setNow(Date.now()), 500);
     // The event stream can drop (network blip, dev-server reload); re-read the batch so rows never stay on "Agents working".
-    const p = setInterval(() => { if (batchId.current) getBatch(batchId.current).then((b) => setItems(b.items)).catch(() => {}); }, 4000);
+    const p = setInterval(() => { if (batchId.current) getBatch(batchId.current).then((b) => setItems((cur) => merge(cur, b.items))).catch(() => {}); }, 4000);
     // A finished case file is proof the row is done, whatever the batch stream last said.
     const c = setInterval(() => itemsRef.current.forEach((i) => {
       if (i.case_id && !["done", "error", "screened_out"].includes(i.status))
@@ -109,6 +116,20 @@ export default function Cases() {
     return () => { clearInterval(t); clearInterval(p); clearInterval(c); };
   }, [running]);
 
+  function listen(id: string) {
+    const src = new EventSource(batchEventsUrl(id));
+    es.current = src;
+    src.addEventListener("batch.item", (m) => {
+      const e: BatchEvent = JSON.parse((m as MessageEvent).data);
+      setItems((cur) => cur.some((i) => i.listing_id === e.listing_id)
+        ? cur.map((i) => i.listing_id === e.listing_id ? { ...i, status: e.status, case_id: e.case_id, started_at: e.started_at ?? i.started_at, phase: e.phase ?? i.phase, outcome: e.outcome ?? i.outcome, follow_up: e.follow_up ?? i.follow_up } : i)
+        // A listing the batch did not start with: a follow-up fetch added it. Give it a row.
+        : [...cur, { listing_id: e.listing_id, case_id: e.case_id, status: e.status, triage: null, outcome: e.outcome ?? null, error: null, found_via: e.found_via ?? null, term: e.term ?? null, parent: e.parent ?? null, follow_up: null }]);
+      setNow(Date.now());
+    });
+    src.onerror = () => src.close(); // server ends the stream when every item is finished
+  }
+
   async function run(source: "demo" | "live") {
     setBusy(true); setError(null); es.current?.close();
     try {
@@ -116,20 +137,22 @@ export default function Cases() {
       const label = source === "demo" ? "Demo set" : sweep ? SWEEPS.find((w) => w.key === sweep)!.label : `\u201c${query.trim()}\u201d`;
       setSource(label);
       batchId.current = b.batch_id; sessionStorage.setItem("dl_batch", JSON.stringify({ id: b.batch_id, mode: b.source_mode, startedAt: Date.now(), source: label })); setItems(b.items); setMode(b.source_mode); setStartedAt(Date.now()); setNow(Date.now());
-      const src = new EventSource(batchEventsUrl(b.batch_id));
-      es.current = src;
-      src.addEventListener("batch.item", (m) => {
-        const e: BatchEvent = JSON.parse((m as MessageEvent).data);
-        setItems((cur) => cur.some((i) => i.listing_id === e.listing_id)
-          ? cur.map((i) => i.listing_id === e.listing_id ? { ...i, status: e.status, case_id: e.case_id, started_at: e.started_at ?? i.started_at, phase: e.phase ?? i.phase, outcome: e.outcome ?? i.outcome, follow_up: e.follow_up ?? i.follow_up } : i)
-          // A listing the batch did not start with: a follow-up fetch added it. Give it a row.
-          : [...cur, { listing_id: e.listing_id, case_id: e.case_id, status: e.status, triage: null, outcome: e.outcome ?? null, error: null, found_via: e.found_via ?? null, term: e.term ?? null, parent: e.parent ?? null, follow_up: null }]);
-        setNow(Date.now());
-      });
-      src.onerror = () => src.close(); // server ends the stream when every item is finished
+      listen(b.batch_id);
     } catch (e) {
       setError(source === "live" ? "Live fetch failed. Try again, or check the backend log." : "The review service is offline. Start the backend and try again.");
     } finally { setBusy(false); }
+  }
+
+  // A listing added by hand: it joins the running batch (the open stream delivers its updates) or starts its own.
+  function addedByHand(r: Awaited<ReturnType<typeof addToQueue>>) {
+    setError(null); setNow(Date.now());
+    setItems((cur) => merge(cur, [r.item]));
+    if (r.new_batch) {
+      es.current?.close();
+      batchId.current = r.batch_id; setMode(r.source_mode); setStartedAt(Date.now());
+      sessionStorage.setItem("dl_batch", JSON.stringify({ id: r.batch_id, mode: r.source_mode, startedAt: Date.now(), source: "Added by hand" }));
+      listen(r.batch_id);
+    }
   }
 
   const count = (f: (i: BatchItem) => boolean) => items.filter(f).length;
@@ -174,6 +197,7 @@ export default function Cases() {
             </p>}
           </div>
           <section aria-label="Load listings" className="flex flex-wrap items-end gap-x-4 gap-y-3">
+            <AddListing onAdded={addedByHand} />
             <button onClick={() => run("demo")} disabled={busy || running} className={`${btn} bg-ink text-surface hover:bg-ink-2`}>Run demo set</button>
             <form onSubmit={(e) => { e.preventDefault(); run("live"); }} className="flex flex-wrap items-end gap-3">
               <label className="text-sm text-muted">Fetch live by

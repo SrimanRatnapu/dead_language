@@ -136,3 +136,40 @@ def test_live_batch_reports_fetch_mode(client, monkeypatch):
     r = client.post("/api/batches", json={"source": "live", "query": "x"})
     assert r.status_code == 202 and r.json()["source_mode"] == "recorded"
     assert [i["listing_id"] for i in r.json()["items"]] == [listing.id]
+
+
+def test_added_listing_jumps_the_queue_or_starts_its_own_batch():
+    import asyncio
+    from deadlang.api.batches import Batches
+    from deadlang.marketplace.live import parse_item_ref
+    started: list[str] = []
+
+    async def worker(item, set_status):
+        started.append(item["listing_id"])
+        await asyncio.sleep(0.01)
+        set_status(status="done", outcome="DISMISS")
+
+    async def go():
+        b = Batches(worker, limit=1)
+        first = b.submit("live", ["A", "B", "C"], "live")
+        added = b.add("Z", "live", "live")
+        assert not added["new_batch"] and added["batch_id"] == first["batch_id"]
+        assert not b.add("Z", "live", "live")["new_batch"]       # same listing again: no second review
+        async for _ in b.events(first["batch_id"]):
+            pass
+        idle = b.add("Y", "live", "live")
+        assert idle["new_batch"] and idle["batch_id"] != first["batch_id"]
+        async for _ in b.events(idle["batch_id"]):
+            pass
+
+    asyncio.run(go())
+    assert started == ["A", "Z", "B", "C", "Y"]               # A already held the only slot; Z beat B and C
+    assert [parse_item_ref(r) for r in ("https://www.ebay.com/itm/Old-Netsuke/123456789012?hash=x", "v1|123456789012|0", " 123456789012 ", "LV0342")] \
+        == ["123456789012"] * 3 + [None]
+
+
+def test_queue_add_takes_a_listing_id_and_rejects_junk(client):
+    lid = run_batch(client)[0]["listing_id"]
+    assert client.post("/api/queue/add", json={"ref": "not a listing"}).status_code == 422
+    r = client.post("/api/queue/add", json={"ref": f" {lid} "})
+    assert r.status_code == 202 and r.json()["item"]["listing_id"] == lid and r.json()["new_batch"]

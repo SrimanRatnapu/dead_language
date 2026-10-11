@@ -1,4 +1,4 @@
-import type { BatchStart, ListingChange, MarketStats, Metrics, CaseFile, Event, EvalResults, Listing, ListingRow, Seller } from "./types";
+import type { BatchItem, BatchStart, ListingChange, MarketStats, Metrics, CaseFile, Event, EvalResults, Listing, ListingRow, Seller } from "./types";
 
 export const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8000";
 
@@ -35,3 +35,13 @@ export const getMetrics = () => req<Metrics>("/api/metrics");
 export const getMarket = () => req<MarketStats>("/api/market");
 export const refreshNow = () => post<ListingChange[]>("/api/refresh");
 export const imageUrl = (relPath: string) => `${API_BASE}/api/images/${relPath}`;
+
+/** Review one listing now. Throws the server's message (bad link, not found, eBay unavailable). */
+export async function addToQueue(ref: string): Promise<{ batch_id: string; source_mode: BatchStart["source_mode"]; item: BatchItem; new_batch: boolean }> {
+  const res = await fetch(`${API_BASE}/api/queue/add`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ref }) });
+  if (!res.ok) {
+    const d = (await res.json().catch(() => null))?.detail;
+    throw new Error(typeof d === "string" ? d : "That did not work. Check the backend log.");
+  }
+  return res.json();
+}

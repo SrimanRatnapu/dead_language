@@ -305,6 +305,45 @@ async def _fetch_live(query: str | None, cap: int, sweep: list[tuple[str, int]] 
     return pairs, mode
 
 
+ITEM_REF = re.compile(r"/itm/(?:[^/?#]*/)?(\d{9,15})|v1\|(\d{9,15})\||^(\d{9,15})$")
+
+
+def parse_item_ref(ref: str) -> str | None:
+    """The eBay item number in a pasted link, "v1|123|0" id or bare number; None if it is none of those."""
+    m = ITEM_REF.search(ref.strip())
+    return next((g for g in m.groups() if g), None) if m else None
+
+
+async def fetch_one(ref: str) -> tuple[Listing, Seller]:
+    """One listing by eBay link or item number, stored like any fetched one. A listing fetched before is reused.
+    ValueError: not an eBay reference. LookupError: eBay has nothing usable there (gone, not in USD, untitled).
+    RuntimeError: eBay cannot be reached with the configured keys."""
+    num = parse_item_ref(ref)
+    if num is None:
+        raise ValueError(ref)
+    async with _lock():
+        market = get_marketplace_client()
+        stored = purge_expired(load_records())
+        rec = next((r for r in stored if num in str(r["source_item_id"]).split("|")), None)
+        if rec is None:
+            if not Ebay.configured():
+                raise RuntimeError("eBay is not set up on this server, so only listings already on the desk can be added.")
+            try:
+                ebay = Ebay()
+                loaded = await asyncio.to_thread(_load_item, ebay, f"v1|{num}|0", "")
+            except (Exception, SystemExit) as exc:             # Ebay() exits on a rejected token
+                raise RuntimeError(f"eBay could not be reached ({exc.__class__.__name__}).") from exc
+            if loaded is None:
+                raise LookupError(num)
+            raw, n, bodies = loaded
+            next_number = 1 + max((int(r["listing"]["id"][2:]) for r in stored), default=0)
+            rec = _make_record(f"LV{next_number:04d}", f"v1|{num}|0", raw, n, bodies)
+            _write_records(stored + [rec])
+        listing, seller = Listing.model_validate(rec["listing"]), Seller.model_validate(rec["seller"])
+        await market.add_listing(listing, seller)
+        return listing, seller
+
+
 async def _dataset_item_ids(market) -> "_LegacyIds":
     """eBay item ids of listings already in the stored dataset (read from their listing URLs)."""
     return _LegacyIds({l.source_url.rstrip("/").rsplit("/", 1)[-1].split("?")[0] for l in await market.all_active()

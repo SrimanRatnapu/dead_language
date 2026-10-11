@@ -58,6 +58,10 @@ class BatchRequest(BaseModel):
         return self
 
 
+class AddRequest(BaseModel):
+    ref: str = Field(min_length=1, max_length=500)   # an eBay link or item number, or a listing id already on the desk
+
+
 def demo_listing_ids(data_dir: Path) -> list[str]:
     """data/demo_set.json (Person A, list of {listing_id}) if present, else the four recorded demo cases."""
     path = data_dir / "demo_set.json"
@@ -277,6 +281,24 @@ def create_app(market: Any = None, transport: Any = None, discovery: Any = None,
                 raise HTTPException(404, f"unknown listing {lid}")
         b = batches.submit(req.source, ids, mode)
         return {"batch_id": b["batch_id"], "source_mode": b["source_mode"], "items": b["items"]}
+
+    @app.post("/api/queue/add", status_code=202)
+    async def add_to_queue(req: AddRequest):
+        """Review one listing now: it joins the running batch at the front of the line, or starts a batch of its own."""
+        ref = req.ref.strip()
+        try:
+            listing = await state["market"].get_listing_snapshot(ref)
+        except KeyError:
+            from deadlang.marketplace.live import fetch_one
+            try:
+                listing, _ = await fetch_one(ref)
+            except ValueError:
+                raise HTTPException(422, "Paste an eBay item link, an item number or a listing id.")
+            except LookupError:
+                raise HTTPException(404, "eBay has no usable listing there. It may be gone, not priced in USD, or untitled.")
+            except RuntimeError as exc:
+                raise HTTPException(503, str(exc))
+        return batches.add(listing.id, listing.origin, "live" if listing.origin == "live" else "demo")
 
     @app.get("/api/batches/{batch_id}")
     async def get_batch(batch_id: str):

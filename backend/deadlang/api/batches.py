@@ -11,7 +11,9 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections import deque
 from collections.abc import AsyncIterator, Awaitable, Callable
+from contextlib import asynccontextmanager
 from typing import Any
 
 from deadlang.schemas import now_iso
@@ -26,6 +28,39 @@ ShouldFollow = Callable[[dict[str, Any], dict[str, Any]], bool]
 FollowUp = Callable[[dict[str, Any], dict[str, Any], int], Awaitable[list[dict[str, Any]]]]
 
 
+class _Slots:
+    """Concurrency limit like a semaphore, except a waiter can jump to the front of the line."""
+
+    def __init__(self, n: int):
+        self.free, self.waiters = n, deque()
+
+    @asynccontextmanager
+    async def hold(self, front: bool = False):
+        if self.free > 0 and not self.waiters:
+            self.free -= 1
+        else:
+            fut = asyncio.get_running_loop().create_future()
+            (self.waiters.appendleft if front else self.waiters.append)(fut)
+            try:
+                await fut
+            except asyncio.CancelledError:
+                if fut.done() and not fut.cancelled():
+                    self._release()           # woken and cancelled in the same tick: hand the slot on
+                raise
+        try:
+            yield
+        finally:
+            self._release()
+
+    def _release(self) -> None:
+        while self.waiters:
+            fut = self.waiters.popleft()
+            if not fut.done():
+                fut.set_result(None)
+                return
+        self.free += 1
+
+
 class Batches:
     def __init__(self, worker: Worker, limit: int = 4, on_event: Callable[[str, dict], None] | None = None, first_id: int = 1,
                  should_follow: ShouldFollow | None = None, follow_up: FollowUp | None = None,
@@ -36,7 +71,7 @@ class Batches:
         self.should_follow, self.follow_up = should_follow, follow_up
         self.max_added = max_added     # listings a batch may gain from follow-ups, in total
         self.max_items = max_items     # ceiling on the whole batch, follow-ups included
-        self._sem = asyncio.Semaphore(limit)
+        self._slots = _Slots(limit)
         self._batches: dict[str, dict[str, Any]] = {}
         self._subs: dict[str, list[asyncio.Queue]] = {}
         self._tasks: set[asyncio.Task] = set()   # strong refs so running items are not garbage collected
@@ -50,8 +85,20 @@ class Batches:
         self._maybe_finish(batch)                 # an empty batch is finished at once
         return self.view(bid)
 
-    def _enqueue(self, batch: dict, specs: list[dict[str, Any]]) -> int:
-        """Append items (skipping listings already in the batch) and start them. Returns how many were added."""
+    def add(self, listing_id: str, source: str, source_mode: str) -> dict[str, Any]:
+        """Review one listing now. A batch that is still running takes it at the front of the line; otherwise it
+        becomes a batch of its own. Returns {batch_id, source_mode, item, new_batch}."""
+        batch = next((b for b in reversed(self._batches.values()) if not b["_finished"]), None)
+        if batch is None:
+            b = self.submit(source, [listing_id], source_mode)
+            return {"batch_id": b["batch_id"], "source_mode": b["source_mode"], "item": b["items"][0], "new_batch": True}
+        self._enqueue(batch, [{"listing_id": listing_id}], front=True)    # already in the batch: nothing is added
+        item = next(i for i in batch["items"] if i["listing_id"] == listing_id)
+        return {"batch_id": batch["batch_id"], "source_mode": batch["source_mode"], "item": dict(item), "new_batch": False}
+
+    def _enqueue(self, batch: dict, specs: list[dict[str, Any]], front: bool = False) -> int:
+        """Append items (skipping listings already in the batch) and start them; `front` puts them ahead of anything
+        still waiting for a review slot. Returns how many were added."""
         present = {i["listing_id"] for i in batch["items"]}
         added = 0
         for spec in specs:
@@ -70,7 +117,7 @@ class Batches:
             batch["_running"] += 1                # counted before the task starts, so the batch cannot finish early
             added += 1
             self._event(batch, item)
-            task = asyncio.create_task(self._run(batch, item))
+            task = asyncio.create_task(self._run(batch, item, front))
             self._tasks.add(task)
             task.add_done_callback(self._tasks.discard)
         return added
@@ -108,9 +155,9 @@ class Batches:
             for q in self._subs.get(batch["batch_id"], []):
                 q.put_nowait(None)
 
-    async def _run(self, batch: dict, item: dict) -> None:
+    async def _run(self, batch: dict, item: dict, front: bool = False) -> None:
         try:
-            async with self._sem:
+            async with self._slots.hold(front):
                 try:
                     await self.worker(item, lambda **f: self._update(batch, item, **f))
                 except Exception as exc:   # one bad item never fails the batch
