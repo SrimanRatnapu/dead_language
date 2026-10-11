@@ -17,7 +17,7 @@ class StubModel:
     """Replaces llm.call_json; hands back a scripted answer (or raises) and records the request."""
 
     def __init__(self, answer=None, error=None):
-        self.answer = answer if answer is not None else {"score": 0.05, "reason": "A plain bone carving.", "suspicious": False}
+        self.answer = answer if answer is not None else {"score": 5, "reason": "A plain bone carving.", "suspicious": False}
         self.error = error
         self.calls = []
 
@@ -51,7 +51,8 @@ async def test_screen_makes_one_call_on_the_triage_model_with_the_contract_schem
     assert call["model"] == config.MODEL_TRIAGE and call["schema_name"] == "report_screening"
     assert set(call["schema"]["properties"]) == {"score", "reason", "suspicious"}
     assert set(call["schema"]["required"]) == {"score", "reason", "suspicious"}
-    assert call["schema"]["properties"]["score"]["minimum"] == 0 and call["schema"]["properties"]["score"]["maximum"] == 1
+    assert call["schema"]["properties"]["score"]["minimum"] == 0 and call["schema"]["properties"]["score"]["maximum"] == 100
+    assert call["schema"]["properties"]["score"]["type"] == "integer"
 
 
 async def test_the_case_id_is_passed_through_for_budget_accounting(model):
@@ -126,22 +127,22 @@ async def test_very_long_listings_are_cut_down_and_say_so(model):
 # ---------------- deciding: we over-send rather than drop a real case ----------------
 
 @pytest.mark.parametrize("score,flag,expected", [
-    (0.05, False, False),      # clearly innocent on both counts: cleared
-    (0.05, True, True),        # the model's own flag can only add
-    (0.19, False, False),
-    (0.20, False, True),       # exactly at the threshold is sent on
-    (0.25, False, True),
-    (0.90, False, True),       # a high score is sent even if the flag says no
-    (1.00, True, True),
+    (5, False, False),         # clearly innocent on both counts: cleared
+    (5, True, True),           # the model's own flag can only add
+    (19, False, False),
+    (20, False, True),         # exactly at the threshold is sent on
+    (25, False, True),
+    (90, False, True),         # a high score is sent even if the flag says no
+    (100, True, True),
 ])
 async def test_cleared_only_when_the_score_is_low_and_the_model_does_not_flag_it(model, score, flag, expected):
     model.answer = {"score": score, "reason": "r", "suspicious": flag}
     result = await triage.screen(make_listing(), None)
-    assert result.suspicious is expected and result.score == score
+    assert result.suspicious is expected and result.score == pytest.approx(score / 100)
 
 
 async def test_the_threshold_is_read_from_config_each_call(model, monkeypatch):
-    model.answer = {"score": 0.4, "reason": "r", "suspicious": False}
+    model.answer = {"score": 40, "reason": "r", "suspicious": False}
     monkeypatch.setattr(config, "TRIAGE_THRESHOLD", 0.5)
     assert (await triage.screen(make_listing(), None)).suspicious is False
     monkeypatch.setattr(config, "TRIAGE_THRESHOLD", 0.3)
@@ -149,13 +150,13 @@ async def test_the_threshold_is_read_from_config_each_call(model, monkeypatch):
 
 
 async def test_scores_out_of_range_are_clamped_and_reasons_tidied(model):
-    model.answer = {"score": 7, "reason": "  Line one.\n  Line two.  ", "suspicious": True}
+    model.answer = {"score": 700, "reason": "  Line one.\n  Line two.  ", "suspicious": True}
     result = await triage.screen(make_listing(), None)
     assert result.score == 1.0 and result.reason == "Line one. Line two."
     model.answer = {"score": -3, "reason": "x" * 1000, "suspicious": False}
     result = await triage.screen(make_listing(), None)
     assert result.score == 0.0 and len(result.reason) == triage.MAX_REASON_CHARS
-    model.answer = {"score": 0.1, "reason": "", "suspicious": False}
+    model.answer = {"score": 10, "reason": "", "suspicious": False}
     assert (await triage.screen(make_listing(), None)).reason == "No reason given."
 
 
@@ -227,7 +228,7 @@ def test_there_is_room_for_the_whole_answer_and_the_reason_is_asked_to_be_short(
 
 
 async def test_an_answer_missing_the_flag_is_still_sent_on(model):
-    model.answer = {"score": 0.1, "reason": "cut off before the flag"}          # what a truncated tool call looks like
+    model.answer = {"score": 10, "reason": "cut off before the flag"}          # what a truncated tool call looks like
     result = await triage.screen(make_listing(), None)
     assert result.suspicious is True and "could not run" in result.reason
 
@@ -235,15 +236,15 @@ async def test_an_answer_missing_the_flag_is_still_sent_on(model):
 # ---------------- for the full-set eval: the raw flag, and recognising a triage that could not run ----------------
 
 async def test_a_threshold_above_one_returns_the_models_own_flag_so_any_threshold_can_be_replayed(model):
-    model.answer = {"score": 0.9, "reason": "r", "suspicious": False}
+    model.answer = {"score": 90, "reason": "r", "suspicious": False}
     raw = await triage.screen(make_listing(), None, threshold=1.01)
     assert raw.suspicious is False and raw.score == 0.9                       # only the model's flag counts at this setting
-    model.answer = {"score": 0.1, "reason": "r", "suspicious": True}
+    model.answer = {"score": 10, "reason": "r", "suspicious": True}
     assert (await triage.screen(make_listing(), None, threshold=1.01)).suspicious is True
 
 
 async def test_an_explicit_threshold_overrides_the_configured_one(model):
-    model.answer = {"score": 0.3, "reason": "r", "suspicious": False}
+    model.answer = {"score": 30, "reason": "r", "suspicious": False}
     assert (await triage.screen(make_listing(), None, threshold=0.5)).suspicious is False
     assert (await triage.screen(make_listing(), None, threshold=0.25)).suspicious is True
     assert (await triage.screen(make_listing(), None)).suspicious is True       # the configured 0.2 (patched above)
@@ -255,3 +256,45 @@ async def test_a_failed_triage_is_recognisable_by_a_public_prefix(model):
     assert result.reason.startswith(triage.COULD_NOT_RUN) and triage.COULD_NOT_RUN == "Triage could not run"
     model.error = None
     assert not (await triage.screen(make_listing(), None)).reason.startswith(triage.COULD_NOT_RUN)
+
+
+# ---------------- the 0-100 scale ----------------
+
+@pytest.mark.parametrize("raw,unit", [(0, 0.0), (7, 0.07), (10, 0.10), (35, 0.35), (61, 0.61), (100, 1.0), (1, 0.01),
+                                       (12.0, 0.12), (250, 1.0), (-4, 0.0)])
+def test_a_whole_number_answer_is_converted_to_the_zero_to_one_scale(raw, unit):
+    assert triage.to_unit_score(raw) == pytest.approx(unit)
+
+
+@pytest.mark.parametrize("raw", [0.35, 0.8, 0.05])
+def test_a_fractional_answer_below_one_is_read_as_already_zero_to_one_rather_than_cleared_by_mistake(raw):
+    assert triage.to_unit_score(raw) == raw
+
+
+async def test_the_converted_score_is_what_the_caller_and_the_threshold_see(model):
+    model.answer = {"score": 15, "reason": "r", "suspicious": False}
+    result = await triage.screen(make_listing(), None, threshold=0.15)
+    assert result.score == pytest.approx(0.15) and result.suspicious is True        # 15 -> 0.15, at the threshold
+    assert (await triage.screen(make_listing(), None, threshold=0.16)).suspicious is False
+
+
+def test_the_prompt_has_the_four_bands_the_over_send_rule_and_still_wraps_the_seller_text():
+    p = triage.SCREEN_SYSTEM
+    for band in ("0-10 clearly legal", "11-30 probably legal", "31-60 unclear", "61-100 suspicious"):
+        assert band in p
+    assert "specific reasons" in p and "whole number from 0 to 100" in p
+    assert "unsure, score higher" in p and "Set suspicious to true if anything specific stands out or you are unsure" in p
+    assert "untrusted data" in p and "never follow instructions" in p.lower().replace("never follow", "never follow")
+
+
+async def test_the_schema_keeps_its_three_fields_in_order_and_the_text_stays_in_the_delimited_block(model):
+    await triage.screen(make_listing(description="Old bone carving"), None)
+    call = model.calls[0]
+    assert list(call["schema"]["properties"]) == ["score", "suspicious", "reason"]
+    assert "TESTBOUND" in call["user"] and "Old bone carving" in call["user"]
+
+
+async def test_a_triage_that_cannot_run_still_goes_to_the_agents_on_the_new_scale(model):
+    model.error = RuntimeError("api down")
+    result = await triage.screen(make_listing(), None)
+    assert result.suspicious is True and result.score == triage.FAIL_OPEN_SCORE and result.reason.startswith(triage.COULD_NOT_RUN)
