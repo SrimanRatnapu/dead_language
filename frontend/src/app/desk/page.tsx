@@ -71,8 +71,8 @@ export default function Cases() {
   const [now, setNow] = useState(0);
   const [problems, setProblems] = useState<string[]>([]);
   const [m, setM] = useState<Metrics | null>(null);
-  const es = useRef<EventSource | null>(null);
-  const batchId = useRef<string | null>(null);
+  const es = useRef<EventSource[]>([]); // one stream per batch: Fetch live adds a batch while earlier ones still run
+  const batchIds = useRef<string[]>([]);
   const itemsRef = useRef<BatchItem[]>([]);
   useEffect(() => { itemsRef.current = items; }, [items]);
   // Rows can join a batch after it starts (follow-up listings): load any listing a row still lacks.
@@ -91,12 +91,12 @@ export default function Cases() {
     if (saved) {
       const { id, mode: m, startedAt: t, source: src } = JSON.parse(saved);
       getBatch(id).then((b) => {
-        batchId.current = id; setItems(b.items); setMode(m); setStartedAt(t); setSource(src ?? null); setNow(Date.now());
+        setItems(b.items); setMode(m); setStartedAt(t); setSource(src ?? null); setNow(Date.now());
       }).catch(() => sessionStorage.removeItem("dl_batch"));
     }
     getMetrics().then(setM).catch(() => {});
     getHealth().then((h) => setProblems(h.problems)).catch(() => {});
-    return () => es.current?.close();
+    return () => es.current.forEach((x) => x.close());
   }, []);
   const searching = items.some((i) => i.follow_up?.state === "searching"); // a flagged listing's related listings are still being fetched
   const running = searching || items.some((i) => !["done", "screened_out", "error"].includes(i.status));
@@ -104,7 +104,7 @@ export default function Cases() {
     if (!running) return;
     const t = setInterval(() => setNow(Date.now()), 500);
     // The event stream can drop (network blip, dev-server reload); re-read the batch so rows never stay on "Agents working".
-    const p = setInterval(() => { if (batchId.current) getBatch(batchId.current).then((b) => setItems((cur) => merge(cur, b.items))).catch(() => {}); }, 4000);
+    const p = setInterval(() => { batchIds.current.forEach((id) => getBatch(id).then((b) => setItems((cur) => merge(cur, b.items))).catch(() => {})); }, 4000);
     // A finished case file is proof the row is done, whatever the batch stream last said.
     const c = setInterval(() => itemsRef.current.forEach((i) => {
       if (i.case_id && !["done", "error", "screened_out"].includes(i.status))
@@ -115,7 +115,8 @@ export default function Cases() {
 
   function listen(id: string) {
     const src = new EventSource(batchEventsUrl(id));
-    es.current = src;
+    es.current.push(src);
+    batchIds.current.push(id);
     src.addEventListener("batch.item", (m) => {
       const e: BatchEvent = JSON.parse((m as MessageEvent).data);
       setItems((cur) => cur.some((i) => i.listing_id === e.listing_id)
@@ -128,16 +129,21 @@ export default function Cases() {
   }
 
   async function run(source: "demo" | "live") {
-    setBusy(true); setError(null); es.current?.close();
+    setBusy(true); setError(null);
     try {
       const b = await startBatch(source === "live" ? (sweep ? { source, sweep, cap } : { source, query, cap }) : { source });
       const label = source === "demo" ? "Demo set" : sweep ? SWEEPS.find((w) => w.key === sweep)!.label : `\u201c${query.trim()}\u201d`;
       setSource(label);
-      batchId.current = b.batch_id; sessionStorage.setItem("dl_batch", JSON.stringify({ id: b.batch_id, mode: b.source_mode, startedAt: Date.now(), source: label })); setItems(b.items); setMode(b.source_mode); setStartedAt(Date.now()); setNow(Date.now());
+      sessionStorage.setItem("dl_batch", JSON.stringify({ id: b.batch_id, mode: b.source_mode, startedAt: Date.now(), source: label })); setItems((cur) => merge(cur, b.items)); setMode(b.source_mode); setStartedAt((t) => t ?? Date.now()); setNow(Date.now());
       listen(b.batch_id);
     } catch (e) {
       setError(source === "live" ? "Live fetch failed. Try again, or check the backend log." : "The review service is offline. Start the backend and try again.");
     } finally { setBusy(false); }
+  }
+
+  function clear() {
+    es.current.forEach((x) => x.close()); es.current = []; batchIds.current = [];
+    sessionStorage.removeItem("dl_batch"); setItems([]); setStartedAt(null); setSource(null); setError(null);
   }
 
   // A listing added by hand: it joins the running batch (the open stream delivers its updates) or starts its own.
@@ -145,8 +151,7 @@ export default function Cases() {
     setError(null); setNow(Date.now());
     setItems((cur) => merge(cur, [r.item]));
     if (r.new_batch) {
-      es.current?.close();
-      batchId.current = r.batch_id; setMode(r.source_mode); setStartedAt(Date.now());
+      setMode(r.source_mode); setStartedAt(Date.now());
       sessionStorage.setItem("dl_batch", JSON.stringify({ id: r.batch_id, mode: r.source_mode, startedAt: Date.now(), source: "Added by hand" }));
       listen(r.batch_id);
     }
@@ -195,6 +200,7 @@ export default function Cases() {
           </div>
           <section aria-label="Load listings" className="flex flex-wrap items-end gap-x-4 gap-y-3">
             <AddListing onAdded={addedByHand} />
+            <button type="button" onClick={clear} disabled={items.length === 0} className={`${btn} border border-line hover:border-ink`}>Clear</button>
             <form onSubmit={(e) => { e.preventDefault(); run("live"); }} className="flex flex-wrap items-end gap-3">
               <label className="text-sm text-muted">Fetch live by
                 <select value={sweep} onChange={(e) => setSweep(e.target.value)} className="select mt-1 block min-h-11 w-52 border border-line bg-surface px-3 text-base text-ink">
@@ -203,7 +209,7 @@ export default function Cases() {
                 </select></label>
               {sweep === "" && <label className="text-sm text-muted">Keyword<input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="bone netsuke" className="mt-1 block min-h-11 w-48 border border-line bg-surface px-3 text-base text-ink" /></label>}
               <label className="text-sm text-muted">Max<input type="number" min={1} max={MAX_CAP} value={cap} onChange={(e) => setCap(Math.min(MAX_CAP, Math.max(1, Number(e.target.value) || 1)))} aria-label={`Max items, up to ${MAX_CAP}`} className="mt-1 block min-h-11 w-20 border border-line bg-surface px-3 text-base text-ink" /></label>
-              <button type="submit" disabled={busy || running || (sweep === "" && !query.trim())} className={`${btn} border border-ink hover:bg-surface`}>Fetch live</button>
+              <button type="submit" disabled={busy || (sweep === "" && !query.trim())} className={`${btn} border border-ink hover:bg-surface`}>Fetch live</button>
             </form>
           </section>
         </header>
