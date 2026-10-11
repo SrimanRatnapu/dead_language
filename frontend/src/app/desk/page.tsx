@@ -174,18 +174,18 @@ export default function Cases() {
   const Row = ({ i }: { i: BatchItem }) => {
     const l = listings[i.listing_id]; const m = markFor(i); const note = followUpNote(i);
     const body = <>
-      <Photo src={imageUrl(l?.image_paths[0] ?? "")} label={l?.title ?? i.listing_id} className="aspect-[4/3] w-full" />
-      <span className="mt-3 line-clamp-2 block font-semibold leading-snug">{l?.title ?? i.listing_id}</span>
-      {l && <span className="mt-1 block text-lg font-semibold tracking-tight text-cobalt-ink">{`$${l.price_usd.toLocaleString()}`}</span>}
-      <span className={`mt-1 inline-flex items-center gap-2 text-sm font-semibold ${m?.tone ?? "text-muted"}`}>
+      <Photo src={imageUrl(l?.image_paths[0] ?? "")} label={l?.title ?? i.listing_id} className="size-14 w-full" />
+      <span className="min-w-0"><span className="block line-clamp-2 font-semibold">{l?.title ?? i.listing_id}</span>
+        <span className="block text-sm text-muted">{l ? `$${l.price_usd.toLocaleString()} · ` : ""}{l?.origin === "live" || i.found_via ? "Live listing" : "Demo listing"}</span>
+        {note && <span className="block text-sm text-cobalt-ink">{note}</span>}</span>
+      <span className={`inline-flex items-center justify-end gap-2 text-sm font-semibold ${m?.tone ?? "text-muted"}`}>
         {m ? <><Icon name={m.icon} size={18} />{m.label}</>
            : <><span className="typing flex gap-1" aria-hidden><span /><span /><span /></span>{phaseLabel(i)}{i.status === "deliberating" && i.started_at ? ` · ${Math.max(0, Math.round((now - Date.parse(i.started_at)) / 1000))}s` : ""}</>}
-      </span>
-      {note && <span className="block text-sm text-cobalt-ink">{note}</span>}</>;
-    const card = `${m ? "" : "scan "}relative block min-w-0`;
+      </span></>;
+    const row = `${m ? "" : "scan "}relative grid min-h-16 grid-cols-[3.5rem_1fr_auto] items-center gap-4 px-3 py-3`;
     return i.case_id
-      ? <Link href={`/case/${i.case_id}?stage=agents`} className={`press group ${card}`}>{body}</Link>
-      : <div className={card}>{body}</div>;
+      ? <Link href={`/case/${i.case_id}?stage=agents`} className={`press ${row} hover:bg-surface`}>{body}</Link>
+      : <div className={row}>{body}</div>;
   };
 
   return (
@@ -228,7 +228,7 @@ export default function Cases() {
                 <h2 id={`g-${g.key}`} className="serif text-xl">{g.title}</h2>
                 <span className="serial">{rows.length}</span>
               </div>
-              <ul className="mt-5 grid gap-x-5 gap-y-9 sm:grid-cols-2 lg:grid-cols-4">{rows.map((i, n) => <li key={i.listing_id} className="rise" style={{ animationDelay: `${Math.min(n, 8) * 40}ms` }}>{Row({ i })}</li>)}</ul>
+              <ul className="-mx-3 divide-y divide-line">{rows.map((i, n) => <li key={i.listing_id} className="rise" style={{ animationDelay: `${Math.min(n, 8) * 40}ms` }}>{Row({ i })}</li>)}</ul>
             </section>
           );
         })}
