@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { Icon, type IconName } from "@/components/Icon";
 import { Photo } from "@/components/Photo";
 import { batchEventsUrl, getBatch, getCaseFile, getListing, getHealth, imageUrl, startBatch, getMetrics, type addToQueue } from "@/lib/api";
+import { ListingCard } from "@/components/ListingCard";
+import { loadListings } from "@/lib/stubs";
 import { AddListing } from "@/components/AddListing";
 import type { Metrics, BatchEvent, BatchItem, BatchStart, Listing, ListingRow, AgentName, Capability } from "@/lib/types";
 import { AGENTS, CAPABILITY_LABEL } from "@/lib/agents";
@@ -58,6 +60,8 @@ function followUpNote(i: BatchItem): string | null {
 }
 
 export default function Cases() {
+  const [shown, setShown] = useState(24);
+  const [rows, setRows] = useState<ListingRow[] | null>(null);
   const [items, setItems] = useState<BatchItem[]>([]);
   const [mode, setMode] = useState<BatchStart["source_mode"] | null>(null);
   const [listings, setListings] = useState<Record<string, Listing>>({});
@@ -94,6 +98,7 @@ export default function Cases() {
         setItems(b.items); setMode(m); setStartedAt(t); setSource(src ?? null); setNow(Date.now());
       }).catch(() => sessionStorage.removeItem("dl_batch"));
     }
+    loadListings().then(({ data }) => { setRows(data); setListings((l) => ({ ...Object.fromEntries(data.map((x) => [x.listing.id, x.listing])), ...l })); }).catch(() => setRows([]));
     getMetrics().then(setM).catch(() => {});
     getHealth().then((h) => setProblems(h.problems)).catch(() => {});
     return () => es.current.forEach((x) => x.close());
@@ -232,6 +237,13 @@ export default function Cases() {
             </section>
           );
         })}
+        <section aria-labelledby="all" className="mt-12">
+          <h2 id="all" className="serif border-b border-ink pb-1.5 text-xl">All listings{rows ? ` (${rows.length})` : ""}</h2>
+          {rows === null ? <p className="mt-6 text-muted">Loading listings…</p>
+            : rows.length === 0 ? <p className="mt-6 text-muted">No listings found.</p>
+            : <div className="mt-5 grid gap-x-5 gap-y-9 sm:grid-cols-2 lg:grid-cols-4">{rows.slice(0, shown).map((row) => <ListingCard key={row.listing.id} row={row} />)}</div>}
+          {rows && rows.length > shown && <button onClick={() => setShown((n) => n + 48)} className="press mt-8 min-h-11 border border-ink px-4 py-2.5 font-semibold hover:bg-surface">Show more ({rows.length - shown} left)</button>}
+        </section>
       </div>
     </main>
   );
