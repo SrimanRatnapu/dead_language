@@ -48,6 +48,7 @@ export function Seats({ state }: { state: CaseState }) {
               <div className="min-w-0"><p className={`truncate font-semibold leading-tight ${a.text}`}>{a.label}</p>
               <div className="mt-0.5 flex min-h-6 flex-wrap items-center gap-x-2">
                 {busy ? <span className="typing flex gap-1 text-muted" role="status" aria-label={`${a.label} is thinking`}><span /><span /><span /></span>
+                  : now?.abstained ? <span className="text-muted">sat out</span>
                   : now ? <><StancePill stance={now.stance} /><span className="mono text-muted">{Math.round(now.confidence * 100)}%</span></>
                   : <span className="text-muted">listening</span>}
               </div></div></div>

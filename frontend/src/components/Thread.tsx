@@ -108,9 +108,10 @@ function Message({ post, prev, wake, state, onOpen }: { post: StancePost; prev: 
       <WakeLine wake={wake} />
       <header className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
         <span className={`text-sm font-semibold ${a.text}`}>{a.label}</span>
+        {post.abstained ? <span className="rounded-full bg-sunken px-2 py-0.5 text-base font-semibold text-muted">Sat out</span> : <>
         {prev && prev !== post.stance && <><StancePill stance={prev} className="opacity-60" /><span className="text-muted" aria-label="changed to">→</span></>}
         <StancePill stance={post.stance} />
-        <span className="mono text-muted">{Math.round(post.confidence * 100)}%</span>
+        <span className="mono text-muted">{Math.round(post.confidence * 100)}%</span></>}
         {post.ready_to_close && <span className="mono text-muted">· ready to close</span>}
       </header>
       {post.changed_because && <p className="mt-2.5 border-l-2 border-amber bg-amber-tint px-3 py-2 text-base leading-snug"><span className="font-semibold">Changed my mind: </span>{post.changed_because}</p>}

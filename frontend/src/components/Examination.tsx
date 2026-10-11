@@ -31,7 +31,7 @@ export function Examination({ state, ready, onSend, onOpen }: { state: CaseState
             <div className="min-w-0">
               <p className="font-semibold">{CAPABILITY_LABEL[cap]}</p>
               {ev ? <button onClick={() => onOpen(ev.id)} className="press rise mt-1 text-left text-muted [text-wrap:pretty] hover:text-ink">{ev.summary}</button>
-                : fail ? <p className="mt-1 text-red">{prettyName(fail.specialist_name)} did not answer{fail.fallback ? `. Trying ${prettyName(fail.fallback)}.` : ""}</p>
+                : fail ? <p className="mt-1 text-red">{prettyName(fail.specialist_name)} did not answer{fail.error === "budget" ? " (token cap reached)" : ""}{fail.fallback ? `. Trying ${prettyName(fail.fallback)}.` : ""}</p>
                 : <p className="mt-1 text-muted">Working on it…</p>}
             </div>
             <div className="pt-0.5 text-right">

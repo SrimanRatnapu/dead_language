@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { RatioPlot, type SignalData } from "@/components/RatioPlot";
 import { getMetrics } from "@/lib/api";
 import { loadEval } from "@/lib/stubs";
 import type { Condition, EvalResults, Metrics } from "@/lib/types";
@@ -66,6 +67,26 @@ function Runs() {
   );
 }
 
+function Signals() {
+  const [d, setD] = useState<SignalData | null>(null);
+  useEffect(() => { fetch("/stub/signals.json").then((r) => (r.ok ? r.json() : null)).then(setD).catch(() => setD(null)); }, []);
+  if (!d) return <p className="text-muted">Loading…</p>;
+  const { price: p, links: l } = d;
+  return (
+    <div className="flex flex-col gap-6">
+      <div>
+        <h3 className="font-semibold">Price alone is not enough</h3>
+        <p className="mb-3 text-muted">Each dot is a listing, plotted by its price against the median for the same stated material. {p.planted_flagged} of {p.planted_total} reconstructed trafficking cases sit at {p.flag_at}× or more, but so do {p.real_flagged} of {p.real_total} real listings. A price-only rule would file all of them, so the other agents exist to separate them.</p>
+        <RatioPlot price={p} />
+      </div>
+      <div>
+        <h3 className="font-semibold">Shared wording and photos link sellers</h3>
+        <p className="text-muted">All {l.network_linked} of {l.network_total} listings in the designed network link to the other sellers. Only {l.real_linked} of {l.real_total} real listings link to another seller this way, so a hit means something.</p>
+      </div>
+    </div>
+  );
+}
+
 function Section({ title, sub, children }: { title: string; sub: string; children: React.ReactNode }) {
   return <section className="border-t border-ink pt-4"><h2 className="serif text-2xl">{title}</h2><p className="mb-4 text-sm text-muted">{sub}</p>{children}</section>;
 }
@@ -81,6 +102,7 @@ export default function ResultsPage() {
           <p className="mt-2 text-muted">Two questions: is the three-agent review more accurate than simpler setups, and what has this server actually run?</p>
         </header>
         <Section title="Accuracy" sub="Same labeled listings, three ways of reviewing them. Positive cases are reconstructed, so read the pattern, not the decimals."><Accuracy r={results} /></Section>
+        <Section title="Signals" sub="What the helpers compute from the listings, with no model involved."><Signals /></Section>
         <Section title="Runs on this server" sub="Measured live from every case run here."><Runs /></Section>
       </div>
     </main>

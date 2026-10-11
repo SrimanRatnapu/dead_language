@@ -86,6 +86,7 @@ export interface StancePost {
   round: number;
   stance: Stance;
   confidence: number;
+  abstained?: boolean;
   claims: Claim[];
   rebuttal: Rebuttal | null;
   requests: SpecialistRequest[];
