@@ -1,4 +1,4 @@
-import type { BatchStart, ListingChange, MarketStats, Metrics, Strike, CaseFile, Event, EvalResults, Listing, ListingRow, Seller } from "./types";
+import type { BatchStart, ListingChange, MarketStats, Metrics, CaseFile, Event, EvalResults, Listing, ListingRow, Seller } from "./types";
 
 export const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8000";
 
@@ -34,7 +34,4 @@ export const getHealth = () => req<{ transport: string; problems: string[] }>("/
 export const getMetrics = () => req<Metrics>("/api/metrics");
 export const getMarket = () => req<MarketStats>("/api/market");
 export const refreshNow = () => post<ListingChange[]>("/api/refresh");
-export const getStrike = (caseId: string) => req<Strike>(`/api/cases/${caseId}/strike`);
-export const postStrike = (caseId: string, action: "approve" | "submit", by: string) =>
-  post<Strike>(`/api/cases/${caseId}/strike`, { action, by });
 export const imageUrl = (relPath: string) => `${API_BASE}/api/images/${relPath}`;

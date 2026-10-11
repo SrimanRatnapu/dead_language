@@ -90,24 +90,12 @@ def run_batch(client):
     return client.get(f"/api/batches/{b['batch_id']}").json()["items"]
 
 
-def test_file_case_cannot_be_struck_without_a_named_approver(client):
-    cid = run_batch(client)[0]["case_id"]
-    url = f"/api/cases/{cid}/strike"
-    assert client.get(url).json()["status"] == "pending_review"
-    assert client.post(url, json={"action": "submit", "by": "ana"}).status_code == 409   # not approved yet
-    assert client.post(url, json={"action": "approve", "by": "  "}).status_code == 409   # unnamed
-    assert client.post(url, json={"action": "approve", "by": "ana"}).json()["approved_by"] == "ana"
-    done = client.post(url, json={"action": "submit", "by": "ana"}).json()
-    assert done["status"] == "submitted_simulated" and done["notice_draft"].startswith("Possible elephant ivory")
-    assert client.post(url, json={"action": "submit", "by": "ana"}).status_code == 409   # no double submit
-
-
 def test_metrics_are_zero_before_runs_then_measured(client):
     m = client.get("/api/metrics").json()
-    assert m["funnel"]["ingested"] == 0 and m["cost"]["usd_total"] == 0 and m["strikes"]["pending_review"] == 0
+    assert m["funnel"]["ingested"] == 0 and m["cost"]["usd_total"] == 0
     run_batch(client)
     m = client.get("/api/metrics").json()
-    assert m["funnel"]["ingested"] == 2 and m["funnel"]["FILE"] == 2 and m["strikes"]["pending_review"] == 2
+    assert m["funnel"]["ingested"] == 2 and m["funnel"]["FILE"] == 2
 
 
 def test_spend_cap_stops_new_cases(client, monkeypatch):

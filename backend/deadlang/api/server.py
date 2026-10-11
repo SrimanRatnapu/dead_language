@@ -41,11 +41,6 @@ class NameRequest(BaseModel):
     name: str
 
 
-class StrikeRequest(BaseModel):
-    action: Literal["approve", "submit"]
-    by: str
-
-
 class BatchRequest(BaseModel):
     source: Literal["demo", "live"]
     listing_ids: list[str] | None = None
@@ -300,24 +295,7 @@ def create_app(market: Any = None, transport: Any = None, discovery: Any = None,
 
         return EventSourceResponse(gen())
 
-    # ------------------------------------------------------------------ strikes, metrics, refresh
-    @app.get("/api/cases/{case_id}/strike")
-    async def get_strike(case_id: str):
-        if case_id not in cases:
-            raise HTTPException(404, "unknown case")
-        cf = cases[case_id]["case_file"]
-        return state["runs"].strike(case_id, cf.tip_draft if cf else None)
-
-    @app.post("/api/cases/{case_id}/strike")
-    async def post_strike(case_id: str, req: StrikeRequest):
-        if case_id not in cases:
-            raise HTTPException(404, "unknown case")
-        try:
-            state["runs"].advance_strike(case_id, req.action, req.by)
-        except ValueError as exc:
-            raise HTTPException(409, str(exc))
-        return await get_strike(case_id)
-
+    # ------------------------------------------------------------------ metrics, refresh
     @app.get("/api/metrics")
     async def metrics():
         return state["runs"].metrics()
@@ -335,9 +313,6 @@ def create_app(market: Any = None, transport: Any = None, discovery: Any = None,
         ids = [l.id for l in await state["market"].all_active()]
         changes = await refresh_listings(ids)
         state["runs"].record_changes(changes, len(ids))
-        for c in changes:
-            if c.kind == "removed":
-                state["runs"].observe_removed(c.listing_id)
         return [c.model_dump(mode="json") if hasattr(c, "model_dump") else c for c in changes]
 
     @app.get("/api/cases")

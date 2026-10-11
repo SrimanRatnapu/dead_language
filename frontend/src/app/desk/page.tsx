@@ -23,8 +23,8 @@ function markFor(i: BatchItem): Mark | null {
   if (i.status === "error") return { icon: "system_notice", label: i.error ?? "Error", tone: "text-red" };
   if (i.status === "screened_out") return { icon: "check", label: "Screened out", tone: "text-green" };
   if (i.status !== "done") return null;
-  if (i.outcome === "FILE") return { icon: "flag", label: "Approve or reject", tone: "text-red" };
-  if (i.outcome === "CONTESTED") return { icon: "split", label: "Decide", tone: "text-amber-ink" };
+  if (i.outcome === "FILE") return { icon: "flag", label: "Likely illegal", tone: "text-red" };
+  if (i.outcome === "CONTESTED") return { icon: "split", label: "Contested", tone: "text-amber-ink" };
   if (i.outcome === "WATCHLIST") return { icon: "clock", label: "Watching", tone: "text-cobalt-ink" };
   return { icon: "check", label: "Dismissed", tone: "text-green" };
 }
@@ -137,14 +137,14 @@ export default function Cases() {
   const btn = "press min-h-11 px-4 py-2.5 font-semibold disabled:opacity-40";
   const terminal = (i: BatchItem) => ["done", "screened_out", "error"].includes(i.status);
   const GROUPS: { key: string; title: string; test: (i: BatchItem) => boolean }[] = [
-    { key: "decide", title: "Waiting on you", test: (i) => i.status === "done" && (i.outcome === "FILE" || i.outcome === "CONTESTED") },
+    { key: "file", title: "Likely illegal", test: (i) => i.status === "done" && i.outcome === "FILE" },
+    { key: "contested", title: "Contested", test: (i) => i.status === "done" && i.outcome === "CONTESTED" },
     { key: "working", title: "In review", test: (i) => !terminal(i) },
     { key: "watch", title: "Watchlist", test: (i) => i.status === "done" && i.outcome === "WATCHLIST" },
     { key: "cleared", title: "Cleared", test: (i) => i.status === "screened_out" || (i.status === "done" && i.outcome === "DISMISS") },
     { key: "error", title: "Errors", test: (i) => i.status === "error" },
   ];
-  const waiting = count(GROUPS[0].test);
-  const added = count((i) => !!i.found_via); // follow-up listings the system queued itself
+    const added = count((i) => !!i.found_via); // follow-up listings the system queued itself
 
   const Row = ({ i }: { i: BatchItem }) => {
     const l = listings[i.listing_id]; const m = markFor(i); const note = followUpNote(i);
@@ -169,8 +169,8 @@ export default function Cases() {
         <header className="flex flex-wrap items-end justify-between gap-x-8 gap-y-6 border-b border-ink pb-6">
           <div>
             <h1 className="serif text-4xl leading-none">Review desk</h1>
-            {(items.length === 0 || waiting > 0 || running) && <p className="mt-2 text-muted" aria-live="polite">
-              {items.length === 0 ? "No cases yet. Run the demo set or fetch live listings." : waiting > 0 ? `${waiting} ${waiting === 1 ? "case needs" : "cases need"} your decision.` : "Agents are working."}
+            {(items.length === 0 || running) && <p className="mt-2 text-muted" aria-live="polite">
+              {items.length === 0 ? "No cases yet. Run the demo set or fetch live listings." : "Agents are working."}
             </p>}
           </div>
           <section aria-label="Load listings" className="flex flex-wrap items-end gap-x-4 gap-y-3">

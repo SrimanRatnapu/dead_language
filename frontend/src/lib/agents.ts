@@ -25,9 +25,9 @@ export const CAPABILITY_LABEL: Record<Capability, string> = {
 };
 
 export const OUTCOME_LABEL: Record<Outcome, string> = {
-  FILE: "File it",
+  FILE: "Likely illegal",
   DISMISS: "Dismiss",
-  CONTESTED: "Needs a person",
+  CONTESTED: "Contested",
   WATCHLIST: "Keep watching",
 };
 

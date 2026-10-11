@@ -6,11 +6,11 @@ const STEPS = [
   { title: "Listing", body: "A flagged listing arrives with its photos, seller and price." },
   { title: "Specialists", body: "Price, seller history, linked sellers, photos and law are checked." },
   { title: "Agents", body: "Three agents with opposing goals argue over the same evidence." },
-  { title: "A person", body: "Flagged cases wait for a named reviewer to approve." },
+  { title: "Outcome", body: "Each case ends as likely illegal, contested, watchlist or dismissed." },
 ];
 const OUTCOMES = [
-  { name: "File", tone: "text-red", dots: ["bg-red", "bg-red", "bg-red"], rule: "All three agree it is illegal." },
-  { name: "Contested", tone: "text-amber-ink", dots: ["bg-red", "bg-red", "bg-green"], rule: "They split. A person decides." },
+  { name: "Likely illegal", tone: "text-red", dots: ["bg-red", "bg-red", "bg-red"], rule: "All three agree it is illegal." },
+  { name: "Contested", tone: "text-amber-ink", dots: ["bg-red", "bg-red", "bg-green"], rule: "They split. Both sides are in the case file." },
   { name: "Watchlist", tone: "text-cobalt-ink", dots: ["bg-sunken ring-1 ring-inset ring-muted", "bg-sunken ring-1 ring-inset ring-muted", "bg-sunken ring-1 ring-inset ring-muted"], rule: "Not enough yet. Checked again later." },
   { name: "Dismiss", tone: "text-green", dots: ["bg-green", "bg-green", "bg-green"], rule: "All three agree it looks legal." },
 ];
@@ -25,7 +25,7 @@ export default function Landing() {
             <h1 className="serif text-[clamp(2.5rem,5vw,4.5rem)] leading-[1.02] [text-wrap:balance]">
               Coded ivory listings slip past word filters. <span className="text-cobalt-ink">The price and photos give them away.</span>
             </h1>
-            <p className="max-w-[52ch] text-xl text-muted">Specialists check each flagged listing&apos;s price, seller, photos and wording. Then three AI agents with opposing goals argue over the evidence, citing a source for every claim. A person approves before anything is reported.</p>
+            <p className="max-w-[52ch] text-xl text-muted">Specialists check each flagged listing&apos;s price, seller, photos and wording. Then three AI agents with opposing goals argue over the evidence, citing a source for every claim.</p>
             <Link href="/desk" className="press inline-flex min-h-12 w-fit items-center bg-ink px-7 text-base font-semibold text-bg hover:bg-ink-2">Open the review desk</Link>
           </div>
         </div>

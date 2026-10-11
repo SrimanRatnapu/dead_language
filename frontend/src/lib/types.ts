@@ -199,8 +199,6 @@ export interface BatchItem {
 export interface BatchStart { batch_id: string; source_mode: "demo" | "live" | "recorded"; items: BatchItem[] }
 export interface BatchEvent { type: "batch.item"; listing_id: string; case_id: string | null; status: BatchStatus; outcome?: Outcome; at: string; started_at?: string | null; phase?: string | null; found_via?: FoundVia | null; term?: string | null; parent?: string | null; follow_up?: FollowUp | null }
 
-export type StrikeStatus = "none" | "pending_review" | "approved" | "submitted_simulated" | "observed_removed";
-export interface Strike { status: StrikeStatus; approved_by: string | null; notice_draft: string | null; history: { status: string; at: string; by: string }[] }
 export interface ListingChange { listing_id: string; kind: "price_changed" | "removed" | "relisted"; at: string; old: unknown; new: unknown }
 export type MarketGroup = Record<string, { count: number; median_price_usd: number }>;
 export interface MarketStats { by_marketplace: MarketGroup; by_country: MarketGroup; by_material: MarketGroup }
@@ -212,5 +210,4 @@ export interface Metrics {
   cost: { usd_total: number; usd_per_case: number; tokens_in: number; tokens_out: number };
   by_model: Record<string, { calls: number; tokens_in: number; tokens_out: number; usd: number }>;
   refresh: { last_run_at: string | null; checked: number; changed: number; removed: number };
-  strikes: { pending_review: number; approved: number; submitted_simulated: number; observed_removed: number };
 }

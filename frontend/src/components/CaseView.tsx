@@ -9,7 +9,6 @@ import { EvidenceDrawer } from "./EvidenceDrawer";
 import { Examination } from "./Examination";
 import { Outcome } from "./Outcome";
 import { AgentRail, Standing } from "./Seats";
-import { StrikeReview } from "./StrikeReview";
 import { Thread } from "./Thread";
 
 export type CaseTarget = { kind: "live"; caseId: string } | { kind: "replay"; name: string } | { kind: "fixture" };
@@ -32,7 +31,6 @@ export function CaseView({ target }: { target: CaseTarget }) {
   const go = (k: Stage) => (k === "agents" ? toAgents() : setStage(k));
   // scripts/record_scripted_demo.py stamps its runs with a "DEMO-" case id; recorded live runs are "C-0001".
   const scripted = Object.values(state.evidence)[0]?.case_id.startsWith("DEMO-") ?? false;
-  const flagged = target.kind === "live" && (state.caseFile?.outcome === "FILE" || state.caseFile?.outcome === "CONTESTED");
 
   return (
     <main className="shell-grid flex h-[calc(100dvh-3.5rem)] flex-col overflow-hidden">
@@ -71,7 +69,6 @@ export function CaseView({ target }: { target: CaseTarget }) {
               <section aria-label="Discussion" className="min-h-0">
                 <Thread state={state} onOpen={setOpenEvidence}>
                   <Outcome state={state} onOpenCaseFile={() => setCaseFileOpen(true)} />
-                  {flagged && target.kind === "live" && <StrikeReview caseId={target.caseId} />}
                 </Thread>
               </section>
             </div>

@@ -11,7 +11,7 @@ const mono = Geist_Mono({ variable: "--font-mono", subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: APP_NAME,
-  description: "Three agents review flagged wildlife listings. A person approves anything that is filed.",
+  description: "Three agents review flagged wildlife listings.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
