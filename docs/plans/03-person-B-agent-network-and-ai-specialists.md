@@ -1,6 +1,6 @@
 # Person B — Agent Network (AGNTCY) & AI Specialists Build Plan
 
-> Read `00-dead-language-design-spec.md` and `01-shared-contracts-and-kickoff.md` first. This plan assumes both.
+> Read `00-watchdog-design-spec.md` and `01-shared-contracts-and-kickoff.md` first. This plan assumes both.
 > Steps use `- [ ]` checkboxes. Each task ends with tests passing and a commit prefixed `net:`.
 
 **Goal:** Make every agent a real AGNTCY agent (A2A over SLIM, registered in the AGNTCY Directory, found by capability), own the only path to the Anthropic API (with a hard spend cap), and build the AI specialists (two Material Examiners and the Translator) plus triage scores and the examiner accuracy test.

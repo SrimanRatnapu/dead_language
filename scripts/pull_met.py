@@ -29,7 +29,7 @@ MUSEUM_QUERIES = ["netsuke ivory", "okimono ivory", "netsuke bone", "netsuke woo
                   "carved bone"]
 POOL_QUERIES = [("netsuke ivory", 30), ("okimono", 4), ("ivory bracelet", 12)]   # (query, max objects)
 MATERIAL_WORDS = ("ivory", "bone", "wood", "antler")
-client = httpx.Client(timeout=30, headers={"User-Agent": "dead-language-hackathon/0.1"}, follow_redirects=True)
+client = httpx.Client(timeout=30, headers={"User-Agent": "watchdog-hackathon/0.1"}, follow_redirects=True)
 
 
 def get(url: str, **params) -> httpx.Response | None:

@@ -1,4 +1,4 @@
-# Dead Language — Design Spec
+# Watchdog — Design Spec
 
 UCSC AI Hackathon @ SF Tech Week, Oct 10–11, 2026
 Track: Cloud AI (Cisco Outshift / AGNTCY) — "When AI Agents Disagree", **Level 3: Collective Intelligence**

@@ -1,6 +1,6 @@
 # Person D — Product, UI & Pitch Build Plan
 
-> Read `00-dead-language-design-spec.md` and `01-shared-contracts-and-kickoff.md` first. This plan assumes both.
+> Read `00-watchdog-design-spec.md` and `01-shared-contracts-and-kickoff.md` first. This plan assumes both.
 > Steps use `- [ ]` checkboxes. UI commits are prefixed `ui:`, pitch commits `docs:`.
 
 **Goal:** Own everything the judges see and hear: the web interface (browse listings, watch a case review live or from a replay, results), the story (use cases, value proposition), the deck, the demo script, the Devpost writeup, the architecture diagram, and the backup video.
@@ -119,7 +119,7 @@ One diagram, left to right: **Marketplace (MCP server, recorded real listings)**
 
 **Files:** Create `pitch/deck.pdf` (+ source)
 
-1. **Title:** Dead Language — "Agents that disagree, so honest sellers don't get flagged and real ivory doesn't get missed." Team names.
+1. **Title:** Watchdog — "Agents that disagree, so honest sellers don't get flagged and real ivory doesn't get missed." Team names.
 2. **Problem:** 266,535 wildlife products on 61 marketplaces (Apr 2024–Mar 2026); eBay banned ivory in 2009 yet researchers found ivory sold as "bone" and only 1.3–6.9% removed a month later. Sources in small text.
 3. **Insight:** "A coded listing has two readers." Visual: one listing, the filter sees "bone carving", the buyer sees the $1,450 price and the close-up of the base. "They can hide the word ivory. They can't hide the price."
 4. **How it works:** the architecture diagram, simplified. Three agents, competing goals, neutral specialists, nobody in charge.

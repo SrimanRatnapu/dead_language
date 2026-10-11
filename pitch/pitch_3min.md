@@ -1,4 +1,4 @@
-# Dead Language — 3-minute pitch (draft)
+# Watchdog — 3-minute pitch (draft)
 
 About 440 spoken words, roughly 3:00 at a calm pace. Timings are targets.
 Numbers come from spec §14 sources, `results/examiner_eval.json` and `results/load_test.json`.
@@ -27,7 +27,7 @@ So the signal is always where the buyer can see it. A "bone" carving priced like
 
 ## 1:10 — What we built (switch to the demo)
 
-Dead Language reviews each suspicious listing with three AI agents that want different things, and nobody is in charge.
+Watchdog reviews each suspicious listing with three AI agents that want different things, and nobody is in charge.
 
 - **Undercover** reads the listing like a collector would: what is really being sold?
 - **Counsel** builds the strongest innocent explanation, to protect honest sellers.

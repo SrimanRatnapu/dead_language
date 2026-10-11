@@ -1,4 +1,4 @@
-"""Shared data contract for Dead Language. Change only with team agreement."""
+"""Shared data contract for Watchdog. Change only with team agreement."""
 from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any, Literal, Optional

@@ -100,7 +100,7 @@ def main() -> None:
     from urllib.parse import urlparse
 
     default_port = urlparse(setting("MARKETPLACE_MCP_URL", "http://localhost:8100/mcp")).port or 8100
-    parser = argparse.ArgumentParser(description="Dead Language marketplace MCP server")
+    parser = argparse.ArgumentParser(description="Watchdog marketplace MCP server")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=default_port)
     parser.add_argument("--data-dir", type=Path, default=None)

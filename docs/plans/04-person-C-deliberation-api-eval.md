@@ -1,6 +1,6 @@
 # Person C — Deliberation, API & Evaluation Build Plan
 
-> Read `00-dead-language-design-spec.md` and `01-shared-contracts-and-kickoff.md` first. This plan assumes both.
+> Read `00-watchdog-design-spec.md` and `01-shared-contracts-and-kickoff.md` first. This plan assumes both.
 > Steps use `- [ ]` checkboxes. Each task ends with tests passing and a commit prefixed `delib:`.
 
 **Goal:** Build the heart of the product: the three deliberating agents (Buyer, Defender, Caseload), the claim validator that keeps them grounded, the round protocol with pre-agreed stopping and outcome rules, the case file, the Facilitator that runs a case end to end, the API + live event stream the UI consumes, replay recording, and the baseline comparison that produces our results numbers.

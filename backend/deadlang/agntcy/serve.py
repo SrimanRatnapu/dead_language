@@ -206,7 +206,7 @@ async def run_group(group: str) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Serve Dead Language agents as A2A servers over SLIM.")
+    parser = argparse.ArgumentParser(description="Serve Watchdog agents as A2A servers over SLIM.")
     which = parser.add_mutually_exclusive_group(required=True)
     which.add_argument("--group", choices=list(GROUPS))
     which.add_argument("--agent", choices=GROUPS["all"])

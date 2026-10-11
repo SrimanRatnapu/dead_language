@@ -1,6 +1,6 @@
 # AGNTCY runbook (Mac)
 
-How to run Dead Language with every agent as a real AGNTCY agent: A2A servers over SLIM, found through the AGNTCY Directory. Follow it top to bottom on a Mac. Every command is run from the repo root unless the step starts with `cd backend`.
+How to run Watchdog with every agent as a real AGNTCY agent: A2A servers over SLIM, found through the AGNTCY Directory. Follow it top to bottom on a Mac. Every command is run from the repo root unless the step starts with `cd backend`.
 
 None of this has been run against real SLIM yet; the code was tested on Windows without Docker, against fakes. Please write down what you see (step 10) so we know whether it works.
 

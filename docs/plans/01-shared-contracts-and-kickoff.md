@@ -1,6 +1,6 @@
-# Dead Language — Shared Contracts & Kickoff Plan
+# Watchdog — Shared Contracts & Kickoff Plan
 
-> Everyone reads this after `00-dead-language-design-spec.md`.
+> Everyone reads this after `00-watchdog-design-spec.md`.
 > This file freezes the interfaces between the four people. If you need to change anything in here, post in the team chat and get a yes from whoever consumes it before changing it.
 > Steps use `- [ ]` checkboxes.
 
@@ -42,7 +42,7 @@
 dead-language/
   .env.example                         C
   Procfile                             B   (process list for `honcho start`)
-  docs/specs/00-dead-language-design-spec.md
+  docs/specs/00-watchdog-design-spec.md
   docs/plans/01..05-*.md
   infra/docker-compose.yaml            B
   infra/configs/...                    B
@@ -120,7 +120,7 @@ dead-language/
 Create this file exactly. It is the contract between all people.
 
 ```python
-"""Shared data contract for Dead Language. Change only with team agreement."""
+"""Shared data contract for Watchdog. Change only with team agreement."""
 from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any, Literal, Optional

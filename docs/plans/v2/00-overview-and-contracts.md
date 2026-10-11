@@ -1,6 +1,6 @@
 # v2 Plan: Overview and Shared Contracts
 
-> Every person reads this file first, then their own file. It supersedes the old file 01/02-05 plans **only where they conflict**. Everything else in `docs/specs/00-dead-language-design-spec.md` and the old plans still holds.
+> Every person reads this file first, then their own file. It supersedes the old file 01/02-05 plans **only where they conflict**. Everything else in `docs/specs/00-watchdog-design-spec.md` and the old plans still holds.
 > Hackathon deadline: Devpost by **1:30 PM Sunday Oct 11**. Feature freeze 10:30 AM Sunday. Late = not judged.
 > Rule from the old plans still applies: do not change a shared contract below without a yes from whoever consumes it. Commit small, pull before you push, don't edit files you don't own.
 
@@ -47,7 +47,7 @@ Two data lanes, never mixed silently:
 | defender | `counsel` | Counsel | "Is there a lawful origin: antique, pre-ban, legal material?" |
 | caseload | `case_officer` | Case Officer | "Would this hold up, and is it worth a human's week?" |
 
-**App name:** working name **Plainsight**. It lives in exactly one place in the frontend (`APP_NAME` constant in `frontend/src/lib/agents.ts`) and in the README/Devpost. Do not hard-code it elsewhere. It is not trademark- or domain-checked.
+**App name:** **Watchdog**. It lives in exactly one place in the frontend (`APP_NAME` constant in `frontend/src/lib/agents.ts`) and in the README/Devpost. Do not hard-code it elsewhere. It is not trademark- or domain-checked.
 
 Rename scope (C does it in **one commit, first**, after telling everyone): `AgentName` and `Requester` in `schemas.py`, prompts in `deliberation/prompts/`, `AGENTS` map and labels in `frontend/src/lib/agents.ts`, replay fixtures in `fixtures/replays/` and `frontend/public/replays/`, `scripts/record_scripted_demo.py`, all tests. Everyone else pulls before continuing. Until C announces it is done, keep using the old names in your branch and **never string-match agent names**: use the `AgentName` type or the `AGENT_ORDER` constant.
 

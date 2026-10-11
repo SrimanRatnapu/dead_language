@@ -120,7 +120,7 @@ def create_app(market: Any = None, transport: Any = None, discovery: Any = None,
             task.cancel()
         llm.usage_hook = None
 
-    app = FastAPI(title="Dead Language API", lifespan=lifespan)
+    app = FastAPI(title="Watchdog API", lifespan=lifespan)
     app.add_middleware(CORSMiddleware, allow_origin_regex=r"http://(localhost|127\.0\.0\.1)(:\d+)?",  # any local dev port (3000 can be taken)
                        allow_origins=[],
                        allow_methods=["*"], allow_headers=["*"])

@@ -1,6 +1,6 @@
 # Person A — Data & Marketplace Build Plan
 
-> Read `00-dead-language-design-spec.md` and `01-shared-contracts-and-kickoff.md` first. This plan assumes both.
+> Read `00-watchdog-design-spec.md` and `01-shared-contracts-and-kickoff.md` first. This plan assumes both.
 > Steps use `- [ ]` checkboxes. Each task ends with tests passing and a commit prefixed `data:`.
 
 **Goal:** Produce the fixed dataset (real look-alikes + reconstructed trafficking cases + seller networks + labels), serve it as a marketplace over MCP, and build the four code-only specialists (price check, seller inventory, linked sellers, legal lookup).
