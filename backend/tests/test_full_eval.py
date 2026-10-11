@@ -584,12 +584,12 @@ def test_any_new_flag_selects_the_full_set_eval(flags):
     assert run_eval.is_full_mode(parse(*flags))
 
 
-def run_cli(world, monkeypatch, argv, ask=lambda p: "y", models=("claude-haiku-4-5-20251001",)):
+def run_cli(world, monkeypatch, argv, ask=lambda p: "y", models=("claude-haiku-4-5-20251001",), market=...):
     monkeypatch.setattr(config, "MODEL_TRIAGE", models[0])
     import io, contextlib
     buf = io.StringIO()
     with contextlib.redirect_stdout(buf):
-        code = asyncio.run(fe.main(parse(*argv), ask=ask, market=world.market))
+        code = asyncio.run(fe.main(parse(*argv), ask=ask, market=world.market if market is ... else market))
     return code, buf.getvalue()
 
 
@@ -648,3 +648,54 @@ def test_a_real_run_with_yes_runs_scores_and_writes_everything(world, monkeypatc
     assert code == 0 and len(fe.read_rows("go")) == 5
     assert json.loads((config.REPO_ROOT / "results" / "eval.json").read_text())["full_eval"]["run_id"] == "go"
     assert "Spend" in out or "spend" in out
+
+
+# ---------------------------------------------------------------- the real CLI path: real local market, stub model client
+
+@pytest.fixture
+def real_singletons(world, monkeypatch):
+    """Files on disk for the real local marketplace, and fresh process-wide singletons (market, discovery, transport)."""
+    from deadlang.agntcy import discovery as disc, transport as trans
+    from deadlang.marketplace import client as mclient
+    (world.data / "sellers.jsonl").write_text("".join(make_seller(f"S{i}").model_dump_json() + "\n" for i in range(1, 17)))
+    monkeypatch.delenv("MARKETPLACE_MODE", raising=False)
+    monkeypatch.setattr(config, "TRANSPORT", "local")
+    monkeypatch.setattr(config, "DISCOVERY", "local")
+    for mod, name in ((mclient, "_client"), (disc, "_discovery"), (trans, "_transport")):
+        monkeypatch.setattr(mod, name, None)
+    monkeypatch.setattr(config, "MODEL_STRONG", "claude-sonnet-5-5")
+    monkeypatch.setattr(llm, "usage_detail_hook", None)
+    return world
+
+
+def test_the_real_cli_path_runs_two_listings_end_to_end_with_the_real_local_market(real_singletons, monkeypatch):
+    llm.set_client_for_tests(Scripted())
+    try:
+        code, out = run_cli(real_singletons, monkeypatch,
+                            ["--run-id", "cli", "--yes", "--limit", "2", "--concurrency", "1"], market=None)
+    finally:
+        llm.set_client_for_tests(None)
+    assert code == 0, out
+    rows = fe.read_rows("cli")
+    assert sorted(rows) == ["L0001", "L0002"]
+    for r in rows.values():
+        assert r["errors"] == [], r["errors"]
+        assert r["outcome"] in ("FILE", "WATCHLIST", "DISMISS", "CONTESTED") and r["agents_ran"]
+        assert r["tokens"]["triage"]["calls"] == 1 and r["tokens"]["agents"]["calls"] >= 2    # the usage hook is installed
+        assert r["cost_usd"]["total"] > 0
+    assert json.loads((config.REPO_ROOT / "results" / "eval.json").read_text())["full_eval"]["run_id"] == "cli"
+    assert llm.usage_detail_hook is None                                                       # and put back afterwards
+
+
+def test_a_crashed_run_leaves_error_rows_that_a_resume_retries(real_singletons, monkeypatch):
+    fe.append_row("cli2", {**sample_rows()[0], "listing_id": "L0001", "errors": ["agents: AttributeError"]})
+    fe.append_row("cli2", {**sample_rows()[0], "listing_id": "L0002", "errors": []})
+    llm.set_client_for_tests(Scripted())
+    try:
+        code, out = run_cli(real_singletons, monkeypatch, ["--run-id", "cli2", "--yes", "--limit", "2", "--concurrency", "1"], market=None)
+    finally:
+        llm.set_client_for_tests(None)
+    assert code == 0 and "Resuming: 1 already finished" in out
+    rows = fe.read_rows("cli2")
+    assert rows["L0001"]["errors"] == [] and rows["L0001"]["tokens"]["agents"]["calls"] >= 2   # retried
+    assert rows["L0002"]["cost_usd"] == sample_rows()[0]["cost_usd"]                           # the finished one was not rerun
