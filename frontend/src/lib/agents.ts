@@ -1,6 +1,9 @@
 import type { AgentName, Capability, Outcome, Stance, StopReason } from "./types";
 
 // Fixed across UI, slides and diagram. Class strings are literal so Tailwind sees them.
+// The only place the product name lives (working name; not trademark- or domain-checked).
+export const APP_NAME = "Dead Language";
+
 export const AGENTS: Record<AgentName, { label: string; goal: string; text: string; tint: string; dot: string; ring: string; cssVar: string }> = {
   undercover: { label: "Undercover", goal: "Reads like a buyer", text: "text-amber-ink", tint: "bg-amber-tint", dot: "bg-amber", ring: "border-amber", cssVar: "var(--amber)" },
   counsel: { label: "Counsel", goal: "Defends the seller", text: "text-teal-ink", tint: "bg-teal-tint", dot: "bg-teal", ring: "border-teal", cssVar: "var(--teal)" },

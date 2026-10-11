@@ -1,4 +1,4 @@
-import type { BatchStart, CaseFile, Event, EvalResults, Listing, ListingRow, Seller } from "./types";
+import type { BatchStart, ListingChange, Metrics, Strike, CaseFile, Event, EvalResults, Listing, ListingRow, Seller } from "./types";
 
 export const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8000";
 
@@ -29,4 +29,9 @@ export const getEval = () => req<EvalResults>("/api/eval");
 export const startBatch = (body: { source: "demo" | "live"; query?: string; cap?: number }) =>
   post<BatchStart>("/api/batches", body);
 export const batchEventsUrl = (id: string) => `${API_BASE}/api/batches/${id}/events`;
+export const getMetrics = () => req<Metrics>("/api/metrics");
+export const refreshNow = () => post<ListingChange[]>("/api/refresh");
+export const getStrike = (caseId: string) => req<Strike>(`/api/cases/${caseId}/strike`);
+export const postStrike = (caseId: string, action: "approve" | "submit", by: string) =>
+  post<Strike>(`/api/cases/${caseId}/strike`, { action, by });
 export const imageUrl = (relPath: string) => `${API_BASE}/api/images/${relPath}`;

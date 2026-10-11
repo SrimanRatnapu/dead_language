@@ -94,14 +94,13 @@ export default function Queue() {
               const l = listings[i.listing_id]; const m = markFor(i);
               const body = <>
                 <Photo src={imageUrl(l?.image_paths[0] ?? "")} label={l?.title ?? i.listing_id} className="size-14 w-full" />
-                <span className="min-w-0"><span className="block truncate font-semibold">{l?.title ?? i.listing_id}</span>
-                  <span className="block text-sm text-muted">{l ? `$${l.price_usd.toLocaleString()}` : ""}</span></span>
-                <span className="mono text-xs text-muted">{l?.origin === "live" ? "Live" : "Demo"}</span>
-                <span className={`inline-flex min-w-40 items-center justify-end gap-2 text-sm font-semibold ${m?.tone ?? "text-muted"}`}>
+                <span className="min-w-0"><span className="block line-clamp-2 font-semibold">{l?.title ?? i.listing_id}</span>
+                  <span className="block text-sm text-muted">{l ? `$${l.price_usd.toLocaleString()} · ` : ""}<span className="mono text-xs">{l?.origin === "live" ? "Live" : "Demo"}</span></span></span>
+                <span className={`inline-flex items-center justify-end gap-2 text-sm font-semibold ${m?.tone ?? "text-muted"}`}>
                   {m ? <><Icon name={m.icon} size={18} />{m.label}</>
                      : <><span className="typing flex gap-1" aria-hidden><span /><span /><span /></span>{WORKING[i.status]}</>}
                 </span></>;
-              const row = "grid min-h-16 grid-cols-[3.5rem_1fr_auto_auto] items-center gap-4 py-3";
+              const row = "grid min-h-16 grid-cols-[3.5rem_1fr_auto] items-center gap-4 py-3";
               return <li key={i.listing_id}>{i.case_id && i.status === "done"
                 ? <Link href={`/case/${i.case_id}`} className={`press ${row} hover:bg-surface/70`}>{body}</Link>
                 : <div className={row}>{body}</div>}</li>;
