@@ -57,7 +57,7 @@ export function CaseView({ target }: { target: CaseTarget }) {
         <div className="flex min-h-0 flex-1 flex-col">
           {stage === "listing" && <>
             <div className="min-h-0 flex-1 overflow-y-auto"><DecodedListing state={state} onOpenEvidence={setOpenEvidence} /></div>
-            <div className="flex shrink-0 items-center justify-end bg-surface px-5 py-2 sm:px-8">
+            <div className="flex shrink-0 items-center justify-end px-5 py-2 sm:px-8">
               <button onClick={() => setStage("examiners")} className="press min-h-11 bg-ink px-5 py-2.5 font-semibold text-surface hover:bg-cobalt">See what the specialists found →</button>
             </div>
           </>}
@@ -65,16 +65,13 @@ export function CaseView({ target }: { target: CaseTarget }) {
           {stage === "agents" && <>
             <Standing state={state} />
             <div className="grid min-h-0 flex-1 lg:grid-cols-[17rem_1fr]">
-              <aside aria-label="Who is in the discussion" className="max-h-[30dvh] overflow-y-auto border-b border-line bg-surface/60 lg:max-h-none lg:border-b-0 lg:border-r"><AgentRail state={state} onOpen={setOpenEvidence} /></aside>
+              <aside aria-label="Who is in the discussion" className="max-h-[30dvh] overflow-y-auto border-b border-line lg:max-h-none lg:border-b-0 lg:border-r"><AgentRail state={state} onOpen={setOpenEvidence} /></aside>
               <section aria-label="Discussion" className="min-h-0">
                 <Thread state={state} onOpen={setOpenEvidence}>
                   <Outcome state={state} onOpenCaseFile={() => setCaseFileOpen(true)} />
                   {flagged && target.kind === "live" && <StrikeReview caseId={target.caseId} />}
                 </Thread>
               </section>
-            </div>
-            <div className="flex shrink-0 items-center bg-surface px-5 py-1 sm:px-8">
-              <button onClick={() => setStage("examiners")} className="press min-h-11 px-3 text-muted hover:text-ink lg:min-h-9">← Back to the specialists</button>
             </div>
           </>}
         </div>

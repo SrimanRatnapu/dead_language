@@ -29,7 +29,7 @@ export function Standing({ state }: { state: CaseState }) {
     : counts.size === 1 && latest.length === 3 ? `All three say ${STANCE_LABEL[latest[0].stance].toLowerCase()}`
     : [...counts].sort((a, b) => b[1] - a[1]).map(([s, n]) => `${n} ${STANCE_LABEL[s].toLowerCase()}`).join(" · ");
   return (
-    <div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-b border-line bg-surface px-5 py-3 sm:px-8" aria-live="polite">
+    <div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-b border-line px-5 py-3 sm:px-8" aria-live="polite">
       <div className="flex h-2 w-28 shrink-0 gap-0.5" aria-hidden>
         {(["file", "need_more", "dismiss"] as Stance[]).map((s) => (counts.get(s) ?? 0) > 0 && <span key={s} className={`${STANCE_BAR[s]} transition-[flex-grow] duration-500`} style={{ flexGrow: counts.get(s) }} />)}
         {latest.length === 0 && <span className="grow bg-line" />}
@@ -50,13 +50,13 @@ export function AgentRail({ state, onOpen }: { state: CaseState; onOpen: (id: st
     return { s, ev, fail };
   });
   return (
-    <ul className="flex flex-col gap-3 p-4" aria-label="Agents">
+    <ul className="flex flex-col p-2" aria-label="Agents">
       {AGENT_ORDER.map((agent) => {
         const a = AGENTS[agent];
         const now = history(agent).at(-1);
         const busy = thinking === agent;
         return (
-          <li key={agent} title={a.goal} className={`border bg-surface p-3 transition-colors duration-300 ${busy ? "border-ink" : "border-line"}`}>
+          <li key={agent} title={a.goal} className={`border-b p-3 transition-colors duration-300 ${busy ? "border-ink" : "border-line"}`}>
             <div className="flex items-center gap-3">
               <span className={`grid size-9 shrink-0 place-items-center font-semibold ${a.tint} ${a.text}`}>{a.label[0]}</span>
               <div className="min-w-0">
@@ -76,7 +76,7 @@ export function AgentRail({ state, onOpen }: { state: CaseState; onOpen: (id: st
         const by = AGENTS[s.requested_by as AgentName];
         const working = !ev && !fail;
         return (
-          <li key={i} className={`rise border bg-surface p-3 transition-colors duration-300 ${working ? "border-ink" : "border-line"}`}>
+          <li key={i} className={`rise border-b p-3 transition-colors duration-300 ${working ? "border-ink" : "border-line"}`}>
             <div className="flex items-center gap-3">
               <span className="grid size-9 shrink-0 place-items-center bg-cobalt-tint text-cobalt-ink"><Icon name={s.capability} size={18} /></span>
               <div className="min-w-0">

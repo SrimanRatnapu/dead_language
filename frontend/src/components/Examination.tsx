@@ -71,7 +71,7 @@ export function Examination({ state, ready, onBack, onSend, onOpen }: { state: C
         </div>
       </div>
 
-      <div className="flex shrink-0 items-center justify-between gap-4 bg-surface px-5 py-2 sm:px-8">
+      <div className="flex shrink-0 items-center justify-between gap-4 px-5 py-2 sm:px-8">
         <button onClick={onBack} className="press -ml-3 min-h-11 px-3 py-2.5 font-semibold text-muted hover:text-ink">← Read the listing</button>
         <div className="flex items-center gap-4">
           {!ready && <p className="hidden whitespace-nowrap text-muted sm:block" aria-live="polite">{done} of {Math.max(cards.length, 5)} done</p>}

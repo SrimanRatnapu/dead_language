@@ -40,7 +40,7 @@ export function DecodedListing({ state, onOpenEvidence }: { state: CaseState; on
     ["Ships from", listing.ship_from],
     ["Listed", new Date(listing.posted_at).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })],
   ];
-  return <div className="relative bg-surface px-4 py-4 sm:px-8">
+  return <div className="relative px-4 py-4 sm:px-8">
     {removed && <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-bg/95 p-6 text-center"><p className="display text-3xl">Removed by seller</p><button onClick={() => onOpenEvidence(evidenceOrder[0])} className="press border border-line px-3 py-2 hover:border-cobalt">View snapshot</button></div>}
     <div className="mx-auto grid max-w-[1100px] gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
       {imgs.length > 0 && <div className="flex flex-col-reverse gap-3 sm:flex-row">
@@ -53,11 +53,10 @@ export function DecodedListing({ state, onOpenEvidence }: { state: CaseState; on
       <div className="min-w-0">
         <h1 className="text-2xl font-semibold leading-snug [text-wrap:balance]">{listing.title}</h1>
         <p className="mt-4 flex flex-wrap items-baseline gap-x-3"><span className="text-3xl font-bold tracking-tight">{usd(listing.price_usd)}</span>{typeof ratio === "number" && <span className="rise font-semibold text-amber-ink">{ratio.toFixed(ratio < 10 ? 1 : 0)}× the usual price</span>}</p>
-        <p className="mt-1 text-sm text-muted">{listing.marketplace}</p>
-        <dl className="mt-6 grid grid-cols-[7rem_1fr] gap-x-4 gap-y-2.5 border-t border-line pt-5">
+                <dl className="mt-6 grid grid-cols-[7rem_1fr] gap-x-4 gap-y-2.5 border-t border-line pt-5">
           {specifics.map(([k, v]) => <div key={k} className="contents"><dt className="text-muted">{k}</dt><dd className="capitalize-first">{v}</dd></div>)}
         </dl>
-        {seller && <p className="mt-6 flex items-center gap-3 border-t border-line pt-5"><span className="grid size-10 shrink-0 place-items-center rounded-full bg-sunken font-semibold">{seller.name[0]?.toUpperCase()}</span><span className="leading-snug"><span className="font-semibold">{seller.name}</span><span className="block text-sm text-muted">{seller.location}{seller.feedback_score != null ? ` · ${seller.feedback_score}% positive` : ""}{seller.joined ? ` · joined ${seller.joined}` : ""}</span></span></p>}
+        {seller && <p className="mt-6 flex items-center gap-3 border-t border-line pt-5"><span className="grid size-10 shrink-0 place-items-center rounded-full bg-sunken font-semibold">{seller.name[0]?.toUpperCase()}</span><span className="leading-snug"><span className="font-semibold">{seller.name}</span><span className="block text-sm text-muted">{seller.location}{seller.feedback_score != null ? ` · ${seller.feedback_score}% positive` : ""}{seller.joined ? ` · joined ${new Date(seller.joined).toLocaleDateString(undefined, { year: "numeric", month: "short" })}` : ""}</span></span></p>}
       </div>
     </div>
     <section className="mx-auto mt-5 max-w-[1100px] border-t border-line pt-5">
