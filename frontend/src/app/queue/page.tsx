@@ -86,6 +86,7 @@ export default function Queue() {
           </form>
         </section>
         {problems.length > 0 && <p role="alert" className="border-b border-amber/40 bg-amber-tint px-3 py-2 text-ink">{problems.join(". ")}. Reviews will stall until it is running.</p>}
+        {busy && <p role="status" className="border-b border-line py-2 text-muted">Fetching listings and photos from eBay. This can take up to a minute.</p>}
         {error && <p role="alert" className="border-b border-red/30 bg-red-tint px-3 py-2 text-red">{error}</p>}
         {items.length > 0 && <>
           <p className="mono flex flex-wrap gap-x-4 border-b border-line py-2 text-sm text-muted" aria-live="polite">
