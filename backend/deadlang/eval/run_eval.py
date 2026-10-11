@@ -155,7 +155,7 @@ async def main(modes: set[str], limit: int | None) -> None:
     print("wrote results/eval.json")
 
 
-FULL_FLAGS = ("full", "dry_run", "stratified", "max_usd", "run_id", "yes", "score_only", "concurrency")
+FULL_FLAGS = ("full", "dry_run", "stratified", "max_usd", "run_id", "yes", "score_only", "concurrency", "threshold")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -171,6 +171,7 @@ def build_parser() -> argparse.ArgumentParser:
     full.add_argument("--dry-run", action="store_true", help="show the selection, models, estimate and commands; make no calls")
     full.add_argument("--yes", action="store_true", help="do not ask y/N before spending")
     full.add_argument("--score-only", action="store_true", help="rescore saved rows for --run-id; no calls")
+    full.add_argument("--threshold", type=float, metavar="T", help="with --score-only: score the tiered config at this triage threshold (0..1) instead of DL_TRIAGE_THRESHOLD")
     full.add_argument("--concurrency", type=int, default=None, help="listings at once (default 2)")
     return ap
 

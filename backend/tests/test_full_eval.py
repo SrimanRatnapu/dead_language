@@ -697,3 +697,17 @@ def test_a_crashed_run_leaves_error_rows_that_a_resume_retries(real_singletons, 
     rows = fe.read_rows("cli2")
     assert rows["L0001"]["errors"] == [] and rows["L0001"]["tokens"]["agents"]["calls"] >= 2   # retried
     assert rows["L0002"]["cost_usd"] == sample_rows()[0]["cost_usd"]                           # the finished one was not rerun
+
+
+def test_score_only_threshold_rescores_the_tiered_config_from_the_saved_scores(world, monkeypatch):
+    path = fe.rows_path("th")
+    path.parent.mkdir(parents=True)
+    path.write_text("".join(json.dumps(r) + "\n" for r in sample_rows()))
+    kept = {}
+    for t in ("0.05", "0.15", "0.5"):
+        assert run_cli(world, monkeypatch, ["--score-only", "--run-id", "th", "--threshold", t])[0] == 0
+        full = json.loads((config.REPO_ROOT / "results" / "eval.json").read_text())["full_eval"]
+        assert full["threshold"] == float(t)
+        kept[t] = full["configs"]["tiered"]["cleared_by_triage"]["count"]
+    assert kept == {"0.05": 1, "0.15": 5, "0.5": 5}            # unflagged below .15: P4 .1, P5 .12, N1 .05, N5 .08, N3 .02; below .05: only N3
+    assert run_cli(world, monkeypatch, ["--score-only", "--run-id", "th", "--threshold", "1.5"])[0] == 2

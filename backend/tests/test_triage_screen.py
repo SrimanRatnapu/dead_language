@@ -207,11 +207,11 @@ def test_the_triage_model_defaults_to_the_fast_model_and_can_be_overridden():
 
 
 def test_the_threshold_defaults_low_and_a_bad_value_falls_back_to_the_safe_default():
-    assert _config_value("config.TRIAGE_THRESHOLD") == "0.2"
+    assert _config_value("config.TRIAGE_THRESHOLD") == "0.15"
     assert _config_value("config.TRIAGE_THRESHOLD", DL_TRIAGE_THRESHOLD="0.35") == "0.35"
-    assert _config_value("config.TRIAGE_THRESHOLD", DL_TRIAGE_THRESHOLD="banana") == "0.2"
-    assert _config_value("config.TRIAGE_THRESHOLD", DL_TRIAGE_THRESHOLD="7") == "0.2"
-    assert _config_value("config.TRIAGE_THRESHOLD", DL_TRIAGE_THRESHOLD="-1") == "0.2"
+    assert _config_value("config.TRIAGE_THRESHOLD", DL_TRIAGE_THRESHOLD="banana") == "0.15"
+    assert _config_value("config.TRIAGE_THRESHOLD", DL_TRIAGE_THRESHOLD="7") == "0.15"
+    assert _config_value("config.TRIAGE_THRESHOLD", DL_TRIAGE_THRESHOLD="-1") == "0.15"
 
 
 # ---------------- found by the first real smoke test: a long reason cut the tool call off before `suspicious` ----------------
@@ -246,7 +246,7 @@ async def test_an_explicit_threshold_overrides_the_configured_one(model):
     model.answer = {"score": 0.3, "reason": "r", "suspicious": False}
     assert (await triage.screen(make_listing(), None, threshold=0.5)).suspicious is False
     assert (await triage.screen(make_listing(), None, threshold=0.25)).suspicious is True
-    assert (await triage.screen(make_listing(), None)).suspicious is True       # the configured 0.2
+    assert (await triage.screen(make_listing(), None)).suspicious is True       # the configured 0.2 (patched above)
 
 
 async def test_a_failed_triage_is_recognisable_by_a_public_prefix(model):

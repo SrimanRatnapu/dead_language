@@ -653,7 +653,11 @@ async def main(args, ask: Callable[[str], str] = input, market: Any = None, out:
         if not rows:
             out(f"No rows found for run {args.run_id} at {rows_path(args.run_id)}; nothing to score.")
             return 2
-        result = score_rows(rows)
+        threshold = args.threshold
+        if threshold is not None and not 0.0 <= threshold <= 1.0:
+            out("--threshold must be between 0 and 1.")
+            return 2
+        result = score_rows(rows, threshold)
         write_eval(result, args.run_id)
         out(format_summary(result, args.run_id))
         out("Wrote results/eval.json (key full_eval).")
