@@ -4,7 +4,7 @@ import type { CaseState } from "@/lib/caseState";
 import type { AgentName, Stance, StancePost } from "@/lib/types";
 
 export function StancePill({ stance, className = "" }: { stance: Stance; className?: string }) {
-  return <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-base font-semibold ${STANCE_STYLE[stance]} ${className}`}>{STANCE_LABEL[stance]}</span>;
+  return <span className={`inline-flex shrink-0 items-center whitespace-nowrap rounded-full px-2 py-0.5 text-base font-semibold ${STANCE_STYLE[stance]} ${className}`}>{STANCE_LABEL[stance]}</span>;
 }
 
 function readout(latest: StancePost[]): string {
@@ -47,7 +47,7 @@ export function Seats({ state }: { state: CaseState }) {
             <div key={agent} title={a.goal} className={`relative border bg-surface px-2 py-2 transition-colors sm:px-3 duration-300 ${busy ? "border-ink" : "border-line"}`}>
               <div className="flex min-w-0 items-center gap-2.5"><span className={`grid size-8 shrink-0 place-items-center rounded-full font-semibold ${a.tint} ${a.text}`}>{a.label[0]}</span>
               <div className="min-w-0"><p className={`truncate font-semibold leading-tight ${a.text}`}>{a.label}</p>
-              <div className="mt-0.5 flex h-6 items-center gap-2">
+              <div className="mt-0.5 flex min-h-6 flex-wrap items-center gap-x-2">
                 {busy ? <span className="typing flex gap-1 text-muted" role="status" aria-label={`${a.label} is thinking`}><span /><span /><span /></span>
                   : now ? <><StancePill stance={now.stance} /><span className="mono text-muted">{Math.round(now.confidence * 100)}%</span></>
                   : <span className="text-muted">listening</span>}
