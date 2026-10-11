@@ -56,13 +56,17 @@ function Result({ id, state }: { id: string; state: CaseState }) {
   const ev = state.evidence[id];
   const by = AGENTS[ev.requested_by as keyof typeof AGENTS];
   return (
-    <div className="rise grid grid-cols-[2.25rem_1fr] gap-x-3 border border-line bg-sunken p-3">
-      <span className="grid size-9 place-items-center bg-surface text-cobalt-ink"><Icon name={ev.capability} size={18} /></span>
-      <span className="min-w-0 leading-snug">
-        <span className="font-semibold">{CAPABILITY_LABEL[ev.capability]}</span><span className="text-muted"> · asked by </span><b className={by.text}>{by.label}</b>
-        <span className="mt-1 block [text-wrap:pretty]">{ev.summary}</span>
-      </span>
-    </div>
+    <article className="rise grid grid-cols-[2.25rem_1fr] gap-x-3">
+      <span className="grid size-9 place-items-center bg-cobalt-tint text-cobalt-ink" aria-hidden><Icon name={ev.capability} size={18} /></span>
+      <div className="min-w-0">
+        <header className="flex flex-wrap items-center gap-x-2.5">
+          <span className="font-semibold text-cobalt-ink">{CAPABILITY_LABEL[ev.capability]}</span>
+          <span className="bg-cobalt-tint px-2 py-0.5 text-base font-semibold text-cobalt-ink">Specialist</span>
+          <span className="text-muted">called by <b className={by.text}>{by.label}</b></span>
+        </header>
+        <p className="mt-1.5 text-lg leading-snug [text-wrap:pretty]">{ev.summary}</p>
+      </div>
+    </article>
   );
 }
 

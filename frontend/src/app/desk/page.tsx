@@ -28,13 +28,15 @@ function markFor(i: BatchItem): Mark | null {
   if (i.outcome === "WATCHLIST") return { icon: "clock", label: "Watching", tone: "text-cobalt-ink" };
   return { icon: "check", label: "Dismissed", tone: "text-green" };
 }
+const THINKING: Record<AgentName, string> = { undercover: "is looking for red flags", counsel: "is looking for innocent explanations", case_officer: "is comparing with other cases" };
 function phaseLabel(i: BatchItem): string {
   const [kind, arg] = (i.phase ?? "").split(":");
   if (i.status === "deliberating") {
-    if (kind === "examining") return `Specialists: ${(CAPABILITY_LABEL[arg as Capability] ?? arg).toLowerCase()}`;
-    if (kind === "thinking") return `${AGENTS[arg as AgentName]?.label ?? arg} thinking`;
-    if (kind === "closing") return "Reaching a verdict";
-    return "Reading the listing";
+    if (kind === "examining") return `Waiting on ${arg.split(",").map((c) => (CAPABILITY_LABEL[c as Capability] ?? c).toLowerCase()).join(", ")}`;
+    if (kind === "thinking") return `${AGENTS[arg as AgentName]?.label ?? arg} ${THINKING[arg as AgentName] ?? "is thinking"}`;
+    if (kind === "briefing") return "Briefing the agents";
+    if (kind === "closing") return "Applying the outcome rule";
+    return "Opening the listing";
   }
   return WORKING[i.status] ?? "";
 }

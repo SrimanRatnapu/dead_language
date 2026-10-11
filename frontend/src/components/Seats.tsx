@@ -74,18 +74,19 @@ export function AgentRail({ state, onOpen }: { state: CaseState; onOpen: (id: st
       })}
       {callIns.map(({ s, ev, fail }, i) => {
         const by = AGENTS[s.requested_by as AgentName];
+        const working = !ev && !fail;
         return (
-          <li key={i} className="rise border border-line bg-sunken p-3">
-            <div className="flex w-full items-start gap-3">
-              <span className="grid size-9 shrink-0 place-items-center bg-surface text-cobalt-ink"><Icon name={s.capability} size={18} /></span>
-              <span className="min-w-0">
-                <span className="block truncate font-semibold leading-tight">{CAPABILITY_LABEL[s.capability]}</span>
-                <span className="mt-0.5 block text-muted">asked by <b className={by.text}>{by.label}</b></span>
-                <span className="mt-1 block text-muted">
-                  {ev ? null : fail ? <span className="text-red">Did not answer</span>
-                    : <span className="typing flex gap-1" role="status" aria-label="Working"><span /><span /><span /></span>}
-                </span>
-              </span>
+          <li key={i} className={`rise border bg-surface p-3 transition-colors duration-300 ${working ? "border-ink" : "border-line"}`}>
+            <div className="flex items-center gap-3">
+              <span className="grid size-9 shrink-0 place-items-center bg-cobalt-tint text-cobalt-ink"><Icon name={s.capability} size={18} /></span>
+              <div className="min-w-0">
+                <p className="truncate font-semibold leading-tight text-cobalt-ink">{CAPABILITY_LABEL[s.capability]}</p>
+                <div className="mt-1 flex min-h-6 items-center gap-2 text-muted">
+                  {working ? <span className="typing flex gap-1" role="status" aria-label="Working"><span /><span /><span /></span>
+                    : fail ? <span className="text-red">Did not answer</span> : <span>Reported</span>}
+                  <span>· for <b className={by.text}>{by.label}</b></span>
+                </div>
+              </div>
             </div>
           </li>
         );
