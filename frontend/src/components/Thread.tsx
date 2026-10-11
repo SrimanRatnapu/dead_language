@@ -59,10 +59,9 @@ function Result({ id, state }: { id: string; state: CaseState }) {
     <article className="rise grid grid-cols-[2.25rem_1fr] gap-x-3">
       <span className="grid size-9 place-items-center bg-cobalt-tint text-cobalt-ink" aria-hidden><Icon name={ev.capability} size={18} /></span>
       <div className="min-w-0">
-        <header className="flex flex-wrap items-center gap-x-2.5">
-          <span className="font-semibold text-cobalt-ink">{CAPABILITY_LABEL[ev.capability]}</span>
-          <span className="bg-cobalt-tint px-2 py-0.5 text-base font-semibold text-cobalt-ink">Specialist</span>
-          <span className="text-muted">called by <b className={by.text}>{by.label}</b></span>
+        <header className="flex flex-wrap items-center gap-x-3 gap-y-0.5">
+          <span className="font-semibold text-cobalt-ink">{CAPABILITY_LABEL[ev.capability]} specialist</span>
+          <span className="inline-flex items-center gap-1.5 text-muted"><span className={`grid size-5 place-items-center text-sm font-semibold ${by.tint} ${by.text}`} aria-hidden>{by.label[0]}</span>Asked by {by.label}</span>
         </header>
         <p className="mt-1.5 text-lg leading-snug [text-wrap:pretty]">{ev.summary}</p>
       </div>
