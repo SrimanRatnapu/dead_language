@@ -60,7 +60,7 @@ export default function Queue() {
       });
       src.onerror = () => src.close(); // server ends the stream when every item is finished
     } catch (e) {
-      setError(source === "live" ? "Live fetch is not available yet." : "The review service is offline. Start the backend and try again.");
+      setError(source === "live" ? "Live fetch failed. Try again, or check the backend log." : "The review service is offline. Start the backend and try again.");
     } finally { setBusy(false); }
   }
 

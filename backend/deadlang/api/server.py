@@ -92,7 +92,20 @@ def create_app(market: Any = None, transport: Any = None, discovery: Any = None,
         batches = Batches(real_worker, int(os.getenv("DL_MAX_CONCURRENT_CASES", "4")),
                           lambda bid, it: runs.record_item(bid, it["listing_id"], it["status"], it["outcome"]),
                           first_id=runs.batch_count() + 1)
+        interval = float(os.getenv("DL_REFRESH_INTERVAL_S", "0"))   # 0 = off; the UI "Refresh now" button always works
+
+        async def refresh_loop():
+            while True:
+                await asyncio.sleep(interval)
+                try:
+                    await run_refresh()
+                except Exception:
+                    log.exception("scheduled refresh failed")
+
+        task = asyncio.create_task(refresh_loop()) if interval > 0 else None
         yield
+        if task:
+            task.cancel()
         llm.usage_hook = None
 
     app = FastAPI(title="Dead Language API", lifespan=lifespan)
@@ -192,15 +205,19 @@ def create_app(market: Any = None, transport: Any = None, discovery: Any = None,
     # ------------------------------------------------------------------ batches
     @app.post("/api/batches", status_code=202)
     async def create_batch(req: BatchRequest):
+        mode = "demo"
         if req.source == "live":
-            raise HTTPException(501, "live source needs Person A's fetch_live, which is not merged yet")
-        ids = req.listing_ids or demo_listing_ids(data_dir)
+            from deadlang.marketplace.live import fetch_live
+            pairs, mode = await fetch_live(req.query or "bone netsuke", req.cap)   # "live" | "recorded"
+            ids = [l.id for l, _ in pairs]
+        else:
+            ids = req.listing_ids or demo_listing_ids(data_dir)
         for lid in ids:
             try:
                 await state["market"].get_listing_snapshot(lid)
             except KeyError:
                 raise HTTPException(404, f"unknown listing {lid}")
-        b = batches.submit(req.source, ids, "demo")   # live: "live" | "recorded", reported by fetch_live
+        b = batches.submit(req.source, ids, mode)
         return {"batch_id": b["batch_id"], "source_mode": b["source_mode"], "items": b["items"]}
 
     @app.get("/api/batches/{batch_id}")
@@ -242,12 +259,16 @@ def create_app(market: Any = None, transport: Any = None, discovery: Any = None,
     async def metrics():
         return state["runs"].metrics()
 
+    @app.get("/api/market")
+    async def market_view():
+        return await state["market"].market_stats()
+
     @app.post("/api/refresh")
     async def refresh():
-        try:
-            from deadlang.marketplace.refresh import refresh_listings
-        except ImportError:
-            raise HTTPException(501, "refresh needs Person A's refresh_listings, which is not merged yet")
+        return await run_refresh()
+
+    async def run_refresh():
+        from deadlang.marketplace.refresh import refresh_listings
         ids = [l.id for l in await state["market"].all_active()]
         changes = await refresh_listings(ids)
         state["runs"].record_changes(changes, len(ids))
