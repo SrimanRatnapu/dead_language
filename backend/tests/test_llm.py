@@ -424,3 +424,61 @@ async def test_a_reply_that_just_stopped_without_a_tool_call_is_still_nudged():
     llm.set_client_for_tests(fake)
     assert await _call(model="claude-sonnet-5-5") == {"x": 2}
     assert len(fake.requests) == 2
+
+
+# ---------------- accounting: say which cap tripped; estimate images by their real size ----------------
+
+async def test_the_budget_message_says_which_cap_and_the_numbers(monkeypatch):
+    monkeypatch.setattr(config, "CASE_MAX_OUTPUT_TOKENS", 30)
+    llm.set_client_for_tests(SlowClient(_resp({"x": 1}, tokens_out=20), _resp({"x": 2})))
+    await _call(case_id="C-1", max_tokens=5)                            # 20 used
+    first = asyncio.ensure_future(_call(case_id="C-1", max_tokens=5))   # 5 in flight
+    await asyncio.sleep(0.01)
+    with pytest.raises(llm.BudgetExceeded) as err:
+        await _call(case_id="C-1", max_tokens=10)
+    await first
+    msg = str(err.value)
+    assert "case C-1 output cap 30" in msg
+    assert "used 20" in msg and "5 in flight" in msg and "10 for this call" in msg
+
+
+async def test_the_global_budget_message_says_input_or_output(monkeypatch):
+    monkeypatch.setattr(config, "MAX_INPUT_TOKENS", 100)
+    llm.set_client_for_tests(FakeClient())
+    with pytest.raises(llm.BudgetExceeded, match=r"global input cap 100: used 0 \+ 0 in flight \+ \d+ for this call"):
+        await llm.call_json(model=LEGACY, system="s" * 1000, user="u", schema_name="report_x", schema=SCHEMA, case_id=None)
+
+
+def test_image_tokens_follow_the_real_size_not_a_flat_number(tmp_path):
+    small, big = tmp_path / "s.png", tmp_path / "b.png"
+    Image.new("RGB", (600, 400), "white").save(small)
+    Image.new("RGB", (4000, 1000), "white").save(big)
+    assert llm.estimate_image_tokens(small) == 320                      # 600 x 400 / 750
+    assert llm.estimate_image_tokens(big) == 820                        # shrunk to 1568 x 392 first
+    assert llm.estimate_image_tokens(tmp_path / "missing.png") == llm.TOKENS_PER_IMAGE   # unknown: stay conservative
+
+
+def test_estimate_input_tokens_can_use_a_measured_image_size():
+    base = llm.estimate_input_tokens("a" * 350, "b" * 350)
+    assert llm.estimate_input_tokens("a" * 350, "b" * 350, images=2, image_tokens=300) == base + 600
+    assert llm.estimate_input_tokens("a" * 350, "b" * 350, images=2) == base + 2 * llm.TOKENS_PER_IMAGE
+
+
+def test_which_models_think():
+    assert not llm.thinks("claude-haiku-4-5-20251001")
+    assert llm.thinks("claude-opus-5-5") and llm.thinks("claude-sonnet-5-5")
+
+
+async def test_reservations_are_reconciled_to_actual_usage_after_every_call(monkeypatch):
+    monkeypatch.setattr(config, "CASE_MAX_OUTPUT_TOKENS", 600)           # 12 calls x 150 reserved (1,800) could never fit
+    llm.set_client_for_tests(SlowClient(*[_resp({"x": i}, 100, 20) for i in range(12)]))
+    gate = asyncio.Semaphore(2)
+
+    async def one():
+        async with gate:
+            return await _call(case_id="C-1", max_tokens=150)
+
+    results = await asyncio.gather(*[one() for _ in range(12)])
+    assert len(results) == 12                                           # reserved 300 at a time, then reconciled
+    assert llm.usage_snapshot("C-1") == {"input_tokens": 1200, "output_tokens": 240, "calls": 12}
+    assert llm._pending == {"in": 0, "out": 0, "cases": {}}

@@ -6,7 +6,9 @@ is the same one llm.py uses for its budget check, so a run that fits here will n
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Callable
+from uuid import uuid4
 
 from deadlang import config, llm
 
@@ -23,6 +25,34 @@ PRICES_PER_MTOK: dict[str, tuple[float, float]] = {
 }
 
 
+# Output tokens per call as a multiple of the visible answer, because thinking (or progress text) counts as
+# output and toward max_tokens. Calibrated on one real run: Opus 5.5 examiner calls averaged 310 output tokens
+# against a 150 estimate. Models we have no run for use the default.
+THINKING_OUTPUT_FACTOR = {"claude-opus-5": 2.1, "claude-fable": 2.1}
+DEFAULT_THINKING_FACTOR = 1.5
+
+
+def expected_output_tokens(model: str, visible: int) -> int:
+    if not llm.thinks(model):
+        return visible
+    matches = [k for k in THINKING_OUTPUT_FACTOR if model.startswith(k)]
+    factor = THINKING_OUTPUT_FACTOR[max(matches, key=len)] if matches else DEFAULT_THINKING_FACTOR
+    return round(visible * factor)
+
+
+def new_run_id() -> str:
+    """Case ids that carry this are new for every run, so one run's usage cannot count against the next run's
+    per-case caps."""
+    return datetime.now().strftime("%m%d-%H%M%S") + "-" + uuid4().hex[:4]
+
+
+# The API adds a hidden tool-use system prompt (about 300-350 tokens) and formats the tool definition on every
+# tool call, none of which is in our prompt text. Measured on real examiner calls: 1,452 (Opus 5.5) and ~1,500
+# (two earlier 80-call runs) input tokens per call, against 915 counted from prompt, schema and photo. So
+# estimates add this to prompt + schema + photo.
+TOOL_USE_OVERHEAD_TOKENS = 450
+
+
 def price_for(model: str) -> tuple[float, float] | None:
     matches = [k for k in PRICES_PER_MTOK if model.startswith(k)]
     return PRICES_PER_MTOK[max(matches, key=len)] if matches else None
@@ -35,8 +65,10 @@ class Batch:
     model: str
     calls: int
     input_tokens: int
-    output_tokens: int          # typical
+    output_tokens: int          # typical, thinking included (see expected_output_tokens)
     max_output_tokens: int      # the max_tokens the call sets
+    calls_per_case: int | None = None    # calls that share one case id (and so one per-case cap)
+    concurrency: int | None = None       # calls in flight at once, each reserving max_output_tokens
 
 
 @dataclass(frozen=True)
@@ -84,14 +116,33 @@ def report(batches: list[Batch]) -> str:
     in_left = config.MAX_INPUT_TOKENS - spent["input_tokens"]
     out_left = config.MAX_OUTPUT_TOKENS - spent["output_tokens"]
     lines.append(f"Spend caps: this uses {est.input_tokens / config.MAX_INPUT_TOKENS:.1%} of the global input cap "
-                 f"and up to {est.worst_output_tokens / config.MAX_OUTPUT_TOKENS:.1%} of the output cap "
-                 f"({in_left:,} input and {out_left:,} output tokens left).")
+                 f"and ~{est.output_tokens / config.MAX_OUTPUT_TOKENS:.1%} of the output cap "
+                 f"({est.worst_output_tokens / config.MAX_OUTPUT_TOKENS:.1%} if every call wrote max_tokens); "
+                 f"{in_left:,} input and {out_left:,} output tokens left.")
     if est.input_tokens > in_left:
         lines.append(f"WARNING: needs ~{est.input_tokens:,} input tokens but only {in_left:,} are left under "
                      "the global cap; the run will stop early. Raise DL_MAX_INPUT_TOKENS or use --limit.")
-    if est.worst_output_tokens > out_left:
-        lines.append(f"WARNING: could need up to {est.worst_output_tokens:,} output tokens but only {out_left:,} "
-                     "are left under the global cap; the run may stop early.")
+    if est.output_tokens > out_left:
+        lines.append(f"WARNING: expects ~{est.output_tokens:,} output tokens but only {out_left:,} are left under "
+                     "the global cap; the run will stop early. Raise DL_MAX_OUTPUT_TOKENS or use --limit.")
+    elif est.worst_output_tokens > out_left:
+        lines.append(f"Note: the worst case (every call writes its full max_tokens, {est.worst_output_tokens:,}) "
+                     "would pass the global output cap. The cap counts what calls actually write, so this is unlikely.")
+    cap_in, cap_out = config.CASE_MAX_INPUT_TOKENS, config.CASE_MAX_OUTPUT_TOKENS
+    for b in batches:
+        if not (b.calls_per_case and b.concurrency):
+            continue
+        exp_in, exp_out = b.calls_per_case * b.input_tokens, b.calls_per_case * b.output_tokens
+        peak_in, peak_out = b.concurrency * b.input_tokens, b.concurrency * b.max_output_tokens
+        lines.append(f"Per case id ({b.label}): up to {b.calls_per_case} calls, ~{exp_in:,} in / ~{exp_out:,} out "
+                     f"expected, plus {b.concurrency} calls in flight reserving up to {peak_in:,} in / {peak_out:,} out "
+                     f"(per-case caps {cap_in:,} in / {cap_out:,} out).")
+        if exp_out + peak_out > cap_out:
+            lines.append(f"WARNING: one case would need ~{exp_out + peak_out:,} output tokens against the per-case output "
+                         f"cap {cap_out:,}; the run would stop partway. Lower the concurrency, or raise DL_CASE_MAX_OUTPUT_TOKENS.")
+        if exp_in + peak_in > cap_in:
+            lines.append(f"WARNING: one case would need ~{exp_in + peak_in:,} input tokens against the per-case input "
+                         f"cap {cap_in:,}; the run would stop partway. Raise DL_CASE_MAX_INPUT_TOKENS.")
     return "\n".join(lines)
 
 
