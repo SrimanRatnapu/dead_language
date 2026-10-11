@@ -323,6 +323,8 @@ class Facilitator:
         finals = [st.current.get(a) or StancePost(agent=a, round=rounds_used, stance="need_more", confidence=0.0, claims=[])
                   for a in AGENTS]
         outcome = rules.outcome({p.agent: p.stance for p in finals if not p.abstained})   # whoever sat out does not count
+        if (reason or "max_rounds") == "max_rounds" and outcome in ("FILE", "DISMISS"):
+            outcome = "WATCHLIST"   # out of rounds without agreement is never a clean FILE/DISMISS
         case_file = build_case_file(case_id, listing, seller, outcome, rounds_used, reason or "max_rounds", finals, st.board)
         self.bus.emit(case_id, "case.ended", {"case_file": case_file.model_dump(mode="json")})
         return case_file

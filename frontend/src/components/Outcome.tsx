@@ -15,7 +15,7 @@ export function Outcome({ state, onOpenCaseFile }: { state: CaseState; onOpenCas
         <span className={`display min-w-0 ${heavy ? "text-2xl" : "text-xl"}`}>{OUTCOME_LABEL[cf.outcome]}</span>
         <button onClick={onOpenCaseFile} className={`press min-h-9 shrink-0 px-3 py-1 font-semibold ${heavyBtn}`}>Open case file</button>
       </div>
-      <p className={`text-base [text-wrap:pretty] ${heavy ? "text-surface/85" : "text-muted"}`}>{STOP_REASON_TEXT[cf.stop_reason]}</p>
+      {cf.stop_reason !== "max_rounds" && <p className={`text-base [text-wrap:pretty] ${heavy ? "text-surface/85" : "text-muted"}`}>{STOP_REASON_TEXT[cf.stop_reason]}</p>}
     </div> : <span className="text-red">Spending limit reached: {state.budgetExceeded}</span>}
   </div>;
 }
