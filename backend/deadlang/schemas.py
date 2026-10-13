@@ -133,6 +133,7 @@ class DeliberationTurn(BaseModel):    # body sent to a deliberating agent
     your_previous: Optional[StancePost] = None
     repair_feedback: Optional[list[str]] = None   # only on a repair call
     questions_for_you: list[PeerQuestion] = Field(default_factory=list)   # challenges from peers' last posts
+    final_decision: Optional[str] = None          # set on the Case Officer's closing call: why the discussion ended
 
 class TriageResult(BaseModel):         # what triage.screen() returns (file 00 section 4.5)
     score: float = Field(ge=0.0, le=1.0)         # how suspicious the listing looks, 0..1

@@ -51,6 +51,9 @@ MODEL_FAST: str = _str("DL_MODEL_FAST", "claude-haiku-4-5-20251001")
 MODEL_TRIAGE: str = _str("DL_MODEL_TRIAGE", MODEL_FAST)        # triage and translation; defaults to the fast model
 # Triage clears a listing only below this score (and only if the model does not flag it). Low on purpose: a real case
 # dropped at triage is never seen again, so we over-send. A bad or out-of-range value falls back to this default.
+# Agents talk at the same time (dynamic) or take turns one at a time in a fixed order. On for the live demo;
+# run_eval turns it off so evaluations are cheaper and repeatable.
+DYNAMIC: bool = _str("DL_DYNAMIC", "1").lower() not in ("0", "false", "no", "off")
 TRIAGE_THRESHOLD: float = _float("DL_TRIAGE_THRESHOLD", 0.15, 0.0, 1.0)
 
 MAX_INPUT_TOKENS: int = _int("DL_MAX_INPUT_TOKENS", 6_000_000)

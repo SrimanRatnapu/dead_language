@@ -6,10 +6,12 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
 
+from deadlang import config
 from deadlang.deliberation import rules
 from deadlang.deliberation.casefile import build_case_file
 from deadlang.deliberation.validator import Rejection, apply_empty_claims_rule, validate_post
@@ -20,7 +22,12 @@ from deadlang.schemas import (AgentName, Capability, CaseFile, DeliberationTurn,
                               PeerQuestion, Requester, Seller, SpecialistCall, StancePost)
 
 AGENTS: tuple[AgentName, ...] = ("undercover", "counsel", "case_officer")
+DECIDER: AgentName = "case_officer"        # makes the closing call when the discussion converges or hits a limit
+MAX_CALLS_PER_ROUND = 3                    # specialist requests
 MAX_CALLS_PER_CASE = 6
+MAX_TURNS_PER_AGENT_PER_ROUND = 2         # dynamic mode; one at a time it is 1
+MAX_AGENT_CALLS_PER_CASE = 12             # every agent call, repairs and the closing call included
+log = logging.getLogger("deadlang.facilitator")
 
 
 @dataclass
@@ -40,6 +47,14 @@ class CaseState:
     removal_noted: bool = False
     relist_noted: bool = False
     attempted: set[str] = field(default_factory=set)                     # capabilities already run, or tried and failed
+    round: int = 0                                                       # debate rounds started
+    round_open: bool = False
+    round_turns: dict[AgentName, int] = field(default_factory=dict)      # turns each agent took this round
+    round_requests: int = 0                                              # specialist requests started this round
+    round_moved: bool = False                                            # someone changed stance this round
+    post_rounds: list[int] = field(default_factory=list)                 # the round of each transcript post
+    agent_calls: int = 0                                                 # agent calls made (repairs included)
+    limit: str | None = None                                             # which limit ended the discussion
     answered: set[tuple[str, str]] = field(default_factory=set)         # (asker, question) already delivered
 
     @property
@@ -48,9 +63,12 @@ class CaseState:
 
 
 class Facilitator:
-    def __init__(self, market: Any, transport: Any, discovery: Any, bus: Any, max_rounds: int = 4):
+    def __init__(self, market: Any, transport: Any, discovery: Any, bus: Any, max_rounds: int = 4,
+                 dynamic: bool | None = None, max_agent_calls: int = MAX_AGENT_CALLS_PER_CASE):
         self.market, self.transport, self.discovery, self.bus = market, transport, discovery, bus
-        self.max_rounds = max_rounds
+        self.max_rounds = max_rounds                   # debate rounds
+        self.dynamic = config.DYNAMIC if dynamic is None else dynamic
+        self.max_agent_calls = max_agent_calls
         # An evaluation turns this on to learn how often the validator rejected claims *before* the repair call
         # (the events only carry what was still rejected after it). Off by default so a long-running server keeps nothing.
         self.claim_stats: dict[str, dict[str, dict[str, int]]] | None = None
@@ -154,13 +172,26 @@ class Facilitator:
         return rules.is_ready(post, unseen_evidence=unseen, tools_left=self._tools_left(st),
                               questions_pending=bool(self._pending_questions(st, a)))
 
-    def _turn(self, st: CaseState, a: AgentName, r: int) -> DeliberationTurn:
+    @staticmethod
+    def _one_line(p: StancePost) -> StancePost:
+        """An earlier-round post cut down to its stance and a one-line take."""
+        take = " ".join(p.take.split())
+        return p.model_copy(update={"claims": [], "rebuttal": None, "requests": [], "challenge": None,
+                                    "changed_because": None, "changed_because_evidence": [],
+                                    "take": take if len(take) <= 160 else take[:157] + "..."})
+
+    def _compact_transcript(self, st: CaseState) -> list[StancePost]:
+        """What an agent re-reads: the last round (and this one so far) in full, earlier rounds as one-line stances."""
+        keep_from = st.round - 1
+        return [p if r >= keep_from else self._one_line(p) for p, r in zip(st.transcript, st.post_rounds)]
+
+    def _turn(self, st: CaseState, a: AgentName, r: int, final: str | None = None) -> DeliberationTurn:
         questions = self._pending_questions(st, a)             # answered once, never re-delivered
         st.answered.update((q.asker, q.question) for q in questions)
         return DeliberationTurn(case_id=st.case_id, round=r, max_rounds=self.max_rounds,
-                                evidence=st.board.all(), transcript=list(st.transcript),
+                                evidence=st.board.all(), transcript=self._compact_transcript(st),
                                 your_previous=None if (prev := st.current.get(a)) and prev.abstained else prev,
-                                questions_for_you=questions)
+                                questions_for_you=questions, final_decision=final)
 
     @staticmethod
     def _fallback_post(st: CaseState, a: AgentName, r: int) -> StancePost:
@@ -170,22 +201,28 @@ class Facilitator:
         return prev.model_copy(update={"round": r, "rebuttal": None, "requests": [], "challenge": None,
                                        "changed_because": None, "changed_because_evidence": []})
 
-    async def _agent_turn(self, st: CaseState, a: AgentName) -> str | None:
+    async def _agent_turn(self, st: CaseState, a: AgentName, final: str | None = None) -> str | None:
         """One turn for one agent: read the board and the thread as they are now, post, start its specialist requests.
-        Returns the transport error if the agent did not answer."""
+        Returns the transport error if the agent did not answer. `final` makes it the closing call: no requests."""
         st.turns[a] = r = st.turns.get(a, 0) + 1
         st.seen[a], st.seen_posts[a] = st.board.count(), len(st.transcript)
         self.bus.emit(st.case_id, "agent.thinking", {"agent": a, "turn": r})
-        turn = self._turn(st, a, r)
+        turn = self._turn(st, a, r, final)
+        st.agent_calls += 1
         result = (await self.transport.broadcast_turns({a: turn})).get(a, "no reply")
         post, rejections = await self._resolve(st, a, turn, result, list(st.current.values()), r)
         for rj in rejections:
             self.bus.emit(st.case_id, "claim.rejected", {
                 "agent": rj.agent, "round": rj.round, "claim_text": rj.claim_text, "reasons": rj.reasons})
         self.bus.emit(st.case_id, "stance.posted", {"post": post.model_dump(mode="json")})
+        prev = st.current.get(a)
+        if prev is None or prev.abstained or prev.stance != post.stance:
+            st.round_moved = True
         st.transcript.append(post)
+        st.post_rounds.append(st.round)
         st.current[a] = post
-        self._dispatch_requests(st, post)
+        if final is None:
+            self._dispatch_requests(st, post)
         return None if isinstance(result, StancePost) else str(result)
 
     def _dispatch_requests(self, st: CaseState, post: StancePost) -> None:
@@ -201,40 +238,72 @@ class Facilitator:
                     st.attempted.add("translation")
                     self._add(st, english_note(st.listing.id), post.agent)
                 continue
-            if st.requested_calls >= MAX_CALLS_PER_CASE:       # a post holds at most 2 requests (validator)
+            if st.round_requests >= MAX_CALLS_PER_ROUND or st.requested_calls >= MAX_CALLS_PER_CASE:
+                limit = (f"{MAX_CALLS_PER_ROUND} per round" if st.round_requests >= MAX_CALLS_PER_ROUND
+                         else f"{MAX_CALLS_PER_CASE} per case")      # a post holds at most 2 requests (validator)
                 self.bus.emit(st.case_id, "specialist.failed", {
                     "capability": req.capability, "specialist_name": "", "requested_by": post.agent,
-                    "error": f"request limit reached ({MAX_CALLS_PER_CASE} per case)", "fallback": None})
+                    "error": f"request limit reached ({limit})", "fallback": None})
                 continue
             st.request_keys.add(key)
             st.requested_calls += 1
+            st.round_requests += 1
             job = asyncio.create_task(self._run_specialist(st, req.capability, req.params, post.agent, req.question))
             st.jobs.add(job)
             job.add_done_callback(st.jobs.discard)
 
+    def _calls_left(self, st: CaseState, in_flight: int = 0) -> int:
+        """Agent calls that may still start, keeping one back for the Case Officer's closing call."""
+        return self.max_agent_calls - 1 - st.agent_calls - in_flight
+
+    def _stances(self, st: CaseState) -> dict[AgentName, str]:
+        return {a: p.stance for a, p in st.current.items() if not p.abstained}
+
     async def _discuss(self, st: CaseState) -> str:
-        """Run the agents until nothing is left to say. Returns the stop reason."""
+        """Run the agents in rounds until nothing is left to say, positions stop moving, or a limit is reached.
+        Dynamic: every agent with a reason runs at once, and may take a second turn in the same round if something new
+        arrives. Otherwise: one agent at a time in a fixed order, one turn each per round. Returns the stop reason."""
         running: dict[asyncio.Task, AgentName] = {}
         first_errors: dict[AgentName, str] = {}
-        capped = False
+        per_round = MAX_TURNS_PER_AGENT_PER_ROUND if self.dynamic else 1
         try:
             while True:
+                eligible = [a for a in AGENTS if a not in running.values() and st.round_turns.get(a, 0) < per_round
+                            and self._wants_turn(st, a)] if st.round_open else []
+                if not running and st.round_open and not (eligible and self._calls_left(st) > 0):   # the round is over
+                    st.round_open = False
+                    if st.round >= 2 and not st.round_moved:
+                        return "no_movement"                   # nobody changed position: stop talking
+                    if st.round >= self.max_rounds:
+                        st.limit = f"{self.max_rounds} rounds"
+                        return "max_rounds"
                 if not running and not st.jobs and len(st.current) == len(AGENTS) and rules.is_unanimous(
-                        {a: p.stance for a, p in st.current.items() if not p.abstained}, sum(not p.abstained for p in st.current.values())):
+                        self._stances(st), sum(not p.abstained for p in st.current.values())):
                     return "unanimous"
                 if len(first_errors) == len(AGENTS):
                     # Nobody answered at all (bad API key, outage): an error, not an outcome. Empty "need more" posts
                     # would otherwise close as WATCHLIST and look like a real review.
                     raise RuntimeError(f"no agent answered: {next(iter(first_errors.values()))[:300]}")
-                for a in AGENTS:
-                    if a in running.values() or not self._wants_turn(st, a):
-                        continue
-                    if st.turns.get(a, 0) >= self.max_rounds:
-                        capped = True                          # backstop: this agent has spoken as often as it may
-                        continue
-                    running[asyncio.create_task(self._agent_turn(st, a))] = a
+                if not running and not st.round_open:
+                    if any(self._wants_turn(st, a) for a in AGENTS):
+                        if self._calls_left(st) <= 0:
+                            st.limit = f"{self.max_agent_calls} agent calls"
+                            return "max_rounds"
+                        st.round += 1
+                        st.round_open, st.round_turns, st.round_requests, st.round_moved = True, {}, 0, False
+                    elif not st.jobs:
+                        return "ready_to_close"
+                if st.round_open:
+                    for a in [a for a in AGENTS if a not in running.values() and st.round_turns.get(a, 0) < per_round
+                              and self._wants_turn(st, a)]:
+                        if running and not self.dynamic:
+                            break                              # one at a time
+                        if self._calls_left(st, len(running)) <= 0:
+                            break
+                        st.round_turns[a] = st.round_turns.get(a, 0) + 1
+                        running[asyncio.create_task(self._agent_turn(st, a))] = a
                 if not running and not st.jobs:
-                    break
+                    continue                                   # closes the round (or ends the case) above
                 done, _ = await asyncio.wait({*running, *st.jobs}, return_when=asyncio.FIRST_COMPLETED)
                 for task in done:
                     if task in running:
@@ -247,7 +316,18 @@ class Facilitator:
         finally:
             for t in [*running, *st.jobs]:
                 t.cancel()
-        return "max_rounds" if capped else "ready_to_close"
+
+    async def _close(self, st: CaseState, reason: str) -> None:
+        """Converged or out of room: the Case Officer makes the closing call with what is on the board and in the thread.
+        Never raises for a limit; if even the closing call has no room, the current positions stand."""
+        if reason == "max_rounds":
+            log.info("case %s: limit reached (%s); %s decides", st.case_id, st.limit or "max rounds", DECIDER)
+        if st.agent_calls >= self.max_agent_calls:
+            log.info("case %s: no call left for the closing decision; current positions stand", st.case_id)
+            return
+        why = (f"the {st.limit or 'round'} limit was reached." if reason == "max_rounds"
+               else "positions stopped moving in the last round.")
+        await self._agent_turn(st, DECIDER, final=why)
 
     async def _resolve(self, st: CaseState, a: AgentName, turn: DeliberationTurn, result: Any,
                        latest: list[StancePost], r: int) -> tuple[StancePost, list[Rejection]]:
@@ -262,7 +342,8 @@ class Facilitator:
             stats["claims"] += len(result.claims)
             stats["rejected_first"] += len(rejections)
             stats["rejected_final"] += len(rejections)
-        if rejections or problems:
+        if (rejections or problems) and st.agent_calls < self.max_agent_calls:
+            st.agent_calls += 1
             feedback = problems + [f'Your claim "{rj.claim_text}" was removed: {"; ".join(rj.reasons)}'
                                    for rj in rejections]
             second = await self.transport.call_agent(a, turn.model_copy(update={"repair_feedback": feedback}))
@@ -328,6 +409,8 @@ class Facilitator:
                               ev.requested_by)
 
             reason = await self._discuss(st)
+            if reason in ("no_movement", "max_rounds"):
+                await self._close(st, reason)
         except BudgetExceeded as exc:
             self.bus.emit(case_id, "budget.exceeded", {"detail": str(exc)})
             reason = "budget"
